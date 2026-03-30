@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── DARK MODE (default) ───────────────────────────────────── */
+  html, html.dark {
+    --surface:              14 21% 11%;
+    --background:           220 30% 7%;
+    --card:                 224 32% 13%;
+    --card-foreground:      210 40% 96%;
+    --foreground:           210 40% 96%;
+    --muted:                217 26% 22%;
+    --muted-foreground:     215 20% 55%;
+    --border:               217 26% 20%;
+    --ring:                 173 80% 45%;
+    --primary:              173 80% 45%;
+    --primary-foreground:   220 30% 7%;
+    --secondary:            224 32% 18%;
+    --secondary-foreground: 210 40% 90%;
+    --accent:               173 80% 45%;
+    --accent-foreground:    220 30% 7%;
+    --destructive:          0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --subject-physics:   195 83% 58%;
+    --subject-biology:   142 70% 48%;
+    --subject-chemistry: 338 80% 65%;
+    --subject-earth:     44 90% 62%;
+  }
+
+  /* ── LIGHT MODE ────────────────────────────────────────────── */
+  html.light {
+    --surface:              0 0% 98%;
+    --background:           0 0% 100%;
+    --card:                 0 0% 100%;
+    --card-foreground:      224 32% 10%;
+    --foreground:           224 32% 10%;
+    --muted:                220 14% 94%;
+    --muted-foreground:     220 9% 46%;
+    --border:               220 13% 90%;
+    --ring:                 173 72% 38%;
+    --primary:              173 72% 38%;
+    --primary-foreground:   0 0% 100%;
+    --secondary:            220 14% 94%;
+    --secondary-foreground: 220 9% 30%;
+    --accent:               173 72% 38%;
+    --accent-foreground:    0 0% 100%;
+    --destructive:          0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --subject-physics:   195 83% 42%;
+    --subject-biology:   142 70% 35%;
+    --subject-chemistry: 338 80% 52%;
+    --subject-earth:     44 90% 45%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-surface text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar       { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-muted rounded-full; }
+}
+
+@layer components {
+  .glass {
+    @apply bg-card/80 backdrop-blur-md border border-border/60;
+  }
+  .glass-heavy {
+    @apply bg-card/95 backdrop-blur-xl border border-border;
+  }
+  .btn-glow {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--subject-physics)), hsl(var(--primary)), hsl(var(--subject-chemistry)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-glow;
+  }
+}

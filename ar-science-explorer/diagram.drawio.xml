@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="Cursor" version="29.6.6">
+  <diagram name="Page-1" id="current-valid-flow-v2">
+    <mxGraphModel dx="2600" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1700" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="AR Science Explorer - Current Flow (Aligned Client Style)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66FFFF;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="30" width="1240" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- Lanes -->
+        <mxCell id="lane_student" value="STUDENT FLOW" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5fff5;strokeColor=#33aa33;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="780" height="1380" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_shared" value="SHARED LOGIC / AR LOGIC / DATA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3fcff;strokeColor=#33aaff;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="120" width="760" height="1380" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_teacher" value="TEACHER FLOW" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fff8;strokeColor=#33aa33;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="120" width="780" height="1380" as="geometry"/>
+        </mxCell>
+
+        <!-- Student -->
+        <mxCell id="s_actor" value="STUDENT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="360" y="170" width="220" height="55" as="geometry"/></mxCell>
+        <mxCell id="s_login" value="LOGIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="380" y="255" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="s_id" value="INPUT STUDENT ID&#10;debug: 000000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="340" y="315" width="260" height="60" as="geometry"/></mxCell>
+        <mxCell id="s_pw" value="INPUT PASSWORD&#10;debug-friendly" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="340" y="390" width="260" height="60" as="geometry"/></mxCell>
+        <mxCell id="s_enter" value="ENTER LOGIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="380" y="465" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="s_auto" value="Auto-create student record&#10;for progress tracking arrays" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFCC;" vertex="1" parent="1"><mxGeometry x="290" y="525" width="360" height="55" as="geometry"/></mxCell>
+        <mxCell id="s_home" value="HOME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="330" y="600" width="280" height="55" as="geometry"/></mxCell>
+        <mxCell id="s_unlock" value="UNLOCK SUBJECTS&#10;(access code)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFF00;" vertex="1" parent="1"><mxGeometry x="330" y="670" width="280" height="55" as="geometry"/></mxCell>
+
+        <mxCell id="s_tab_learn" value="LEARN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="140" y="760" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="s_tab_arlab" value="AR + LAB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="320" y="760" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="s_tab_quiz" value="QUIZ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="520" y="760" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="s_tab_prog" value="PROGRESS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="690" y="760" width="150" height="45" as="geometry"/></mxCell>
+
+        <mxCell id="s_learn_detail" value="Lesson Detail&#10;Built-in + teacher lessons&#10;AR payload + linked lab" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="120" y="830" width="280" height="95" as="geometry"/></mxCell>
+        <mxCell id="s_quiz_seq" value="Topic-based quiz sequence&#10;Q1 - Q2 - Q3..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="500" y="830" width="300" height="70" as="geometry"/></mxCell>
+        <mxCell id="s_quiz_lock" value="Sequential lock:&#10;previous quiz required" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFF00;" vertex="1" parent="1"><mxGeometry x="500" y="910" width="300" height="60" as="geometry"/></mxCell>
+        <mxCell id="s_quiz_unlock" value="Unlock next subject&#10;after final quiz only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFF00;" vertex="1" parent="1"><mxGeometry x="500" y="980" width="300" height="60" as="geometry"/></mxCell>
+        <mxCell id="s_progress" value="Progress Screen&#10;Lessons + AR Labs + Scores + Completed Quiz IDs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="470" y="1080" width="340" height="80" as="geometry"/></mxCell>
+
+        <!-- Shared -->
+        <mxCell id="sh_auth" value="AUTHENTICATION LOGIC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66FFFF;" vertex="1" parent="1"><mxGeometry x="1130" y="180" width="300" height="60" as="geometry"/></mxCell>
+        <mxCell id="sh_start_ar" value="START AR LAB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFF00;" vertex="1" parent="1"><mxGeometry x="1170" y="770" width="220" height="55" as="geometry"/></mxCell>
+        <mxCell id="sh_ar_prep" value="AR LAB PREP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1170" y="840" width="220" height="50" as="geometry"/></mxCell>
+        <mxCell id="sh_ar_enable" value="ENABLE CAMERA + DETECT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1110" y="900" width="340" height="55" as="geometry"/></mxCell>
+        <mxCell id="sh_ar_run" value="AR RUN&#10;(guided steps + chips)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1110" y="965" width="340" height="60" as="geometry"/></mxCell>
+        <mxCell id="sh_ar_complete" value="AR COMPLETE&#10;save completion + route back" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1110" y="1035" width="340" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="sh_camera" value="Camera preview (mobile-ready)&#10;Spatial detection status chips" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="980" y="1110" width="300" height="80" as="geometry"/></mxCell>
+        <mxCell id="sh_voice" value="Voice guide controls&#10;EN/FIL + Play/Stop/Replay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1300" y="1110" width="300" height="80" as="geometry"/></mxCell>
+
+        <mxCell id="sh_data" value="DATA LAYER (LocalStorage now)&#10;students, lessons, quizzes, unlock state, scores, completions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66FFFF;" vertex="1" parent="1"><mxGeometry x="1020" y="1290" width="540" height="90" as="geometry"/></mxCell>
+
+        <!-- Per-lab map (same visual style as sample) -->
+        <mxCell id="labmap_title" value="Per-Lab AR Experiment Map&#10;(user taps subject/experiment chips)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66FFFF;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="930" y="390" width="700" height="62" as="geometry"/></mxCell>
+
+        <!-- Expanded lab map (multi-subject like screenshot) -->
+        <mxCell id="labmap_subject_physics" value="Physics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="940" y="480" width="100" height="36" as="geometry"/></mxCell>
+        <mxCell id="labmap_subject_biology" value="Biology" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1070" y="480" width="100" height="36" as="geometry"/></mxCell>
+        <mxCell id="labmap_subject_chem" value="Chemistry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1200" y="480" width="105" height="36" as="geometry"/></mxCell>
+        <mxCell id="labmap_subject_earth" value="Earth &amp; Space" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1340" y="480" width="120" height="36" as="geometry"/></mxCell>
+
+        <mxCell id="labmap_p_exp1" value="Simple Pendulum&#10;Motion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="930" y="540" width="120" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_p_exp2" value="Reflection with&#10;Mirrors" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="930" y="596" width="120" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_p_chip1" value="Physics (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="910" y="654" width="70" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_p_chip2" value="3D (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="984" y="654" width="58" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_p_chip3" value="Motion (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1046" y="654" width="82" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_p_click" value="Click (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="966" y="688" width="90" height="32" as="geometry"/></mxCell>
+
+        <mxCell id="labmap_b_exp1" value="Observing Cell Division&#10;with Onion Root" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1065" y="540" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_b_exp2" value="Measuring&#10;Photosynthesis Rate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1065" y="596" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_b_chip1" value="Biology (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1055" y="654" width="78" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_b_chip2" value="AR (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1136" y="654" width="58" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_b_chip3" value="Cells (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1198" y="654" width="70" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_b_click" value="Click (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1090" y="688" width="90" height="32" as="geometry"/></mxCell>
+
+        <mxCell id="labmap_c_exp1" value="Acid-Base Neutralization&#10;Reaction" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1205" y="540" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_c_exp2" value="Crystal Growing from&#10;Supersaturated Solution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1205" y="596" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_c_chip1" value="Chem (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1195" y="654" width="70" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_c_chip2" value="AR (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1268" y="654" width="58" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_c_chip3" value="Crystal (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1330" y="654" width="84" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_c_click" value="Click (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1235" y="688" width="90" height="32" as="geometry"/></mxCell>
+
+        <mxCell id="labmap_e_exp1" value="Modeling&#10;Earthquake Waves" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1345" y="540" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_e_exp2" value="Water Cycle&#10;in a Bag" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1345" y="596" width="130" height="52" as="geometry"/></mxCell>
+        <mxCell id="labmap_e_chip1" value="Earth (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1337" y="654" width="72" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_e_chip2" value="AR (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1412" y="654" width="58" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_e_chip3" value="Earthquakes (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1473" y="654" width="92" height="28" as="geometry"/></mxCell>
+        <mxCell id="labmap_e_click" value="Click (editable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1375" y="688" width="90" height="32" as="geometry"/></mxCell>
+
+        <!-- Teacher -->
+        <mxCell id="t_actor" value="TEACHER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1980" y="170" width="220" height="55" as="geometry"/></mxCell>
+        <mxCell id="t_login" value="LOGIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="2000" y="255" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="t_email" value="INPUT EMAIL&#10;(debug teacher)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1960" y="315" width="260" height="60" as="geometry"/></mxCell>
+        <mxCell id="t_pw" value="INPUT PASSWORD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1960" y="390" width="260" height="50" as="geometry"/></mxCell>
+        <mxCell id="t_enter" value="ENTER LOGIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="2000" y="455" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="t_dash" value="TEACHER DASHBOARD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1910" y="525" width="360" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="t_lessons" value="Lessons Tab&#10;Built-in readonly + teacher CRUD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1880" y="610" width="420" height="85" as="geometry"/></mxCell>
+        <mxCell id="t_quizzes" value="Quizzes Tab&#10;Subject + module/topic assignment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1880" y="705" width="420" height="85" as="geometry"/></mxCell>
+        <mxCell id="t_students" value="Students Tab&#10;Progress metrics + drilldown modal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1880" y="800" width="420" height="85" as="geometry"/></mxCell>
+        <mxCell id="t_analytics" value="Dashboard analytics&#10;student-visible synced counts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="1880" y="895" width="420" height="80" as="geometry"/></mxCell>
+
+
+        <!-- Home quick access cluster -->
+        <mxCell id="home_view_topics" value="VIEW TOPICS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="300" y="735" width="130" height="35" as="geometry"/></mxCell>
+        <mxCell id="home_quick_access" value="QUICK ACCESS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="450" y="735" width="130" height="35" as="geometry"/></mxCell>
+        <mxCell id="home_q_quiz" value="QUIZ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="525" y="775" width="70" height="30" as="geometry"/></mxCell>
+        <mxCell id="home_q_lab" value="LAB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33FF33;" vertex="1" parent="1"><mxGeometry x="600" y="775" width="70" height="30" as="geometry"/></mxCell>
+
+
+
+        <!-- Edges -->
+        <mxCell id="e1" edge="1" parent="1" source="s_actor" target="s_login" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="s_login" target="s_id" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="s_id" target="s_pw" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="s_pw" target="s_enter" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="s_enter" target="s_auto" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="s_auto" target="s_home" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="s_home" target="s_unlock" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e8" edge="1" parent="1" source="s_unlock" target="s_tab_learn" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="s_unlock" target="s_tab_arlab" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="s_unlock" target="s_tab_quiz" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="s_unlock" target="s_tab_prog" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e12" edge="1" parent="1" source="s_tab_learn" target="s_learn_detail" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="s_tab_arlab" target="sh_start_ar" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="s_tab_quiz" target="s_quiz_seq" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="s_quiz_seq" target="s_quiz_lock" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="s_quiz_lock" target="s_quiz_unlock" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="s_tab_prog" target="s_progress" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e18" edge="1" parent="1" source="sh_start_ar" target="sh_ar_prep" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="sh_ar_prep" target="sh_ar_enable" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="sh_ar_enable" target="sh_ar_run" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="sh_ar_run" target="sh_ar_complete" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e22" edge="1" parent="1" source="sh_ar_enable" target="sh_camera" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="sh_ar_enable" target="sh_voice" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e24" edge="1" parent="1" source="s_progress" target="sh_data" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e25" edge="1" parent="1" source="s_learn_detail" target="sh_data" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="s_quiz_unlock" target="sh_data" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e27" edge="1" parent="1" source="t_actor" target="t_login" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e28" edge="1" parent="1" source="t_login" target="t_email" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e29" edge="1" parent="1" source="t_email" target="t_pw" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e30" edge="1" parent="1" source="t_pw" target="t_enter" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="t_enter" target="t_dash" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="t_dash" target="t_lessons" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="t_dash" target="t_quizzes" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="t_dash" target="t_students" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e35" edge="1" parent="1" source="t_dash" target="t_analytics" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e36" edge="1" parent="1" source="t_lessons" target="sh_data" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e37" edge="1" parent="1" source="t_quizzes" target="sh_data" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e38" edge="1" parent="1" source="t_students" target="sh_data" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e39" edge="1" parent="1" source="s_actor" target="sh_auth" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e40" edge="1" parent="1" source="t_actor" target="sh_auth" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Per-lab map edges -->
+        
+
+        <!-- Connect per-lab map into AR+Lab flow -->
+        <mxCell id="e52" edge="1" parent="1" source="s_tab_arlab" target="labmap_title" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e57" edge="1" parent="1" source="labmap_title" target="labmap_subject_physics" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e58" edge="1" parent="1" source="labmap_title" target="labmap_subject_biology" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e58b" edge="1" parent="1" source="labmap_title" target="labmap_subject_chem" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e59" edge="1" parent="1" source="labmap_title" target="labmap_subject_earth" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e60" edge="1" parent="1" source="labmap_subject_physics" target="labmap_p_exp1" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e61" edge="1" parent="1" source="labmap_subject_physics" target="labmap_p_exp2" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e62" edge="1" parent="1" source="labmap_subject_biology" target="labmap_b_exp1" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e63" edge="1" parent="1" source="labmap_subject_biology" target="labmap_b_exp2" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e63b" edge="1" parent="1" source="labmap_subject_chem" target="labmap_c_exp1" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e63c" edge="1" parent="1" source="labmap_subject_chem" target="labmap_c_exp2" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e64" edge="1" parent="1" source="labmap_subject_earth" target="labmap_e_exp1" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e65" edge="1" parent="1" source="labmap_subject_earth" target="labmap_e_exp2" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e66" edge="1" parent="1" source="labmap_p_exp1" target="labmap_p_chip2" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e67" edge="1" parent="1" source="labmap_b_exp1" target="labmap_b_chip2" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e68" edge="1" parent="1" source="labmap_e_exp1" target="labmap_e_chip2" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e69" edge="1" parent="1" source="labmap_p_chip2" target="labmap_p_click" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e70" edge="1" parent="1" source="labmap_b_chip2" target="labmap_b_click" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e70b" edge="1" parent="1" source="labmap_c_chip2" target="labmap_c_click" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e71" edge="1" parent="1" source="labmap_e_chip2" target="labmap_e_click" style="endArrow=none;html=1;rounded=0;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e72" edge="1" parent="1" source="labmap_p_click" target="sh_ar_prep" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e73" edge="1" parent="1" source="labmap_b_click" target="sh_ar_prep" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e73b" edge="1" parent="1" source="labmap_c_click" target="sh_ar_prep" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e74" edge="1" parent="1" source="labmap_e_click" target="sh_ar_prep" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;" value=""><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Added branch edges -->
+
+        <mxCell id="e80" edge="1" parent="1" source="s_home" target="home_view_topics" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e81" edge="1" parent="1" source="s_home" target="home_quick_access" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e83" edge="1" parent="1" source="home_quick_access" target="home_q_quiz" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e84" edge="1" parent="1" source="home_quick_access" target="home_q_lab" style="endArrow=none;html=1;rounded=0;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e86" edge="1" parent="1" source="home_q_quiz" target="s_quiz_seq" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e87" edge="1" parent="1" source="home_q_lab" target="labmap_title" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e103" edge="1" parent="1" source="home_q_lab" target="s_tab_arlab" style="endArrow=none;html=1;rounded=0;dashed=1;dashPattern=3 3;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
