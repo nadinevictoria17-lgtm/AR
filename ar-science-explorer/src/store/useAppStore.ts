@@ -38,13 +38,8 @@ export interface AppStore {
   quizAnswers: (number | null)[]
   quizHintsUsed: number
 
-  arDetected: boolean
   arModelIndex: number
-  arRotate: boolean
-  arMeasure: boolean
-  arSimulate: boolean
   arSourceVisible: boolean
-  scanConf: number
 
   // Actions
   setScreen: (s: Screen) => void
@@ -67,11 +62,7 @@ export interface AppStore {
   resetQuiz: () => void
 
   // AR actions
-  triggerDetection: (modelIdx: number, conf: number) => void
-  clearDetection: () => void
-  toggleARRotate: () => void
-  toggleARMeasure: () => void
-  toggleARSimulate: () => void
+  setArModelIndex: (idx: number) => void
   toggleARSource: () => void
 }
 
@@ -98,13 +89,8 @@ export const useAppStore = create<AppStore>()(
       quizAnswers: [],
       quizHintsUsed: 0,
 
-      arDetected: false,
       arModelIndex: 0,
-      arRotate: false,
-      arMeasure: false,
-      arSimulate: false,
       arSourceVisible: true,
-      scanConf: 0,
 
       // Actions
       setScreen: (s) => set({ screen: s }),
@@ -184,35 +170,11 @@ export const useAppStore = create<AppStore>()(
           activeQuizSubject: null,
         }),
 
-      // AR actions
-      triggerDetection: (modelIdx, conf) =>
+      // AR actions (Vuforia-based: minimal state, no client-side detection)
+      setArModelIndex: (idx) =>
         set({
-          arDetected: true,
-          arModelIndex: modelIdx,
-          scanConf: conf,
+          arModelIndex: idx,
         }),
-
-      clearDetection: () =>
-        set({
-          arDetected: false,
-          arModelIndex: 0,
-          scanConf: 0,
-        }),
-
-      toggleARRotate: () =>
-        set((state) => ({
-          arRotate: !state.arRotate,
-        })),
-
-      toggleARMeasure: () =>
-        set((state) => ({
-          arMeasure: !state.arMeasure,
-        })),
-
-      toggleARSimulate: () =>
-        set((state) => ({
-          arSimulate: !state.arSimulate,
-        })),
 
       toggleARSource: () =>
         set((state) => ({

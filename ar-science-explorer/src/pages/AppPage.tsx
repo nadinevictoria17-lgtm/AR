@@ -10,9 +10,7 @@ import { LESSONS } from '../data/lessons'
 import { storage } from '../lib/storage'
 import type { Lesson, SubjectKey, TeacherLesson } from '../types'
 import { Camera, BookOpen, ChevronRight, Lock, Zap, Trophy, ArrowLeft } from 'lucide-react'
-import { Menu } from 'lucide-react'
-import { useARSession } from '../hooks/useARSession'
-import { KeyRound, CheckCircle2 } from 'lucide-react'
+import { Menu, KeyRound, CheckCircle2 } from 'lucide-react'
 import { ARLabScreen } from '../components/screens/ARLabScreen'
 
 const pageVariants = {
@@ -315,7 +313,6 @@ function HomeScreen() {
 
 function LearnScreen() {
   const { unlocked, setScreen, setActiveQuizSubject, setActiveLesson, setActiveLabExperiment } = useAppStore()
-  const { startLessonAR } = useARSession()
 
   const data = storage.getAll()
   const teacherLessons = data.lessons
@@ -380,15 +377,10 @@ function LearnScreen() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       disabled={!isUnlocked}
-                      onClick={async () => {
+                      onClick={() => {
                         setActiveLesson(lesson.id, lesson.arPayload)
                         setActiveLabExperiment(lesson.labExperimentId ?? null)
                         setScreen('arlab')
-                        try {
-                          await startLessonAR(lesson.arPayload)
-                        } catch {
-                          // AR Lab screen will show camera guidance/error state.
-                        }
                       }}
                       className={cn(
                         'px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors',

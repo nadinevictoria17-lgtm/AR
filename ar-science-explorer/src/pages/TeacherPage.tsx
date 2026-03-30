@@ -5,10 +5,15 @@ import {
   ChevronDown, ChevronUp, Trophy, LayoutDashboard, Menu,
   type LucideIcon,
 } from 'lucide-react'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { format, parseISO } from 'date-fns'
+import Papa from 'papaparse'
 import { storage } from '../lib/storage'
 import { TeacherSidebar } from '../components/layout/TeacherSidebar'
 import type { TeacherTab } from '../components/layout/TeacherSidebar'
-import type { TeacherQuiz, TeacherLesson, StudentRecord, TeacherQuizQuestion, SubjectKey } from '../types'
+import type { TeacherQuiz, TeacherLesson, StudentRecord, SubjectKey } from '../types'
 import { cn } from '../lib/utils'
 import { useAppStore } from '../store/useAppStore'
 import { EXPERIMENTS } from '../data/experiments'
@@ -31,6 +36,52 @@ const SUBJECT_STYLES: Record<SubjectKey, { badge: string; dot: string; label: st
   chemistry: { badge: 'bg-subject-chemistry/10 text-subject-chemistry border-subject-chemistry/20', dot: 'bg-subject-chemistry', label: 'Chemistry' },
   earth:     { badge: 'bg-subject-earth/10 text-subject-earth border-subject-earth/20',         dot: 'bg-subject-earth',     label: 'Earth Sci' },
 }
+
+// ── Zod Schemas ────────────────────────────────────────────────
+
+const QuizQuestionSchema = z.object({
+  question: z.string().min(1, 'Question text is required'),
+  options: z.tuple([
+    z.string().min(1,'Option A required'),
+    z.string().min(1,'Option B required'),
+    z.string().min(1,'Option C required'),
+    z.string().min(1,'Option D required'),
+  ]),
+  correctIndex: z.number().min(0).max(3),
+  hint: z.string(),
+})
+
+const QuizSchema = z.object({
+  title:     z.string().min(1, 'Quiz title is required'),
+  subject:   z.enum(['physics','biology','chemistry','earth']),
+  topicId:   z.string().min(1, 'Please select a topic'),
+  questions: z.array(QuizQuestionSchema).min(1, 'At least one question is required'),
+})
+
+type QuizFormValues = z.infer<typeof QuizSchema>
+
+const LessonSchema = z.object({
+  title: z.string().min(1,'Lesson title is required'),
+  subject: z.enum(['physics','biology','chemistry','earth']),
+  summary: z.string(),
+  content: z.string(),
+  linkedQuizId: z.string(),
+  labExperimentId: z.string(),
+  arModelIndex: z.coerce.number().min(0,'Must be 0–3').max(3,'Must be 0–3'),
+  detectionMode: z.enum(['marker','surface']),
+  anchorHint: z.string(),
+  arSteps: z.string(),
+})
+
+type LessonFormValues = z.infer<typeof LessonSchema>
+
+const StudentSchema = z.object({
+  name:      z.string().min(1,'Student name is required'),
+  studentId: z.string().regex(/^$|^\d{6}$/, 'Student ID must be 6 digits if provided'),
+  section:   z.string(),
+})
+
+type StudentFormValues = z.infer<typeof StudentSchema>
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -73,33 +124,41 @@ function QuizBuilder({ initial, onSave, onCancel }: {
   onSave: (q: TeacherQuiz) => void
   onCancel: () => void
 }) {
-  const [title, setTitle] = useState(initial?.title ?? '')
-  const [subject, setSubject] = useState<SubjectKey>(initial?.subject ?? 'physics')
+  const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuizFormValues>({
+    resolver: zodResolver(QuizSchema),
+    defaultValues: {
+      title:     initial?.title ?? '',
+      subject:   initial?.subject ?? 'physics',
+      topicId:   initial?.topicId ?? '',
+      questions: initial?.questions ?? [{ question:'', options:['','','',''], correctIndex:0, hint:'' }],
+    },
+  })
+  const { fields, append, remove } = useFieldArray({ control, name: 'questions' })
+
+  const subject = watch('subject')
+  const topicId = watch('topicId')
   const topics = SUBJECTS.find((s) => s.id === subject)?.topics ?? []
-  const [topicId, setTopicId] = useState<string>(() => initial?.topicId ?? topics[0]?.id ?? '')
-  const [questions, setQuestions] = useState<TeacherQuizQuestion[]>(
-    initial?.questions ?? [{ question: '', options: ['', '', '', ''], correctIndex: 0, hint: '' }]
-  )
   const [expanded, setExpanded] = useState<number | null>(0)
 
   useEffect(() => {
     // Keep topic assignment valid when teacher switches subject.
     if (!topics.some((t) => t.id === topicId)) {
-      setTopicId(topics[0]?.id ?? '')
+      setValue('topicId', topics[0]?.id ?? '')
     }
-  }, [subject, topicId, topics])
+  }, [subject, topicId, topics, setValue])
 
-  const addQuestion = () => {
-    setQuestions((p) => [...p, { question: '', options: ['', '', '', ''], correctIndex: 0, hint: '' }])
-    setExpanded(questions.length)
-  }
-  const removeQuestion = (i: number) => { setQuestions((p) => p.filter((_, idx) => idx !== i)); setExpanded(null) }
-  const updateQ = (i: number, f: keyof TeacherQuizQuestion, v: string | number) =>
-    setQuestions((p) => p.map((q, idx) => idx === i ? { ...q, [f]: v } : q))
-  const updateOpt = (qi: number, oi: number, v: string) =>
-    setQuestions((p) => p.map((q, idx) =>
-      idx === qi ? { ...q, options: q.options.map((o, j) => j === oi ? v : o) as [string, string, string, string] } : q
-    ))
+  const onSubmit = handleSubmit((data) => {
+    const resolvedTopicId = data.topicId || topics[0]?.id
+    if (!resolvedTopicId) return
+    onSave({
+      id: initial?.id ?? uid(),
+      title: data.title.trim(),
+      subject: data.subject,
+      topicId: resolvedTopicId,
+      questions: data.questions,
+      createdAt: initial?.createdAt ?? new Date().toISOString(),
+    })
+  })
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto w-full">
@@ -110,159 +169,178 @@ function QuizBuilder({ initial, onSave, onCancel }: {
         </button>
       </div>
 
-      <div className="w-full space-y-4 mb-6">
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz Title</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Motion & Forces Quiz"
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Subject</label>
-          <div className="flex gap-2 flex-wrap">
-            {SUBJECT_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setSubject(o.value)}
-                className={cn(
-                  'px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
-                  subject === o.value
-                    ? SUBJECT_STYLES[o.value].badge + ' shadow-sm'
-                    : 'border-border text-muted-foreground hover:border-border/70'
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="w-full space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz Title</label>
+            <input
+              {...register('title')}
+              placeholder="e.g. Motion & Forces Quiz"
+              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
           </div>
-        </div>
-      </div>
-
-      <div className="w-full space-y-4 mb-6">
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Module (Topic)</label>
-          {topics.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No topics found for this subject.</p>
-          ) : (
-            <div className="flex gap-2 flex-wrap">
-              {topics.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTopicId(t.id)}
-                  className={cn(
-                    'px-3 py-2 rounded-xl text-xs font-semibold border transition-all',
-                    topicId === t.id
-                      ? SUBJECT_STYLES[subject].badge + ' shadow-sm'
-                      : 'border-border text-muted-foreground hover:border-border/70'
-                  )}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full space-y-2 mb-5">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Questions ({questions.length})</p>
-        {questions.map((q, qi) => (
-          <div key={qi} className="rounded-xl border border-border bg-card overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-4 py-3 text-left"
-              onClick={() => setExpanded(expanded === qi ? null : qi)}
-            >
-              <span className="text-sm font-semibold text-foreground truncate pr-4">
-                Q{qi + 1}{q.question ? ` — ${q.question.slice(0, 40)}${q.question.length > 40 ? '…' : ''}` : ' — Untitled'}
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeQuestion(qi) }}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 size={12} />
-                </button>
-                {expanded === qi
-                  ? <ChevronUp size={14} className="text-muted-foreground" />
-                  : <ChevronDown size={14} className="text-muted-foreground" />
-                }
-              </div>
-            </button>
-            {expanded === qi && (
-              <div className="px-4 pb-4 pt-3 border-t border-border space-y-3">
-                <textarea
-                  value={q.question}
-                  onChange={(e) => updateQ(qi, 'question', e.target.value)}
-                  placeholder="Question text…"
-                  rows={2}
-                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                />
-                <div className="space-y-2">
-                  {q.options.map((opt, oi) => (
-                    <div key={oi} className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name={`correct-${qi}`}
-                        checked={q.correctIndex === oi}
-                        onChange={() => updateQ(qi, 'correctIndex', oi)}
-                        className="accent-primary w-4 h-4 shrink-0"
-                      />
-                      <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
-                      <input
-                        value={opt}
-                        onChange={(e) => updateOpt(qi, oi, e.target.value)}
-                        placeholder={`Option ${['A', 'B', 'C', 'D'][oi]}…`}
-                        className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                    </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Subject</label>
+            <Controller
+              control={control}
+              name="subject"
+              render={({ field }) => (
+                <div className="flex gap-2 flex-wrap">
+                  {SUBJECT_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => field.onChange(o.value)}
+                      className={cn(
+                        'px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
+                        field.value === o.value
+                          ? SUBJECT_STYLES[o.value].badge + ' shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-border/70'
+                      )}
+                    >
+                      {o.label}
+                    </button>
                   ))}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Hint (optional)</label>
-                  <input
-                    value={q.hint}
-                    onChange={(e) => updateQ(qi, 'hint', e.target.value)}
-                    placeholder="Hint text…"
-                    className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            />
           </div>
-        ))}
-        <button
-          onClick={addQuestion}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-primary/40 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors w-full justify-center"
-        >
-          <Plus size={14} /> Add Question
-        </button>
-      </div>
+        </div>
 
-      <div className="w-full">
-        <button
-          onClick={() => {
-            if (!title.trim() || questions.some((q) => !q.question.trim())) return
-            const resolvedTopicId = topicId || topics[0]?.id
-            if (!resolvedTopicId) return
-            onSave({
-              id: initial?.id ?? uid(),
-              title: title.trim(),
-              subject,
-              topicId: resolvedTopicId,
-              questions,
-              createdAt: initial?.createdAt ?? new Date().toISOString(),
-            })
-          }}
-          disabled={!title.trim() || !topicId}
-          className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all btn-glow"
-        >
-          Save Quiz
-        </button>
-      </div>
+        <div className="w-full space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Module (Topic)</label>
+            {topics.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No topics found for this subject.</p>
+            ) : (
+              <Controller
+                control={control}
+                name="topicId"
+                render={({ field }) => (
+                  <div className="flex gap-2 flex-wrap">
+                    {topics.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => field.onChange(t.id)}
+                        className={cn(
+                          'px-3 py-2 rounded-xl text-xs font-semibold border transition-all',
+                          field.value === t.id
+                            ? SUBJECT_STYLES[subject].badge + ' shadow-sm'
+                            : 'border-border text-muted-foreground hover:border-border/70'
+                        )}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              />
+            )}
+            {errors.topicId && <p className="text-xs text-destructive mt-1">{errors.topicId.message}</p>}
+          </div>
+        </div>
+
+        <div className="w-full space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Questions ({fields.length})</p>
+          {fields.map((q, qi) => (
+            <div key={q.id} className="rounded-xl border border-border bg-card overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-4 py-3 text-left"
+                onClick={() => setExpanded(expanded === qi ? null : qi)}
+              >
+                <span className="text-sm font-semibold text-foreground truncate pr-4">
+                  Q{qi + 1}{q.question ? ` — ${String(q.question).slice(0, 40)}${String(q.question).length > 40 ? '…' : ''}` : ' — Untitled'}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); remove(qi) }}
+                    className="w-6 h-6 rounded-lg flex items-center justify-center text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  {expanded === qi
+                    ? <ChevronUp size={14} className="text-muted-foreground" />
+                    : <ChevronDown size={14} className="text-muted-foreground" />
+                  }
+                </div>
+              </button>
+              {expanded === qi && (
+                <div className="px-4 pb-4 pt-3 border-t border-border space-y-3">
+                  <div>
+                    <textarea
+                      {...register(`questions.${qi}.question`)}
+                      placeholder="Question text…"
+                      rows={2}
+                      className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                    {errors.questions?.[qi]?.question && <p className="text-xs text-destructive mt-1">{errors.questions[qi]?.question?.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    {[0, 1, 2, 3].map((oi) => (
+                      <div key={oi} className="flex items-center gap-3">
+                        <Controller
+                          control={control}
+                          name={`questions.${qi}.correctIndex`}
+                          render={({ field }) => (
+                            <input
+                              type="radio"
+                              name={`correct-${qi}`}
+                              checked={field.value === oi}
+                              onChange={() => field.onChange(oi)}
+                              className="accent-primary w-4 h-4 shrink-0"
+                            />
+                          )}
+                        />
+                        <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
+                        <Controller
+                          control={control}
+                          name={`questions.${qi}.options.${oi as 0 | 1 | 2 | 3}`}
+                          render={({ field }) => (
+                            <input
+                              {...field}
+                              placeholder={`Option ${['A', 'B', 'C', 'D'][oi]}…`}
+                              className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+                          )}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Hint (optional)</label>
+                    <input
+                      {...register(`questions.${qi}.hint`)}
+                      placeholder="Hint text…"
+                      className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => append({ question: '', options: ['', '', '', ''], correctIndex: 0, hint: '' })}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-primary/40 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors w-full justify-center"
+          >
+            <Plus size={14} /> Add Question
+          </button>
+          {errors.questions && errors.questions.root && <p className="text-xs text-destructive">{errors.questions.root.message}</p>}
+        </div>
+
+        <div className="w-full">
+          <button
+            type="submit"
+            className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all btn-glow"
+          >
+            Save Quiz
+          </button>
+        </div>
+      </form>
     </motion.div>
   )
 }
@@ -332,6 +410,7 @@ function QuizzesTab() {
                   <SubjectBadge subject={q.subject} />
                   {topicName && <span className="text-xs font-medium text-primary">{topicName}</span>}
                   <span className="text-xs text-muted-foreground">{q.questions.length} questions</span>
+                  <span className="text-xs text-muted-foreground">{format(parseISO(q.createdAt), 'MMM d, yyyy')}</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -365,16 +444,11 @@ function LessonsTab() {
   const [showForm, setShowForm] = useState(false)
   const [editTarget, setEditTarget] = useState<TeacherLesson | null>(null)
   const [viewTarget, setViewTarget] = useState<TeacherLesson | null>(null)
-  const [title, setTitle] = useState('')
-  const [subject, setSubject] = useState<SubjectKey>('physics')
-  const [summary, setSummary] = useState('')
-  const [content, setContent] = useState('')
-  const [linkedQuizId, setLinkedQuizId] = useState('')
-  const [labExperimentId, setLabExperimentId] = useState('')
-  const [arModelIndex, setArModelIndex] = useState(0)
-  const [detectionMode, setDetectionMode] = useState<'marker' | 'surface'>('marker')
-  const [anchorHint, setAnchorHint] = useState('')
-  const [arSteps, setArSteps] = useState('')
+
+  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm<LessonFormValues>({
+    resolver: zodResolver(LessonSchema),
+    defaultValues: { title:'', subject:'physics', summary:'', content:'', linkedQuizId:'', labExperimentId:'', arModelIndex:0, detectionMode:'marker', anchorHint:'', arSteps:'' },
+  })
 
   useEffect(() => {
     const data = storage.getAll()
@@ -382,53 +456,51 @@ function LessonsTab() {
     setQuizzes(data.quizzes)
   }, [])
 
+  const subject = watch('subject')
+
   const openNew = () => {
-    setTitle('')
-    setSubject('physics')
-    setSummary('')
-    setContent('')
-    setLinkedQuizId('')
-    setLabExperimentId('')
-    setArModelIndex(0)
-    setDetectionMode('marker')
-    setAnchorHint('')
-    setArSteps('')
+    reset({ title:'', subject:'physics', summary:'', content:'', linkedQuizId:'', labExperimentId:'', arModelIndex:0, detectionMode:'marker', anchorHint:'', arSteps:'' })
     setEditTarget(null)
     setShowForm(true)
   }
+
   const openEdit = (l: TeacherLesson) => {
-    setTitle(l.title)
-    setSubject(l.subject)
-    setSummary(l.summary ?? '')
-    setContent(l.content)
-    setLinkedQuizId(l.linkedQuizId ?? '')
-    setLabExperimentId(l.labExperimentId ?? '')
-    setArModelIndex(l.arPayload?.modelIndex ?? 0)
-    setDetectionMode(l.arPayload?.detectionMode ?? 'marker')
-    setAnchorHint(l.arPayload?.anchorHint ?? '')
-    setArSteps((l.arPayload?.lessonSteps ?? []).join('\n'))
+    reset({
+      title:           l.title,
+      subject:         l.subject,
+      summary:         l.summary ?? '',
+      content:         l.content,
+      linkedQuizId:    l.linkedQuizId ?? '',
+      labExperimentId: l.labExperimentId ?? '',
+      arModelIndex:    l.arPayload?.modelIndex ?? 0,
+      detectionMode:   l.arPayload?.detectionMode ?? 'marker',
+      anchorHint:      l.arPayload?.anchorHint ?? '',
+      arSteps:         (l.arPayload?.lessonSteps ?? []).join('\n'),
+    })
     setEditTarget(l)
     setShowForm(true)
   }
 
-  const handleSave = () => {
-    if (!title.trim()) return
+  const handleSave = handleSubmit((data) => {
     storage.saveLesson({
       id: editTarget?.id ?? uid(),
-      title: title.trim(), subject, content, summary: summary.trim(),
+      title: data.title.trim(),
+      subject: data.subject,
+      content: data.content,
+      summary: data.summary.trim(),
       createdAt: editTarget?.createdAt ?? new Date().toISOString(),
-      ...(linkedQuizId ? { linkedQuizId } : {}),
-      ...(labExperimentId ? { labExperimentId } : {}),
+      ...(data.linkedQuizId    ? { linkedQuizId: data.linkedQuizId }       : {}),
+      ...(data.labExperimentId ? { labExperimentId: data.labExperimentId } : {}),
       arPayload: {
-        modelIndex: arModelIndex,
-        detectionMode,
-        anchorHint: anchorHint.trim() || `Scan a ${subject} marker.`,
-        lessonSteps: arSteps.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6),
+        modelIndex:    data.arModelIndex,
+        detectionMode: data.detectionMode,
+        anchorHint:    data.anchorHint.trim() || `Scan a ${data.subject} marker.`,
+        lessonSteps:   data.arSteps.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6),
       },
     })
     setLessons(storage.getAll().lessons)
     setShowForm(false)
-  }
+  })
 
   if (showForm) return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto w-full">
@@ -438,37 +510,44 @@ function LessonsTab() {
           <X size={16} />
         </button>
       </div>
-      <div className="w-full space-y-4">
+      <form onSubmit={handleSave} className="w-full space-y-4">
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Lesson title…"
+          <input {...register('title')} placeholder="Lesson title…"
             className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Subject</label>
-          <div className="flex gap-2 flex-wrap">
-            {SUBJECT_OPTIONS.map((o) => (
-              <button key={o.value} onClick={() => setSubject(o.value)}
-                className={cn('px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
-                  subject === o.value ? SUBJECT_STYLES[o.value].badge + ' shadow-sm' : 'border-border text-muted-foreground hover:border-border/70')}>
-                {o.label}
-              </button>
-            ))}
-          </div>
+          <Controller
+            control={control}
+            name="subject"
+            render={({ field }) => (
+              <div className="flex gap-2 flex-wrap">
+                {SUBJECT_OPTIONS.map((o) => (
+                  <button key={o.value} type="button" onClick={() => field.onChange(o.value)}
+                    className={cn('px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
+                      field.value === o.value ? SUBJECT_STYLES[o.value].badge + ' shadow-sm' : 'border-border text-muted-foreground hover:border-border/70')}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          />
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Summary</label>
-          <input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Short lesson summary…"
+          <input {...register('summary')} placeholder="Short lesson summary…"
             className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Content</label>
-          <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write your lesson content…" rows={6}
+          <textarea {...register('content')} placeholder="Write your lesson content…" rows={6}
             className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Linked Lab (optional)</label>
-          <select value={labExperimentId} onChange={(e) => setLabExperimentId(e.target.value)}
+          <select {...register('labExperimentId')}
             className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
             <option value="">None</option>
             {EXPERIMENTS.filter((exp) => exp.subject === subject).map((exp) => <option key={exp.id} value={exp.id}>{exp.name}</option>)}
@@ -477,31 +556,35 @@ function LessonsTab() {
         <div className="rounded-xl border border-border p-3 space-y-3 bg-muted/20">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AR Metadata (optional)</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              type="number"
-              value={arModelIndex}
-              onChange={(e) => setArModelIndex(Number(e.target.value || 0))}
-              placeholder="Model index"
-              className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            <div>
+              <input
+                type="number"
+                {...register('arModelIndex')}
+                placeholder="Model index"
+                className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {errors.arModelIndex && <p className="text-xs text-destructive mt-1">{errors.arModelIndex.message}</p>}
+            </div>
+            <Controller
+              control={control}
+              name="detectionMode"
+              render={({ field }) => (
+                <select {...field}
+                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="marker">Marker</option>
+                  <option value="surface">Surface</option>
+                </select>
+              )}
             />
-            <select
-              value={detectionMode}
-              onChange={(e) => setDetectionMode(e.target.value as 'marker' | 'surface')}
-              className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="marker">Marker</option>
-              <option value="surface">Surface</option>
-            </select>
           </div>
           <input
-            value={anchorHint}
-            onChange={(e) => setAnchorHint(e.target.value)}
+            {...register('anchorHint')}
             placeholder="Anchor hint for students"
             className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
           <textarea
-            value={arSteps}
-            onChange={(e) => setArSteps(e.target.value)}
+            {...register('arSteps')}
             placeholder={'AR steps (one per line)\nOpen camera\nScan marker\nInspect model'}
             rows={3}
             className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -509,17 +592,17 @@ function LessonsTab() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Linked Quiz (optional)</label>
-          <select value={linkedQuizId} onChange={(e) => setLinkedQuizId(e.target.value)}
+          <select {...register('linkedQuizId')}
             className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
             <option value="">None</option>
             {quizzes.map((q) => <option key={q.id} value={q.id}>{q.title}</option>)}
           </select>
         </div>
-        <button onClick={handleSave} disabled={!title.trim()}
+        <button type="submit"
           className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all btn-glow">
           Save Lesson
         </button>
-      </div>
+      </form>
     </motion.div>
   )
 
@@ -560,6 +643,7 @@ function LessonsTab() {
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <SubjectBadge subject={l.subject} />
                     {linkedQuiz && <span className="text-xs text-primary font-medium">Quiz: {linkedQuiz.title}</span>}
+                    <span className="text-xs text-muted-foreground">{format(parseISO(l.createdAt), 'MMM d, yyyy')}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -623,16 +707,43 @@ function StudentsTab() {
   const [students, setStudents] = useState<StudentRecord[]>([])
   const [showForm, setShowForm] = useState(false)
   const [viewStudent, setViewStudent] = useState<StudentRecord | null>(null)
-  const [name, setName] = useState('')
-  const [studentId, setStudentId] = useState('')
-  const [section, setSection] = useState('')
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormValues>({
+    resolver: zodResolver(StudentSchema),
+    defaultValues: { name:'', studentId:'', section:'' },
+  })
+
   useEffect(() => { setStudents(storage.getAll().students) }, [])
 
-  const handleAdd = () => {
-    if (!name.trim()) return
-    storage.saveStudent({ id: uid(), name: name.trim(), studentId: studentId.trim(), grade: '7', section: section.trim(), scores: {} as Record<SubjectKey, number | null> })
+  const handleAdd = handleSubmit((data) => {
+    storage.saveStudent({ id: uid(), name: data.name.trim(), studentId: data.studentId.trim(), grade: '7', section: data.section.trim(), scores: {} as Record<SubjectKey, number | null> })
     setStudents(storage.getAll().students)
-    setName(''); setStudentId(''); setSection(''); setShowForm(false)
+    reset()
+    setShowForm(false)
+  })
+
+  const handleExportCSV = () => {
+    const rows = students.map((s) => ({
+      studentId: s.studentId,
+      name: s.name,
+      grade: s.grade,
+      section: s.section,
+      physics_score: s.scores.physics ?? '',
+      biology_score: s.scores.biology ?? '',
+      chemistry_score: s.scores.chemistry ?? '',
+      earth_score: s.scores.earth ?? '',
+      completed_lessons:  (s.completedLessonIds ?? []).length,
+      completed_labs:     (s.completedLabExperimentIds ?? []).length,
+      completed_quizzes:  (s.completedQuizIds ?? []).length,
+    }))
+    const csv  = Papa.unparse(rows)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `students-${format(new Date(), 'yyyy-MM-dd')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const SCORE_SUBJECTS: { key: SubjectKey }[] = [
@@ -648,31 +759,45 @@ function StudentsTab() {
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">{students.length} student{students.length !== 1 ? 's' : ''} enrolled</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all btn-glow"
-        >
-          <Plus size={14} /> Add Student
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-muted-foreground text-sm font-semibold hover:text-foreground hover:bg-muted transition-all"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all btn-glow"
+          >
+            <Plus size={14} /> Add Student
+          </button>
+        </div>
       </div>
 
       {showForm && (
         <div className="bg-card rounded-2xl border border-border p-5 mb-5">
           <p className="font-semibold text-foreground text-sm mb-4">New Student</p>
-          <div className="space-y-3">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name…"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <form onSubmit={handleAdd} className="space-y-3">
+            <div>
+              <input {...register('name')} placeholder="Full name…"
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+            </div>
             <div className="flex gap-3">
-              <input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="000-000"
-                className="flex-1 px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <input value={section} onChange={(e) => setSection(e.target.value)} placeholder="Section…"
+              <div className="flex-1">
+                <input {...register('studentId')} placeholder="000000"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                {errors.studentId && <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>}
+              </div>
+              <input {...register('section')} placeholder="Section…"
                 className="flex-1 px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
-            <button onClick={handleAdd} disabled={!name.trim()}
+            <button type="submit"
               className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
               Add Student
             </button>
-          </div>
+          </form>
         </div>
       )}
 
