@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Smartphone, Printer, Box, Target, ChevronRight, FileText, Lock, BookOpen, Star, CheckCircle2, Zap } from 'lucide-react'
+import { Smartphone, Printer, Box, Target, ChevronRight, FileText, Lock, BookOpen, Star, CheckCircle2, Zap, Camera } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
@@ -13,9 +13,12 @@ import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { ARLearningControls } from '../../ar/ARLearningControls'
+import { BarcodeDisplay } from '../../ar/BarcodeDisplay'
 import { VOICE_SCRIPTS } from '../../../data/voiceScripts'
 import { storage } from '../../../lib/storage'
 import { getFallbackMarkerPath } from '../../../lib/markerUtils'
+import { getARConfig } from '../../../lib/arConfig'
+import { ARCameraView } from '../../ar/ARCameraView'
 import { useNavigate } from 'react-router-dom'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
 import { Badge } from '../../ui/badge'
@@ -97,6 +100,7 @@ export function ARLabScreen() {
   const [arMarked, setArMarked] = useState(false)
   const [isQuizUnlocked, setIsQuizUnlocked] = useState(false)
   const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [showARCamera, setShowARCamera] = useState(false)
 
   const { data, isLoading } = useStorageData()
   const showSkeleton = useDeferredLoading(isLoading)
@@ -136,6 +140,11 @@ export function ARLabScreen() {
   // Use lesson's quarter/week for marker path
   const markerImage = activeLesson?.arPayload?.markerImage ||
     (activeLesson ? `/markers/Q${activeLesson.quarter}W${activeLesson.week}.jpg` : null)
+
+  // Get AR configuration (NFT prefix + GLB path) for the current lesson
+  const arConfig = (activeLesson?.hasAR !== false && activeLesson?.quarter && activeLesson?.week)
+    ? getARConfig(activeLesson.quarter, activeLesson.week)
+    : null
 
   const voiceOver = useVoiceOver({ lines: voiceList, language: voiceLang })
 
@@ -410,6 +419,29 @@ export function ARLabScreen() {
                 >
                   <Printer size={14} className="mr-2" /> Print Target Image
                 </Button>
+
+                {arConfig && (
+                  <div className="mt-4 space-y-4">
+                    <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">AR Barcode Marker</p>
+                      <BarcodeDisplay value={arConfig.barcodeValue} />
+                    </div>
+                    <Button
+                      onClick={() => setShowARCamera(true)}
+                      className="w-full rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      <Camera size={14} className="mr-2" /> Open AR Camera
+                    </Button>
+                  </div>
+                )}
+                {!arConfig && (
+                  <Button
+                    disabled
+                    className="w-full mt-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-40"
+                  >
+                    <Camera size={14} className="mr-2" /> AR Not Available
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -529,6 +561,17 @@ export function ARLabScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showARCamera && arConfig && (
+        <ARCameraView
+          barcodeValue={arConfig.barcodeValue}
+          glbPath={arConfig.glbPath}
+          title={activeLesson?.title ?? ''}
+          description={activeLesson?.arPayload?.description ?? ''}
+          onExit={() => setShowARCamera(false)}
+          onMarkerFound={() => setArMarked(true)}
+        />
+      )}
 
       <AccessCodeModal
         isOpen={showUnlockModal}
