@@ -115,13 +115,14 @@ export function LessonsTab() {
   }
 
   const handleSave = handleSubmit(async (data) => {
+    const createdAt = editTarget && isTeacherLesson(editTarget) ? editTarget.createdAt : undefined
     await storage.saveLesson({
       id: editTarget?.id ?? uid(),
       title: data.title.trim(),
       subject: data.subject,
       content: data.content,
       summary: data.summary.trim(),
-      createdAt: editTarget?.createdAt ?? new Date().toISOString(),
+      createdAt: createdAt ?? new Date().toISOString(),
       ...(data.linkedQuizId    ? { linkedQuizId: data.linkedQuizId }       : {}),
       ...(data.labExperimentId ? { labExperimentId: data.labExperimentId } : {}),
       arPayload: {
@@ -268,7 +269,8 @@ export function LessonsTab() {
       ) : (
         <div className="space-y-2">
           {lessons.map((l) => {
-            const linkedQuiz = l.linkedQuizId ? quizzes.find((q) => q.id === l.linkedQuizId) : null
+            const isTeacher = isTeacherLesson(l)
+            const linkedQuiz = isTeacher && l.linkedQuizId ? quizzes.find((q) => q.id === l.linkedQuizId) : null
             return (
               <div key={l.id} onClick={() => setViewTarget(l)}
                 className="bg-card rounded-2xl border border-border p-4 flex items-center gap-4 cursor-pointer hover:border-border/70 transition-colors">
@@ -277,13 +279,13 @@ export function LessonsTab() {
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <SubjectBadge subject={l.subject} />
                     {linkedQuiz && <span className="text-xs text-primary font-medium">Quiz: {linkedQuiz.title}</span>}
-                    {l.createdAt && <span className="text-xs text-muted-foreground">{format(parseISO(l.createdAt), 'MMM d, yyyy')}</span>}
+                    {isTeacher && l.createdAt && <span className="text-xs text-muted-foreground">{format(parseISO(l.createdAt), 'MMM d, yyyy')}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={(e) => { e.stopPropagation(); openEdit(l) }} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  {isTeacher && <button onClick={(e) => { e.stopPropagation(); openEdit(l) }} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                     <Edit3 size={14} />
-                  </button>
+                  </button>}
                   <button
                     onClick={async (e) => {
                       e.stopPropagation()
