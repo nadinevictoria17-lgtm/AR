@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ARPayload, SubjectKey } from '../types'
-import { UNLOCK_CODES } from '../data/unlockCodes'
+import { LESSONS } from '../data/lessons'
+import { getUnlockCodeData } from '../lib/unlockCodeManager'
+import { storage } from '../lib/storage'
 
 type Screen =
   | 'getstarted'
@@ -28,15 +30,9 @@ export interface AppStore {
   screen: Screen
   activeSubject: SubjectKey | null
   activeTopic: string | null
-  activeQuizSubject: SubjectKey | null
   activeLessonId: string | null
   activeARPayload: ARPayload | null
   activeLabExperimentId: string | null
-  quizQuestions: any[]
-  quizIndex: number
-  quizScore: number
-  quizAnswers: (number | null)[]
-  quizHintsUsed: number
 
   arModelIndex: number
   arSourceVisible: boolean
@@ -46,20 +42,12 @@ export interface AppStore {
   setCurrentStudentId: (id: string | null) => void
   setActiveSubject: (s: SubjectKey | null) => void
   setActiveTopic: (t: string | null) => void
-  setActiveQuizSubject: (s: SubjectKey | null) => void
   setActiveLesson: (id: string | null, payload?: ARPayload | null) => void
   setActiveLabExperiment: (id: string | null) => void
   toggleTheme: () => void
   setVoiceLang: (lang: 'en' | 'Filipino') => void
   unlockSubject: (s: SubjectKey) => void
-  applyAccessCode: (code: string) => { unlocked: SubjectKey[]; invalid: boolean }
-
-  // Quiz actions
-  initQuiz: (questions: any[]) => void
-  submitAnswer: (optionIndex: number) => void
-  nextQuestion: () => void
-  useHint: () => void
-  resetQuiz: () => void
+  applyAccessCode: (code: string) => Promise<{ unlocked: SubjectKey[]; targetName?: string; invalid: boolean }>
 
   // AR actions
   setArModelIndex: (idx: number) => void
@@ -70,7 +58,7 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
       // Persisted state
-      unlocked: { physics: true, biology: false, chemistry: false, earth: false },
+      unlocked: { biology: false, chemistry: true },
       voiceLang: 'en',
       theme: 'light',
 
@@ -79,15 +67,9 @@ export const useAppStore = create<AppStore>()(
       screen: 'getstarted',
       activeSubject: null,
       activeTopic: null,
-      activeQuizSubject: null,
       activeLessonId: null,
       activeARPayload: null,
       activeLabExperimentId: null,
-      quizQuestions: [],
-      quizIndex: 0,
-      quizScore: 0,
-      quizAnswers: [],
-      quizHintsUsed: 0,
 
       arModelIndex: 0,
       arSourceVisible: true,
@@ -97,7 +79,6 @@ export const useAppStore = create<AppStore>()(
       setCurrentStudentId: (id) => set({ currentStudentId: id }),
       setActiveSubject: (s) => set({ activeSubject: s }),
       setActiveTopic: (t) => set({ activeTopic: t }),
-      setActiveQuizSubject: (s) => set({ activeQuizSubject: s }),
       setActiveLesson: (id, payload = null) => set({ activeLessonId: id, activeARPayload: payload }),
       setActiveLabExperiment: (id) => set({ activeLabExperimentId: id }),
 
@@ -115,62 +96,49 @@ export const useAppStore = create<AppStore>()(
           unlocked: { ...state.unlocked, [s]: true },
         })),
 
-      applyAccessCode: (code) => {
+      applyAccessCode: async (code) => {
         const normalized = code.trim().toUpperCase()
+        const currentStudentId = useAppStore.getState().currentStudentId
+
         if (!normalized) return { unlocked: [], invalid: true }
-        const matches = (Object.entries(UNLOCK_CODES) as [SubjectKey, string[]][])
-          .filter(([, codes]) => codes.map((c) => c.toUpperCase()).includes(normalized))
-          .map(([subject]) => subject)
-        if (matches.length === 0) return { unlocked: [], invalid: true }
-        set((state) => ({
-          unlocked: matches.reduce((acc, s) => ({ ...acc, [s]: true }), state.unlocked),
-        }))
-        return { unlocked: matches, invalid: false }
+
+        const data = await getUnlockCodeData(normalized)
+        if (!data) return { unlocked: [], invalid: true }
+
+        if (data.type === 'subject') {
+          // If specific lesson IDs are included, unlock those in Firestore for this student
+          if (data.lessonIds && data.lessonIds.length > 0 && currentStudentId) {
+            await Promise.all(
+              data.lessonIds.map(id => storage.unlockContent(currentStudentId, id, 'lesson'))
+            )
+            const lessonTitles = data.lessonIds
+              .map(id => LESSONS.find(l => l.id === id)?.title || id)
+              .join(', ')
+            return { unlocked: data.subjects || [], targetName: lessonTitles, invalid: false }
+          }
+          // Otherwise unlock entire subjects in Zustand store
+          if (data.subjects && data.subjects.length > 0) {
+            set((state) => ({
+              unlocked: data.subjects!.reduce((acc, s) => ({ ...acc, [s]: true }), state.unlocked),
+            }))
+            return { unlocked: data.subjects, invalid: false }
+          }
+        }
+
+        // Handle specific lesson or quiz unlocks
+        if ((data.type === 'lesson' || data.type === 'quiz') && data.targetId && currentStudentId) {
+          const success = await storage.unlockContent(currentStudentId, data.targetId, data.type)
+          if (success) {
+            const lesson = LESSONS.find(l => l.id === data.targetId)
+            const targetName = data.type === 'lesson' ? (lesson?.title || data.targetId) : 'Quiz Retake'
+            return { unlocked: [], targetName, invalid: false }
+          }
+        }
+
+        return { unlocked: [], invalid: true }
       },
 
-      // Quiz actions
-      initQuiz: (questions) =>
-        set({
-          quizQuestions: questions,
-          quizIndex: 0,
-          quizScore: 0,
-          quizAnswers: Array(questions.length).fill(null),
-          quizHintsUsed: 0,
-        }),
-
-      submitAnswer: (optionIndex) =>
-        set((state) => {
-          const newAnswers = [...state.quizAnswers]
-          newAnswers[state.quizIndex] = optionIndex
-          const isCorrect =
-            optionIndex === state.quizQuestions[state.quizIndex].correctIndex
-          return {
-            quizAnswers: newAnswers,
-            quizScore: isCorrect ? state.quizScore + 1 : state.quizScore,
-          }
-        }),
-
-      nextQuestion: () =>
-        set((state) => ({
-          quizIndex: state.quizIndex + 1,
-        })),
-
-      useHint: () =>
-        set((state) => ({
-          quizHintsUsed: Math.min(state.quizHintsUsed + 1, 3),
-        })),
-
-      resetQuiz: () =>
-        set({
-          quizQuestions: [],
-          quizIndex: 0,
-          quizScore: 0,
-          quizAnswers: [],
-          quizHintsUsed: 0,
-          activeQuizSubject: null,
-        }),
-
-      // AR actions (Vuforia-based: minimal state, no client-side detection)
+      // AR actions
       setArModelIndex: (idx) =>
         set({
           arModelIndex: idx,

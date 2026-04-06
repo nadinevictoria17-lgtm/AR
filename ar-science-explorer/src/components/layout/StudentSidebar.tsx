@@ -1,28 +1,22 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Home, BookOpen, Camera, Trophy,
-  ChevronLeft, ChevronRight, LogOut, Atom, Sun, Moon, X,
-  type LucideIcon,
-} from 'lucide-react'
+import { Home, BookOpen, Trophy, ChevronLeft, ChevronRight, LogOut, Atom, Sun, Moon, X, AlertCircle, type LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useAppStore } from '../../store/useAppStore'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Card } from '../ui/card'
+import { Button } from '../ui/button'
 import type { SubjectKey } from '../../types'
 
-type Screen = 'unlock' | 'home' | 'learn' | 'arlab' | 'progress'
-
 const SUBJECT_DOT: Record<SubjectKey, string> = {
-  physics:   'bg-subject-physics',
   biology:   'bg-subject-biology',
   chemistry: 'bg-subject-chemistry',
-  earth:     'bg-subject-earth',
 }
 
-const NAV_ITEMS: { screen: Screen; icon: LucideIcon; label: string }[] = [
-  { screen: 'home', icon: Home, label: 'Home' },
-  { screen: 'learn', icon: BookOpen, label: 'Learn' },
-  { screen: 'arlab', icon: Camera, label: 'AR + Lab' },
-  { screen: 'progress', icon: Trophy, label: 'Progress' },
+const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [
+  { path: '/app/home', icon: Home, label: 'Home' },
+  { path: '/app/learn', icon: BookOpen, label: 'AR + Learn' },
+  { path: '/app/progress', icon: Trophy, label: 'Progress' },
 ]
 
 interface StudentSidebarProps {
@@ -39,7 +33,34 @@ function SidebarContent({
   isMobile?: boolean;
   onMobileClose?: () => void;
 }) {
-  const { screen, setScreen, theme, toggleTheme, unlocked, currentStudentId } = useAppStore()
+  const { theme, toggleTheme, unlocked, currentStudentId } = useAppStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false)
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null)
+
+  const isInQuiz = location.pathname === '/app/quiz'
+
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    if (isInQuiz && path !== '/app/quiz') {
+      e.preventDefault()
+      setPendingNavPath(path)
+      setShowExitConfirmation(true)
+    }
+  }
+
+  const handleConfirmNavigation = () => {
+    setShowExitConfirmation(false)
+    if (pendingNavPath) {
+      navigate(pendingNavPath)
+    }
+    setPendingNavPath(null)
+  }
+
+  const handleCancelNavigation = () => {
+    setShowExitConfirmation(false)
+    setPendingNavPath(null)
+  }
 
   const unlockedSubjects = Object.entries(unlocked)
     .filter(([, v]) => v)
@@ -89,45 +110,59 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ screen: s, icon: Icon, label }) => {
-          const active = screen === s
+        {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
+          // Custom active detection: AR + Learn is active on /learn, /arlab, or /quiz
+          const isLearningPath = path === '/app/learn' && (location.pathname === '/app/learn' || location.pathname === '/app/arlab' || location.pathname === '/app/quiz')
+          const customIsActive = isLearningPath || (path !== '/app/learn' && location.pathname === path)
+
           return (
-            <button
-              key={s}
-              onClick={() => {
-                setScreen(s)
+            <NavLink
+              key={path}
+              to={path}
+              onClick={(e) => {
+                handleNavClick(e, path)
                 if (isMobile) onMobileClose?.()
               }}
               title={collapsed ? label : undefined}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
-                active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                collapsed && 'justify-center px-2'
-              )}
+              className={({ isActive }) => {
+                const active = customIsActive || isActive
+                return cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  collapsed && 'justify-center px-2'
+                )
+              }}
             >
-              <Icon size={18} className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="truncate overflow-hidden whitespace-nowrap"
-                  >
-                    {label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              {active && !collapsed && (
-                <motion.div
-                  layoutId={isMobile ? 'studentActiveIndicatorMobile' : 'studentActiveIndicator'}
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
-                />
-              )}
-            </button>
+              {({ isActive }) => {
+                const active = customIsActive || isActive
+                return (
+                  <>
+                    <Icon size={18} className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                    <AnimatePresence>
+                      {!collapsed && (
+                        <motion.span
+                          initial={{ opacity: 0, width: 0 }}
+                          animate={{ opacity: 1, width: 'auto' }}
+                          exit={{ opacity: 0, width: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="truncate overflow-hidden whitespace-nowrap"
+                        >
+                          {label}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                    {active && !collapsed && (
+                      <motion.div
+                        layoutId={isMobile ? 'studentActiveIndicatorMobile' : 'studentActiveIndicator'}
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
+                      />
+                    )}
+                  </>
+                )
+              }}
+            </NavLink>
           )
         })}
 
@@ -194,6 +229,57 @@ function SidebarContent({
           </AnimatePresence>
         </button>
       </div>
+
+      {/* Quiz Exit Confirmation Modal */}
+      <AnimatePresence>
+        {showExitConfirmation && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCancelNavigation}
+              className="fixed inset-0 bg-black/40 z-40"
+              aria-label="Close confirmation modal"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+            >
+              <Card className="w-full max-w-sm mx-4 p-6 pointer-events-auto">
+                <div className="flex items-start gap-3 mb-4">
+                  <AlertCircle className="text-destructive shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <h3 className="font-bold text-foreground">Exit Quiz?</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Going back will submit your quiz with your current answers.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelNavigation}
+                    className="text-foreground"
+                  >
+                    Continue Quiz
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleConfirmNavigation}
+                  >
+                    Submit & Exit
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   )
 }

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, User, Lock, Moon, Sun, LogIn } from 'lucide-react'
+import { Eye, EyeOff, User, Lock, Moon, Sun, LogIn, Loader } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { cn } from '../lib/utils'
 import { CredentialField } from '../components/auth/CredentialField'
 import { validateIdentifier, validatePassword } from '../lib/auth'
 import { storage } from '../lib/storage'
+import { firebaseStudentLogin, firebaseTeacherLogin } from '../lib/firebaseAuth'
+import { Button } from '../components/ui/button'
 
 type Role = 'student' | 'teacher'
 
@@ -15,35 +17,71 @@ export default function LoginPage() {
   const { theme, toggleTheme, setCurrentStudentId, setScreen } = useAppStore()
 
   const [role, setRole] = useState<Role>('student')
-  const [id, setId] = useState('000000')
-  const [password, setPassword] = useState('123456')
+  const [id, setId] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [idError, setIdError] = useState('')
   const [passError, setPassError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleIdChange = (v: string) => {
     if (role === 'student') {
-      setId(v.replace(/\D/g, '').slice(0, 6))
+      // Allow student ID (6 digits) or email address
+      if (v.includes('@')) {
+        // Full email address
+        setId(v)
+      } else {
+        // Just student ID - allow up to 6 digits
+        setId(v.replace(/\D/g, '').slice(0, 6))
+      }
     } else {
       setId(v)
     }
     setIdError('')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const ie = validateIdentifier(role, id)
     const pe = validatePassword(role, password)
     setIdError(ie)
     setPassError(pe)
     if (ie || pe) return
-    if (role === 'student') {
-      storage.ensureStudentRecord(id)
-      setCurrentStudentId(id)
-      setScreen('unlock')
-      navigate('/app')
-    } else {
-      navigate('/teacher')
+
+    setIsLoading(true)
+
+    try {
+      if (role === 'student') {
+        const firebaseResult = await firebaseStudentLogin(id, password)
+        if (firebaseResult) {
+          console.log('✅ Firebase Auth: Student logged in', { studentId: firebaseResult.studentId })
+          storage.ensureStudentRecord(id)
+          setCurrentStudentId(id)
+          setScreen('unlock')
+          navigate('/app')
+          return
+        }
+
+        // If null, it could be network error or invalid credentials
+        // Network errors are already logged in firebaseAuth
+        setPassError('Invalid credentials. Check internet and try again.')
+      } else {
+        const firebaseUser = await firebaseTeacherLogin(id, password)
+        if (firebaseUser) {
+          console.log('✅ Firebase Auth: Teacher logged in', { email: firebaseUser.email })
+          navigate('/teacher')
+          return
+        }
+
+        // If null, it could be network error or invalid credentials
+        // Network errors are already logged in firebaseAuth
+        setIdError('Invalid email or password. Check internet and try again.')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setPassError('An error occurred. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -74,12 +112,14 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="w-full max-w-md ml-auto mr-auto">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={toggleTheme}
-                className="ml-auto mb-6 flex w-9 h-9 rounded-xl items-center justify-center bg-muted text-muted-foreground hover:text-foreground hover:bg-border transition-colors"
+                className="ml-auto mb-6 flex rounded-xl text-muted-foreground hover:text-foreground hover:bg-border"
               >
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
+              </Button>
 
               <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
                 <h2 className="text-2xl font-bold text-foreground mb-1">Welcome back</h2>
@@ -87,22 +127,23 @@ export default function LoginPage() {
 
                 <div className="flex gap-1 p-1 bg-muted rounded-xl mb-8">
                   {(['student', 'teacher'] as Role[]).map((r) => (
-                    <button
+                    <Button
+                      variant={role === r ? 'default' : 'ghost'}
                       key={r}
                       onClick={() => {
                         setRole(r)
-                        setId(r === 'student' ? '000000' : 'teacher.debug@school.edu')
-                        setPassword('123456')
+                        setId('')
+                        setPassword('')
                         setIdError('')
                         setPassError('')
                       }}
                       className={cn(
-                        'flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-all duration-200',
-                        role === r ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        'flex-1 py-2 rounded-lg text-sm font-semibold capitalize',
+                        role === r ? 'bg-card text-foreground shadow-sm hover:text-foreground' : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
                       {r}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 
@@ -112,7 +153,7 @@ export default function LoginPage() {
                     value={id}
                     onChange={handleIdChange}
                     onBlur={() => setIdError(validateIdentifier(role, id))}
-                    placeholder={role === 'student' ? '000000' : 'teacher.debug@school.edu'}
+                    placeholder={role === 'student' ? '6-digit ID' : 'teacher@school.edu'}
                     type={role === 'teacher' ? 'email' : 'text'}
                     error={idError}
                     icon={User}
@@ -123,7 +164,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(value) => { setPassword(value); setPassError('') }}
                     onBlur={() => setPassError(validatePassword(role, password))}
-                    placeholder="any password"
+                    placeholder="Enter your password"
                     type={showPass ? 'text' : 'password'}
                     error={passError}
                     icon={Lock}
@@ -147,12 +188,27 @@ export default function LoginPage() {
 
                   <motion.button
                     type="submit"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm btn-glow hover:bg-primary/90 transition-all"
+                    disabled={isLoading}
+                    whileHover={{ scale: isLoading ? 1 : 1.01 }}
+                    whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm transition-all',
+                      isLoading
+                        ? 'bg-primary/60 text-primary-foreground/70 cursor-not-allowed'
+                        : 'bg-primary text-primary-foreground btn-glow hover:bg-primary/90'
+                    )}
                   >
-                    <LogIn size={16} />
-                    Sign In as {role === 'student' ? 'Student' : 'Teacher'}
+                    {isLoading ? (
+                      <>
+                        <Loader size={16} className="animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn size={16} />
+                        Sign In as {role === 'student' ? 'Student' : 'Teacher'}
+                      </>
+                    )}
                   </motion.button>
                 </form>
               </motion.div>
@@ -173,14 +229,14 @@ function AtomLogo({ size = 'md' }: { size?: 'sm' | 'md' }) {
         style={{
           width: dim * 0.3,
           height: dim * 0.3,
-          background: 'radial-gradient(circle at 35% 30%, hsl(var(--subject-physics)), hsl(var(--primary)))',
+          background: 'radial-gradient(circle at 35% 30%, hsl(var(--subject-biology)), hsl(var(--primary)))',
           boxShadow: '0 0 20px hsl(var(--primary) / 0.6), 0 0 40px hsl(var(--primary) / 0.3)',
         }}
       />
       {[
-        { color: 'hsl(var(--subject-physics))', dir: 'normal', i: 0 },
+        { color: 'hsl(var(--subject-biology))', dir: 'normal', i: 0 },
         { color: 'hsl(var(--subject-chemistry))', dir: 'reverse', i: 1 },
-        { color: 'hsl(var(--subject-earth))', dir: 'normal', i: 2 },
+        { color: 'hsl(var(--primary))', dir: 'normal', i: 2 },
       ].map(({ color, dir, i }) => (
         <div
           key={i}

@@ -6,4 +6,5 @@ export const STUDENT_CREDENTIALS: AuthIdentity[] = [
 
 export const TEACHER_ACCOUNTS: AuthIdentity[] = [
   { role: 'teacher', identifier: 'teacher.debug@school.edu', passwordHint: 'any password for debug' },
+  { role: 'teacher', identifier: 'teacher1@school.edu', passwordHint: 'Firebase auth' },
 ]

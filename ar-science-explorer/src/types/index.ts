@@ -1,4 +1,16 @@
-export type SubjectKey = 'physics' | 'biology' | 'chemistry' | 'earth';
+export type SubjectKey = 'chemistry' | 'biology';
+
+export interface CurriculumContent {
+  standards?: string;
+  performanceStandards?: string;
+  learningCompetencies?: string[];
+  objectives?: string[];
+  contentDetails?: string;
+  integration?: {
+    qualities: string[];
+    description: string;
+  }
+}
 
 export interface Subject {
   id: SubjectKey;
@@ -22,16 +34,55 @@ export interface ARPayload {
   detectionMode: 'marker' | 'surface';
   anchorHint: string;
   lessonSteps: string[];
+  // New Fields for Visual-First AR
+  markerImage?: string;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  keyIdeas?: string[];
+  historicalImpact?: string[];
 }
 
 export interface Lesson {
   id: string;
   title: string;
   subject: SubjectKey;
+  topicId?: string;
   summary: string;
   steps: string[];
   labExperimentId?: string;
-  arPayload: ARPayload;
+  arPayload?: ARPayload;
+  hasAR?: boolean;
+  pdfUrl?: string;
+  isUnlockedByDefault?: boolean;
+  curriculum?: CurriculumContent;
+  week?: number;
+  quarter?: number;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  studentId: string;
+  attemptNumber: number;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  answers: number[];
+  timestamp: string;
+  timeSpentSeconds?: number;
+  locked: boolean;
+}
+
+export interface QuizUnlockCode {
+  id: string;
+  quizId: string;
+  studentId: string;
+  code: string;
+  generatedAt: string;
+  usedAt?: string;
+  expiresAt?: string;
+  isUsed: boolean;
 }
 
 export interface StudentRecord {
@@ -41,9 +92,12 @@ export interface StudentRecord {
   grade: string;
   section: string;
   scores: Record<SubjectKey, number | null>;
-  completedLessonIds?: string[];
-  completedLabExperimentIds?: string[];
-  completedQuizIds?: string[];
+  completedLessonIds: string[];
+  completedLabExperimentIds: string[];
+  completedQuizIds: string[];
+  unlockedLessonIds: string[];
+  unlockedQuizIds: string[];
+  quizAttempts: QuizAttempt[];
 }
 
 export interface TeacherQuizQuestion {
@@ -68,20 +122,31 @@ export interface TeacherLesson {
   id: string;
   title: string;
   subject: SubjectKey;
-  content: string;
-  createdAt: string;
+  content?: string;
+  createdAt?: string;
   linkedQuizId?: string;
   summary?: string;
   steps?: string[];
   labExperimentId?: string;
   arPayload?: ARPayload;
   isPredefined?: boolean;
+  quarter?: string;
+  week?: number;
+  pdfUrl?: string;
+  learningObjectives?: string[];
+  keyLearningSteps?: string[];
+  keyVocabulary?: string[];
+  arModelIndex?: number;
+  arContext?: string;
+  hasAR?: boolean;
+  curriculum?: CurriculumContent;
 }
 
 export interface BuiltInQuestion {
   id: string;
   subject: SubjectKey;
   topicId?: string;
+  lessonId?: string;
   question: string;
   options: [string, string, string, string];
   correctIndex: number;

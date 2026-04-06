@@ -4,7 +4,7 @@ export const AR_MODELS: ARModel[] = [
   {
     id: 0,
     name: 'Atomic Structure',
-    subject: 'physics',
+    subject: 'chemistry',
     parts: ['Nucleus', 'Electrons', 'Electron Orbitals', 'Quarks'],
     facts: [
       'The nucleus contains protons and neutrons',
@@ -40,19 +40,7 @@ export const AR_MODELS: ARModel[] = [
       'This polarity allows water to dissolve many substances',
     ],
   },
-  {
-    id: 3,
-    name: 'Earth\'s Layers',
-    subject: 'earth',
-    parts: ['Crust', 'Mantle', 'Outer Core', 'Inner Core', 'Lithosphere', 'Asthenosphere'],
-    facts: [
-      'The crust is the thin solid outer layer',
-      'The mantle is hot rock that flows slowly',
-      'The outer core is liquid iron and nickel',
-      'The inner core is solid despite extreme heat',
-      'Temperature increases with depth toward the center',
-    ],
-  },
+
   {
     id: 4,
     name: 'DNA Double Helix',

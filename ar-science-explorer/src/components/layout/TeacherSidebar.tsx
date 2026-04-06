@@ -1,17 +1,14 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  LayoutDashboard, Brain, BookOpen, Users,
+  LayoutDashboard, Brain, BookOpen, Users, Lock,
   ChevronLeft, ChevronRight, LogOut, Atom, X, Sun, Moon,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-
-export type TeacherTab = 'dashboard' | 'quizzes' | 'lessons' | 'students'
+import { NavLink } from 'react-router-dom'
 
 interface Props {
-  activeTab: TeacherTab
-  onNavigate: (t: TeacherTab) => void
   onLogout?: () => void
   theme: 'light' | 'dark'
   onToggleTheme: () => void
@@ -19,16 +16,15 @@ interface Props {
   onMobileClose: () => void
 }
 
-const NAV_ITEMS: { id: TeacherTab; icon: LucideIcon; label: string }[] = [
-  { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { id: 'quizzes',   icon: Brain,           label: 'Quizzes' },
-  { id: 'lessons',   icon: BookOpen,         label: 'Lessons' },
-  { id: 'students',  icon: Users,            label: 'Students' },
+const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [
+  { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/teacher/quizzes',   icon: Brain,           label: 'Quizzes' },
+  { path: '/teacher/lessons',   icon: BookOpen,        label: 'Lessons' },
+  { path: '/teacher/students',  icon: Users,           label: 'Students' },
+  { path: '/teacher/codes',     icon: Lock,            label: 'Access Codes' },
 ]
 
 function SidebarInner({
-  activeTab,
-  onNavigate,
   onLogout,
   theme,
   onToggleTheme,
@@ -36,8 +32,6 @@ function SidebarInner({
   isMobile = false,
   onMobileClose,
 }: {
-  activeTab: TeacherTab;
-  onNavigate: (t: TeacherTab) => void;
   onLogout?: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
@@ -88,45 +82,48 @@ function SidebarInner({
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ id, icon: Icon, label }) => {
-          const active = activeTab === id
+        {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
           return (
-            <button
-              key={id}
+            <NavLink
+              key={path}
+              to={path}
               onClick={() => {
-                onNavigate(id)
                 if (isMobile) onMobileClose?.()
               }}
               title={collapsed ? label : undefined}
-              className={cn(
+              className={({ isActive }) => cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
-                active
+                isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 collapsed && 'justify-center px-2'
               )}
             >
-              <Icon size={18} className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="truncate overflow-hidden whitespace-nowrap"
-                  >
-                    {label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              {active && !collapsed && (
-                <motion.div
-                  layoutId={isMobile ? 'teacherActiveIndicatorMobile' : 'teacherActiveIndicator'}
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
-                />
+              {({ isActive }) => (
+                <>
+                  <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: 'auto' }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="truncate overflow-hidden whitespace-nowrap"
+                      >
+                        {label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                  {isActive && !collapsed && (
+                    <motion.div
+                      layoutId={isMobile ? 'teacherActiveIndicatorMobile' : 'teacherActiveIndicator'}
+                      className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
+                    />
+                  )}
+                </>
               )}
-            </button>
+            </NavLink>
           )
         })}
       </nav>
@@ -183,7 +180,7 @@ function SidebarInner({
   )
 }
 
-export function TeacherSidebar({ activeTab, onNavigate, onLogout, theme, onToggleTheme, mobileOpen, onMobileClose }: Props) {
+export function TeacherSidebar({ onLogout, theme, onToggleTheme, mobileOpen, onMobileClose }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -194,7 +191,7 @@ export function TeacherSidebar({ activeTab, onNavigate, onLogout, theme, onToggl
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
         className="hidden md:flex relative flex-shrink-0 h-dvh sticky top-0 flex-col bg-background border-r border-border overflow-hidden"
       >
-        <SidebarInner activeTab={activeTab} onNavigate={onNavigate} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} collapsed={collapsed} />
+        <SidebarInner onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} collapsed={collapsed} />
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-background border border-border flex items-center justify-center shadow-sm hover:bg-muted transition-colors z-10"
@@ -225,8 +222,6 @@ export function TeacherSidebar({ activeTab, onNavigate, onLogout, theme, onToggl
               className="md:hidden fixed inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] bg-background border-r border-border flex flex-col"
             >
               <SidebarInner
-                activeTab={activeTab}
-                onNavigate={onNavigate}
                 onLogout={onLogout}
                 theme={theme}
                 onToggleTheme={onToggleTheme}
