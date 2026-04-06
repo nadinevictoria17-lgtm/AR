@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -6,16 +6,19 @@ import {
 } from 'recharts'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { storage } from '../../../lib/storage'
+import { useNotificationStore } from '../../../store/useNotificationStore'
 import { LESSONS } from '../../../data/lessons'
 import {
   LayoutDashboard, Users, TrendingUp, BookOpen, ClipboardCheck,
-  Trophy, Activity, Clock
+  Trophy, Activity, Clock, RotateCcw, Trash2, AlertTriangle
 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { pageVariants } from '../../../lib/variants'
 import { format, parseISO, startOfDay } from 'date-fns'
 import type { SubjectKey } from '../../../types'
 import { DashboardSkeleton } from '../../ui/skeleton'
+import { Button } from '../../ui/button'
 
 const BIOLOGY_COLOR   = 'hsl(var(--subject-biology))'
 const CHEMISTRY_COLOR = 'hsl(var(--subject-chemistry))'
@@ -50,6 +53,63 @@ export function AnalyticsDashboard() {
   const showSkeleton = useDeferredLoading(isLoading)
   const students = data.students
   const lessons = data.lessons
+  const { showConfirmModal, showToast } = useNotificationStore()
+  const [resetting, setResetting] = useState(false)
+  const [deleting,  setDeleting]  = useState(false)
+
+  const handleRestartQuarter = () => {
+    showConfirmModal(
+      'Restart Quarter',
+      `This will clear ALL student progress — quiz attempts, scores, completed lessons, and unlock codes — for all ${students.length} student(s). Student accounts are kept. This cannot be undone.`,
+      async () => {
+        setResetting(true)
+        try {
+          const [progress, codes] = await Promise.all([
+            storage.resetAllStudentsProgress([]),
+            storage.deleteAllUnlockCodes(),
+          ])
+          showToast({
+            description: codes
+              ? `Quarter reset complete. ${progress.success} student(s) cleared.`
+              : `Progress reset for ${progress.success} student(s), but unlock codes could not be deleted.`,
+            type: progress.failed > 0 ? 'destructive' : 'success',
+          })
+        } finally {
+          setResetting(false)
+        }
+      },
+      undefined,
+      'Yes, Reset All Progress',
+      'destructive'
+    )
+  }
+
+  const handleDeleteAllStudents = () => {
+    showConfirmModal(
+      'Delete All Students',
+      'This will permanently remove all student Firestore records (except Student 000000) and their quiz data. Student login accounts in Firebase Auth are NOT deleted — only the Firestore data. This cannot be undone.',
+      async () => {
+        setDeleting(true)
+        try {
+          const [result, codes] = await Promise.all([
+            storage.deleteStudentsExcept(['000000']),
+            storage.deleteAllUnlockCodes(),
+          ])
+          showToast({
+            description: codes
+              ? `Deleted ${result.deleted} student record(s). Unlock codes cleared.`
+              : `Deleted ${result.deleted} student record(s), but unlock codes could not be deleted.`,
+            type: result.failed > 0 ? 'destructive' : 'success',
+          })
+        } finally {
+          setDeleting(false)
+        }
+      },
+      undefined,
+      'Delete All Students',
+      'destructive'
+    )
+  }
 
   const avgClassScore = useMemo(() => {
     const allScores: number[] = students.flatMap((s) =>
@@ -150,9 +210,9 @@ export function AnalyticsDashboard() {
         try {
           all.push({
             studentName: s.name,
-            score:       a.score,
-            totalQ:      a.totalQuestions,
-            pct:         Math.round((a.score / Math.max(a.totalQuestions, 1)) * 100),
+            score:       a.correctAnswers ?? 0,
+            totalQ:      a.totalQuestions ?? 0,
+            pct:         a.score ?? 0,
             timestamp:   a.timestamp,
             displayTime: format(parseISO(a.timestamp), 'MMM d, h:mm a'),
           })
@@ -404,6 +464,63 @@ export function AnalyticsDashboard() {
             })}
           </div>
         )}
+      </div>
+
+      {/* ── Class Management (Danger Zone) ─────────────────────────────── */}
+      <div className="border border-destructive/30 rounded-2xl overflow-hidden">
+        <div className="bg-destructive/5 px-6 py-4 flex items-center gap-2 border-b border-destructive/20">
+          <AlertTriangle size={16} className="text-destructive" />
+          <h3 className="text-sm font-bold text-destructive">Class Management</h3>
+        </div>
+        <div className="bg-card px-6 py-5 grid sm:grid-cols-2 gap-4">
+          {/* Restart Quarter */}
+          <div className="rounded-xl border border-border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-warning/10 rounded-lg">
+                <RotateCcw size={14} className="text-warning" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Restart Quarter</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Clears all student progress (scores, quiz attempts, completed lessons) and deletes all unlock codes. Student accounts are preserved.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRestartQuarter}
+              isLoading={resetting}
+              disabled={resetting || deleting}
+              className="w-full mt-1 border-warning/40 text-warning hover:bg-warning/10 hover:border-warning"
+            >
+              {!resetting && <RotateCcw size={14} />}
+              {resetting ? 'Resetting…' : 'Reset All Progress'}
+            </Button>
+          </div>
+
+          {/* Delete All Students */}
+          <div className="rounded-xl border border-border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-destructive/10 rounded-lg">
+                <Trash2 size={14} className="text-destructive" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Delete All Students</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Permanently removes all student Firestore records except Student 000000. Use at the start of a new school year to register fresh batches.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteAllStudents}
+              isLoading={deleting}
+              disabled={resetting || deleting}
+              className="w-full mt-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive"
+            >
+              {!deleting && <Trash2 size={14} />}
+              {deleting ? 'Deleting…' : 'Delete All Students'}
+            </Button>
+          </div>
+        </div>
       </div>
     </motion.div>
   )

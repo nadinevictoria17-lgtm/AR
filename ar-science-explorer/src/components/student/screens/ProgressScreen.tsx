@@ -1,20 +1,21 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { Trophy, ArrowLeft, BookOpen, ChevronRight, Brain, CheckCircle2, XCircle, RotateCcw, Clock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
-import type { QuizAttempt, SubjectKey, TeacherQuiz } from '../../../types'
+import type { QuizAttempt, SubjectKey, TeacherQuiz, StudentRecord } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
+import { db } from '../../../lib/firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
 const SCORE_BAR_TRANSITION = { duration: 0.7, ease: 'easeOut' } as const
@@ -85,11 +86,37 @@ export function ProgressScreen() {
   const { unlocked, currentStudentId, setScreen } = useAppStore(
     useShallow(s => ({ unlocked: s.unlocked, currentStudentId: s.currentStudentId, setScreen: s.setScreen }))
   )
-  const { data: all, isLoading } = useStorageData(true)
-  const showSkeleton = useDeferredLoading(isLoading)
+  // Subscribe to quizzes/lessons only (not the full students collection)
+  const { data: all, isLoading: sharedLoading } = useStorageData(false)
+
+  // Subscribe directly to the current student's document for real-time score updates
+  const [student, setStudent] = useState<StudentRecord | null>(null)
+  const [studentLoading, setStudentLoading] = useState(true)
+
+  useEffect(() => {
+    if (!currentStudentId) {
+      setStudentLoading(false)
+      return
+    }
+    setStudentLoading(true)
+    const unsub = onSnapshot(
+      doc(db, 'students', currentStudentId),
+      (snap) => {
+        if (snap.exists()) {
+          setStudent({ ...(snap.data() as Omit<StudentRecord, 'id'>), id: snap.id } as StudentRecord)
+        } else {
+          setStudent(null)
+        }
+        setStudentLoading(false)
+      },
+      () => setStudentLoading(false)
+    )
+    return () => unsub()
+  }, [currentStudentId])
+
+  const isLoading = sharedLoading || studentLoading
   const navigate = useNavigate()
 
-  const student = currentStudentId ? all.students.find(s => s.studentId === currentStudentId) : null
   const teacherQuizzes = all.quizzes
 
   /** Group all attempts by quizId, compute best + latest + correct answers */
@@ -139,7 +166,7 @@ export function ProgressScreen() {
   const handleBack             = useCallback(() => { setScreen('home');  navigate('/app/home')  }, [setScreen, navigate])
   const handleContinueLearning = useCallback(() => { setScreen('learn'); navigate('/app/learn') }, [setScreen, navigate])
 
-  if (showSkeleton) return <ContentSkeleton />
+  if (isLoading) return <ContentSkeleton />
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6 pb-10">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { Copy, CheckCircle2 } from 'lucide-react'
+import { Copy, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useQuizAttempt } from '../../hooks/useQuizAttempt'
 import type { StudentRecord, TeacherQuiz } from '../../types'
@@ -16,11 +16,18 @@ export function QuizUnlockGenerator({ student, quiz, onClose }: QuizUnlockGenera
   const quizAttempt = useQuizAttempt()
   const [generatedCode, setGeneratedCode] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState<string | null>(null)
 
   const handleGenerateCode = async () => {
+    setGenerating(true)
+    setGenError(null)
     const code = await quizAttempt.unlockForRetake(student.studentId, quiz.id)
+    setGenerating(false)
     if (code) {
       setGeneratedCode(code)
+    } else {
+      setGenError('Could not generate a code. Make sure the student record exists and try again.')
     }
   }
 
@@ -55,10 +62,22 @@ export function QuizUnlockGenerator({ student, quiz, onClose }: QuizUnlockGenera
           <>
             <button
               onClick={handleGenerateCode}
-              className="w-full px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+              disabled={generating}
+              className="w-full px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Generate Unlock Code
+              {generating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Generating…
+                </>
+              ) : 'Generate Unlock Code'}
             </button>
+            {genError && (
+              <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-xs mt-2">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                {genError}
+              </div>
+            )}
             <button
               onClick={onClose}
               className="w-full mt-2 px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted transition-colors"

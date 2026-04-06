@@ -6,7 +6,7 @@ import {
   User,
 } from 'firebase/auth'
 import { FirebaseError } from 'firebase/app'
-import { auth } from './firebase'
+import { auth, getSecondaryAuth } from './firebase'
 
 /** Narrow an unknown catch value to a FirebaseError code string. */
 function firebaseCode(err: unknown): string {
@@ -110,7 +110,13 @@ export function firebaseGetCurrentUser(): User | null {
 }
 
 /**
- * Create a student account programmatically (admin / testing use only).
+ * Create a student account without disrupting the teacher's current session.
+ *
+ * `createUserWithEmailAndPassword` always signs in the new user as a side
+ * effect.  Using the secondary Firebase app instance means the sign-in lands
+ * in an isolated auth state — the primary `auth` (and therefore the teacher
+ * session + route guards) is never touched.  We immediately sign out of the
+ * secondary instance so it doesn't accumulate stale sessions.
  */
 export async function firebaseCreateStudentAccount(
   studentId: string,
@@ -118,7 +124,10 @@ export async function firebaseCreateStudentAccount(
 ): Promise<User | null> {
   try {
     const email = `${studentId}@arscience.school`
-    const cred = await createUserWithEmailAndPassword(auth, email, pin)
+    const secondaryAuth = getSecondaryAuth()
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pin)
+    // Sign out of the secondary instance right away — we only needed the UID.
+    await signOut(secondaryAuth)
     return cred.user
   } catch (err: unknown) {
     console.warn('[Firebase Auth] Create student account failed:', firebaseCode(err))

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Trophy, Home, Zap, Loader2 } from 'lucide-react'
+import { Trophy, Home, Zap, Loader2, KeyRound } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -11,7 +11,6 @@ interface QuizResultsViewProps {
   totalQuestions: number
   hintsUsed: number
   passed: boolean
-  onRetry?: () => void
   onHome: () => void
   isLastQuiz?: boolean
   quizTitle?: string
@@ -22,7 +21,6 @@ export function QuizResultsView({
   totalQuestions,
   hintsUsed,
   passed,
-  onRetry,
   onHome,
   isLastQuiz = false,
   quizTitle = 'Quiz',
@@ -132,33 +130,36 @@ export function QuizResultsView({
         </motion.div>
       )}
 
+      {/* Retake hint when failed */}
+      {!passed && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-xl flex items-start gap-3"
+        >
+          <KeyRound size={16} className="text-warning shrink-0 mt-0.5" />
+          <p className="text-xs text-warning leading-relaxed">
+            Want to retake? Ask your teacher for an unlock code, then tap the quiz again to enter it.
+          </p>
+        </motion.div>
+      )}
+
       {/* Action Buttons */}
       <div className="space-y-3">
         {isRedirecting ? (
           <Button disabled className="w-full h-12 font-bold text-base">
             <Loader2 size={18} className="mr-2 animate-spin" />
-            Returning to Dashboard...
+            Going to Progress…
           </Button>
         ) : (
-          <>
-            {onRetry && !passed && (
-              <Button
-                onClick={onRetry}
-                variant="secondary"
-                className="w-full h-12 font-bold text-base"
-              >
-                <Zap size={18} className="mr-2" />
-                Retry Quiz
-              </Button>
-            )}
-            <Button
-              onClick={onHome}
-              className="w-full h-12 font-bold text-base"
-            >
-              <Home size={18} className="mr-2" />
-              Back to Dashboard
-            </Button>
-          </>
+          <Button
+            onClick={onHome}
+            className="w-full h-12 font-bold text-base"
+          >
+            <Home size={18} className="mr-2" />
+            View My Progress
+          </Button>
         )}
       </div>
 

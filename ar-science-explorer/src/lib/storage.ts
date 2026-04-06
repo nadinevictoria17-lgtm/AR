@@ -287,32 +287,27 @@ export const storage = {
       const studentRef = doc(db, 'students', studentId)
       const docSnap = await getDoc(studentRef)
 
+      // Student record must exist to generate a code
       if (!docSnap.exists()) return null
 
       const student = docSnap.data() as StudentRecord
-      if (!student.quizAttempts) return null
 
-      // Find the latest attempt for this quiz
-      const quizAttempts = student.quizAttempts.filter((a) => a.quizId === quizId)
-      const latestAttempt = quizAttempts.sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      )[0]
+      // If there is a previous locked attempt, mark it unlocked so the student
+      // doesn't hit the "locked" gate when they start the quiz.
+      if (student.quizAttempts?.length) {
+        const sorted = [...student.quizAttempts]
+          .filter((a) => a.quizId === quizId)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        const latestAttempt = sorted[0]
+        if (latestAttempt?.locked) {
+          const updatedAttempts = student.quizAttempts.map((a) =>
+            a.id === latestAttempt.id ? { ...a, locked: false } : a
+          )
+          await updateDoc(studentRef, { quizAttempts: updatedAttempts })
+        }
+      }
 
-      if (!latestAttempt) return null
-
-      // Mark as unlocked
-      latestAttempt.locked = false
-
-      // Update attempts array
-      const updatedAttempts = student.quizAttempts.map((a) =>
-        a.id === latestAttempt.id ? latestAttempt : a
-      )
-
-      await updateDoc(studentRef, {
-        quizAttempts: updatedAttempts,
-      })
-
-      // Generate and store unlock code
+      // Always generate and persist the unlock code
       const unlockCodeData = generateUnlockCode(quizId, studentId)
       const codeRef = doc(db, 'quizUnlockCodes', unlockCodeData.id)
       await setDoc(codeRef, {
@@ -332,25 +327,84 @@ export const storage = {
     }
   },
 
+  /**
+   * Directly mark the most recent quiz attempt as unlocked so
+   * validateQuizEligibility allows the student to retake.
+   * Used when an access-code of type 'quiz' is applied.
+   */
+  async markQuizAsRetakeable(studentId: string, quizId: string): Promise<boolean> {
+    try {
+      const studentRef = doc(db, 'students', studentId)
+      const docSnap = await getDoc(studentRef)
+      if (!docSnap.exists()) return true // no record = can freely take quiz
+
+      const student = docSnap.data() as StudentRecord
+      const attempts: QuizAttempt[] = student.quizAttempts ?? []
+
+      const sorted = [...attempts]
+        .filter(a => a.quizId === quizId)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      const latest = sorted[0]
+
+      if (!latest || !latest.locked) return true // nothing to unlock
+
+      const updated = attempts.map(a =>
+        a.id === latest.id ? { ...a, locked: false } : a
+      )
+      await updateDoc(studentRef, { quizAttempts: updated })
+      return true
+    } catch (error) {
+      console.error('[Storage] markQuizAsRetakeable() failed:', error)
+      return false
+    }
+  },
+
+  async getQuizRetakeCodes(): Promise<QuizUnlockCode[]> {
+    try {
+      const snap = await getDocs(collection(db, 'quizUnlockCodes'))
+      return snap.docs.map((d) => d.data() as QuizUnlockCode)
+    } catch (error) {
+      console.error('[Storage] getQuizRetakeCodes() failed:', error)
+      return []
+    }
+  },
+
+  async deleteQuizRetakeCode(id: string): Promise<boolean> {
+    try {
+      await deleteDoc(doc(db, 'quizUnlockCodes', id))
+      return true
+    } catch (error) {
+      console.error('[Storage] deleteQuizRetakeCode() failed:', error)
+      return false
+    }
+  },
+
   async applyQuizUnlockCode(studentId: string, quizId: string, code: string): Promise<boolean> {
     try {
-      // Find the unlock code in Firestore
+      // Query only by code to avoid requiring a composite Firestore index.
+      // Validate studentId + quizId in JavaScript after fetching.
       const codesSnap = await getDocs(
         query(
           collection(db, 'quizUnlockCodes'),
-          where('code', '==', code.toUpperCase()),
-          where('studentId', '==', studentId),
-          where('quizId', '==', quizId)
+          where('code', '==', code.toUpperCase())
         )
       )
 
       if (codesSnap.empty) return false
 
-      const unlockCodeDoc = codesSnap.docs[0]
-      const unlockCode = unlockCodeDoc.data() as QuizUnlockCode
+      // Find a doc that matches this student + quiz (a code may be scoped to one student)
+      const unlockCodeDoc =
+        codesSnap.docs.find((d) => {
+          const data = d.data() as QuizUnlockCode
+          // Accept codes that match exactly OR codes with no studentId restriction
+          const studentMatch = !data.studentId || data.studentId === studentId
+          const quizMatch = data.quizId === quizId
+          return studentMatch && quizMatch && !data.isUsed
+        }) ?? null
 
-      // Reject already-used codes
-      if (unlockCode.isUsed) return false
+      if (!unlockCodeDoc) return false
+
+      const unlockCode = unlockCodeDoc.data() as QuizUnlockCode
 
       // Check expiration
       if (unlockCode.expiresAt && new Date(unlockCode.expiresAt) < new Date()) {
@@ -495,6 +549,99 @@ export const storage = {
     } catch (error) {
       console.error('[Storage] validateQuizEligibility() failed:', error)
       return { canTake: false, isLocked: true, reason: 'Validation error', attemptCount: 0 }
+    }
+  },
+
+  // ── CLASS MANAGEMENT ─────────────────────────────
+
+  /**
+   * Reset all progress fields for a single student (keeps account data).
+   */
+  async resetStudentProgress(studentDocId: string): Promise<boolean> {
+    try {
+      const studentRef = doc(db, 'students', studentDocId)
+      // Clear quizAttempts subcollection
+      const attemptsSnap = await getDocs(collection(studentRef, 'quizAttempts'))
+      await Promise.all(attemptsSnap.docs.map(d => deleteDoc(d.ref)))
+      // Reset all progress fields on the parent doc
+      await updateDoc(studentRef, {
+        quizAttempts:             [],
+        scores:                   { biology: null, chemistry: null },
+        completedLessonIds:       [],
+        completedLabExperimentIds:[],
+        completedQuizIds:         [],
+        unlockedLessonIds:        [],
+        unlockedQuizIds:          [],
+      })
+      return true
+    } catch (error) {
+      console.error('[Storage] resetStudentProgress() failed:', error)
+      return false
+    }
+  },
+
+  /**
+   * Reset progress for all students. Optionally skip students by their studentId field.
+   */
+  async resetAllStudentsProgress(skipStudentIds: string[] = []): Promise<{ success: number; failed: number }> {
+    let success = 0, failed = 0
+    try {
+      const snapshot = await getDocs(collection(db, 'students'))
+      await Promise.all(snapshot.docs.map(async (d) => {
+        const sid = (d.data().studentId as string | undefined) ?? ''
+        if (skipStudentIds.includes(sid)) return
+        const ok = await storage.resetStudentProgress(d.id)
+        if (ok) success++; else failed++
+      }))
+    } catch (error) {
+      console.error('[Storage] resetAllStudentsProgress() failed:', error)
+    }
+    return { success, failed }
+  },
+
+  /**
+   * Delete student documents (and their quizAttempts subcollection) for everyone
+   * NOT in keepStudentIds.  Does NOT delete Firebase Auth accounts.
+   */
+  async deleteStudentsExcept(keepStudentIds: string[]): Promise<{ deleted: number; failed: number }> {
+    let deleted = 0, failed = 0
+    try {
+      const snapshot = await getDocs(collection(db, 'students'))
+      await Promise.all(snapshot.docs.map(async (d) => {
+        const sid = (d.data().studentId as string | undefined) ?? ''
+        if (keepStudentIds.includes(sid)) return
+        try {
+          const attemptsSnap = await getDocs(collection(d.ref, 'quizAttempts'))
+          await Promise.all(attemptsSnap.docs.map(a => deleteDoc(a.ref)))
+          await deleteDoc(d.ref)
+          deleted++
+        } catch {
+          failed++
+        }
+      }))
+    } catch (error) {
+      console.error('[Storage] deleteStudentsExcept() failed:', error)
+    }
+    return { deleted, failed }
+  },
+
+  /**
+   * Delete all unlock codes from both collections (lesson codes + quiz retake codes).
+   */
+  async deleteAllUnlockCodes(): Promise<boolean> {
+    try {
+      const [lessonSnap, quizSnap] = await Promise.all([
+        getDocs(collection(db, 'unlockCodes')),
+        getDocs(collection(db, 'quizUnlockCodes')),
+      ])
+      await Promise.all([
+        ...lessonSnap.docs.map(d => deleteDoc(d.ref)),
+        ...quizSnap.docs.map(d => deleteDoc(d.ref)),
+      ])
+      return true
+    } catch (error) {
+      console.error('[Storage] deleteAllUnlockCodes() failed:', error)
+      return false
     }
   },
 }

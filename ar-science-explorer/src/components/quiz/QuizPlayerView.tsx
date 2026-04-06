@@ -58,7 +58,7 @@ export function QuizPlayerView({
           className="text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={16} className="mr-1" />
-          Back
+          Quit
         </Button>
         <div className="text-sm font-semibold text-muted-foreground">
           Question {questionIndex + 1} of {totalQuestions}

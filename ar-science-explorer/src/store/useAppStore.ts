@@ -125,13 +125,27 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
-        // Handle specific lesson or quiz unlocks
-        if ((data.type === 'lesson' || data.type === 'quiz') && data.targetId && currentStudentId) {
-          const success = await storage.unlockContent(currentStudentId, data.targetId, data.type)
+        // Handle specific lesson unlock (type='lesson')
+        if (data.type === 'lesson' && data.targetId && currentStudentId) {
+          const success = await storage.unlockContent(currentStudentId, data.targetId, 'lesson')
           if (success) {
             const lesson = LESSONS.find(l => l.id === data.targetId)
-            const targetName = data.type === 'lesson' ? (lesson?.title || data.targetId) : 'Quiz Retake'
-            return { unlocked: [], targetName, invalid: false }
+            return { unlocked: [], targetName: lesson?.title || data.targetId, invalid: false }
+          }
+        }
+
+        // Handle quiz retake codes created via UnlockCodeManager.
+        // The targetId is a lesson ID (e.g. 'q1w1'). The actual quiz ID used
+        // by the attempt system is 'builtin-q1w1'.  We must unlock the latest
+        // locked attempt so validateQuizEligibility allows the retake.
+        if (data.type === 'quiz' && data.targetId && currentStudentId) {
+          const builtInQuizId = `builtin-${data.targetId}`
+          await storage.markQuizAsRetakeable(currentStudentId, builtInQuizId)
+          const lesson = LESSONS.find(l => l.id === data.targetId)
+          return {
+            unlocked: [],
+            targetName: lesson?.title ? `${lesson.title} – Quiz Retake` : 'Quiz Retake',
+            invalid: false,
           }
         }
 

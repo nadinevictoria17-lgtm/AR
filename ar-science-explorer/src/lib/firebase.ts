@@ -1,8 +1,8 @@
-import { initializeApp } from 'firebase/app'
+import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -12,13 +12,24 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
-// Initialize Firebase
+// Primary app — used for the current user session
 const app = initializeApp(firebaseConfig)
 
-// Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app)
-
-// Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app)
+
+/**
+ * Secondary Firebase app instance with its own isolated auth state.
+ * Used when a teacher creates a student account so that
+ * `createUserWithEmailAndPassword` does not sign out the teacher.
+ */
+function getSecondaryAuth() {
+  const SECONDARY = 'ar-secondary'
+  const existing = getApps().find(a => a.name === SECONDARY)
+  const secondaryApp = existing ?? initializeApp(firebaseConfig, SECONDARY)
+  return getAuth(secondaryApp)
+}
+
+export { getSecondaryAuth }
 
 export default app

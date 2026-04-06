@@ -68,7 +68,8 @@ export function QuizScreen() {
   const [runningSubject, setRunningSubject] = useState<SubjectKey | null>(null)
   const [runningQuizId, setRunningQuizId] = useState<string | null>(null)
   const [runningQuizIsLastInSubject, setRunningQuizIsLastInSubject] = useState(false)
-  const [finalScorePct, setFinalScorePct] = useState<number>(0)
+  const [finalScorePct,     setFinalScorePct]     = useState<number>(0)
+  const [finalCorrectCount, setFinalCorrectCount] = useState<number>(0)
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [showUnlockDialog, setShowUnlockDialog] = useState(false)
   const [pendingUnlockQuiz, setPendingUnlockQuiz] = useState<{ id: string; title: string } | null>(null)
@@ -247,6 +248,7 @@ export function QuizScreen() {
       }
 
       setFinalScorePct(pct)
+      setFinalCorrectCount(correctCount)
       setShowResult(true)
     } else {
       nextQuestion()
@@ -259,13 +261,6 @@ export function QuizScreen() {
     setSelected(null)
   }
 
-  const handleRetry = () => {
-    resetQuiz()
-    setRunningQuizId(null)
-    setShowResult(false)
-    setQuizAnswers([])
-    setSelected(null)
-  }
 
   const handleBackHome = useCallback(() => {
     resetQuiz()
@@ -273,8 +268,10 @@ export function QuizScreen() {
     setRunningQuizIsLastInSubject(false)
     setQuizAnswers([])
     setShowResult(false)
-    setScreen('home')
-    navigate('/app/home')
+    setFinalScorePct(0)
+    setFinalCorrectCount(0)
+    setScreen('progress')
+    navigate('/app/progress')
   }, [resetQuiz, setRunningQuizId, setRunningQuizIsLastInSubject, setScreen, navigate])
 
   const handleShowBackConfirmation = () => {
@@ -331,8 +328,10 @@ export function QuizScreen() {
     setRunningQuizIsLastInSubject(false)
     setQuizAnswers([])
     setShowResult(false)
-    setScreen('learn')
-    navigate('/app/learn')
+    setFinalScorePct(0)
+    setFinalCorrectCount(0)
+    setScreen('progress')
+    navigate('/app/progress')
   }
 
   const handleCancelBack = () => {
@@ -379,11 +378,10 @@ export function QuizScreen() {
       {/* Quiz Results */}
       {showResult && (
         <QuizResultsView
-          score={quizScore + (selected === question.correctIndex ? 1 : 0)}
+          score={finalCorrectCount}
           totalQuestions={quizQuestions.length}
           hintsUsed={quizHintsUsed}
           passed={finalScorePct >= 70}
-          onRetry={handleRetry}
           onHome={handleBackHome}
           isLastQuiz={runningQuizIsLastInSubject}
           quizTitle={pendingUnlockQuiz?.title}

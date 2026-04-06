@@ -5,13 +5,40 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AR Science Explorer</title>
+    <!--
+      Critical CSS variables injected before Tailwind/JS loads.
+      This prevents invisible text during the very first paint when
+      CSS custom properties haven't been applied yet (race between
+      Vite injecting the stylesheet and React rendering the component).
+      display=fallback gives a 100ms block window then falls back to
+      system fonts permanently – no infinite invisible-text swap.
+    -->
+    <style>
+      html { color-scheme: dark; }
+      html, html.dark {
+        --foreground: 210 40% 96%;
+        --background: 220 30% 7%;
+        --muted-foreground: 215 20% 55%;
+        --primary: 173 80% 45%;
+      }
+      html.light {
+        --foreground: 220 20% 15%;
+        --background: 0 0% 100%;
+        --muted-foreground: 220 10% 46%;
+        --primary: 173 80% 35%;
+      }
+      body { font-family: 'Poppins', system-ui, -apple-system, sans-serif; }
+    </style>
     <!-- Preconnect so the font handshake starts before CSS is parsed -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Load Poppins as a non-render-blocking stylesheet; display=swap prevents FOIT -->
+    <!--
+      display=fallback: 100 ms block window → use fallback forever if not cached.
+      Prevents the indefinite invisible-text window that display=swap can cause.
+    -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=fallback"
     />
   </head>
   <body>

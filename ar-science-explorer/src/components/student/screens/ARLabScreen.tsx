@@ -15,8 +15,6 @@ import { ContentSkeleton } from '../../ui/skeleton'
 import { ARLearningControls } from '../../ar/ARLearningControls'
 import { VOICE_SCRIPTS } from '../../../data/voiceScripts'
 import { storage } from '../../../lib/storage'
-import { db } from '../../../lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
 import { getFallbackMarkerPath } from '../../../lib/markerUtils'
 import { useNavigate } from 'react-router-dom'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
@@ -117,22 +115,12 @@ export function ARLabScreen() {
   const checkQuizUnlock = useCallback(async () => {
     if (!currentStudentId || !activeLessonId) return
     try {
-      const studentRef = doc(db, 'students', currentStudentId)
-      const docSnap = await getDoc(studentRef)
-      if (!docSnap.exists()) { setIsQuizUnlocked(true); return }
-
-      const student = docSnap.data()
-      const hasAttempted = student?.quizAttempts?.some(
-        (a: { quizId: string }) => a.quizId === activeLessonId || a.quizId === `builtin-${activeLessonId}`
-      )
-      if (!hasAttempted) {
-        setIsQuizUnlocked(true)
-      } else {
-        setIsQuizUnlocked(await storage.isQuizUnlocked(currentStudentId, activeLessonId))
-      }
+      const quizId = `builtin-${activeLessonId}`
+      const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
+      setIsQuizUnlocked(eligibility.canTake)
     } catch (error) {
       console.error('[ARLabScreen] Quiz unlock check failed:', error)
-      setIsQuizUnlocked(true)
+      setIsQuizUnlocked(false)
     }
   }, [currentStudentId, activeLessonId])
 
@@ -168,10 +156,21 @@ export function ARLabScreen() {
     }
   }, [currentStudentId, activeLesson, activeLabExperimentId, setActiveQuizSubject, initQuiz, setScreen, navigate])
 
-  const handleStartQuizClick = useCallback(() => {
-    if (!isQuizUnlocked) setShowUnlockModal(true)
-    else void completeLabAndStartQuiz()
-  }, [isQuizUnlocked, completeLabAndStartQuiz])
+  const handleStartQuizClick = useCallback(async () => {
+    if (!currentStudentId || !activeLessonId) return
+    const quizId = `builtin-${activeLessonId}`
+    try {
+      const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
+      if (!eligibility.canTake) {
+        setShowUnlockModal(true)
+      } else {
+        void completeLabAndStartQuiz()
+      }
+    } catch {
+      // fail-closed: if check errors out, do not allow quiz start
+      setShowUnlockModal(true)
+    }
+  }, [currentStudentId, activeLessonId, completeLabAndStartQuiz])
 
   const handleBack = useCallback(() => {
     setScreen('learn')

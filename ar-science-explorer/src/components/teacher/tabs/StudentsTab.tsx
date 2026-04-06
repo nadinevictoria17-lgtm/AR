@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import Papa from 'papaparse'
 import { storage } from '../../../lib/storage'
+import { firebaseCreateStudentAccount } from '../../../lib/firebaseAuth'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { QuizUnlockGenerator } from '../QuizUnlockGenerator'
 import { cn } from '../../../lib/utils'
@@ -22,14 +24,40 @@ import { TableSkeleton } from '../../ui/skeleton'
 import { useNotificationStore } from '../../../store/useNotificationStore'
 
 const StudentSchema = z.object({
-  name:      z.string().min(1,'Student name is required'),
-  studentId: z.string().regex(/^$|^\d{6}$/, 'Student ID must be 6 digits if provided'),
+  name:      z.string().min(1, 'Student name is required'),
+  studentId: z.string().regex(/^\d{6}$/, 'Student ID must be exactly 6 digits'),
   section:   z.string(),
+  password:  z.string().min(6, 'Password must be at least 6 characters'),
 })
 
 type StudentFormValues = z.infer<typeof StudentSchema>
 
 function uid() { return Math.random().toString(36).slice(2, 9) }
+
+/** Merges built-in (one per lesson) and teacher-created quizzes into one list. */
+function buildAllQuizzes(teacherQuizzes: TeacherQuiz[]): TeacherQuiz[] {
+  const merged: TeacherQuiz[] = []
+  for (const lesson of LESSONS) {
+    const builtInId = `builtin-${lesson.id}`
+    if (merged.some(q => q.id === builtInId)) continue
+    const override = teacherQuizzes.find(q => q.id === builtInId)
+    merged.push(
+      override ?? {
+        id:        builtInId,
+        title:     lesson.title,
+        subject:   lesson.subject,
+        topicId:   lesson.id,
+        questions: QUIZ_QUESTIONS.filter(q => q.lessonId === lesson.id),
+        createdAt: new Date(0).toISOString(),
+      }
+    )
+  }
+  // Append any purely custom quizzes (not linked to a lesson)
+  for (const q of teacherQuizzes) {
+    if (!merged.some(m => m.id === q.id)) merged.push(q)
+  }
+  return merged
+}
 
 const ITEMS_PER_PAGE = 10
 
@@ -44,12 +72,16 @@ export function StudentsTab() {
   const [currentPage, setCurrentPage]     = useState(1)
   const [filterSection, setFilterSection] = useState('all')
   const [searchQuery, setSearchQuery]     = useState('')
-  const allQuizzes = data.quizzes
+  const allQuizzes = buildAllQuizzes(data.quizzes)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
+
+  const [showPassword, setShowPassword] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [successName, setSuccessName] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormValues>({
     resolver: zodResolver(StudentSchema),
-    defaultValues: { name:'', studentId:'', section:'' },
+    defaultValues: { name:'', studentId:'', section:'', password:'' },
   })
 
   useEffect(() => {
@@ -57,25 +89,43 @@ export function StudentsTab() {
     setCurrentPage(1) // Reset to first page when students change
   }, [data.students])
 
-  const handleAdd = handleSubmit(async (data) => {
-    await storage.saveStudent({ 
-      id: uid(), 
-      name: data.name.trim(), 
-      studentId: data.studentId.trim(), 
-      grade: '7', 
-      section: data.section.trim(), 
-      scores: { biology: null, chemistry: null },
-      completedLessonIds: [],
-      completedLabExperimentIds: [],
-      completedQuizIds: [],
-      unlockedLessonIds: [],
-      unlockedQuizIds: [],
-      quizAttempts: []
+  const handleAdd = handleSubmit(async (formData) => {
+    setFormError(null)
+    const cleanId = formData.studentId.trim()
+
+    // 1. Create the Firebase Auth account so the student can log in
+    const firebaseUser = await firebaseCreateStudentAccount(cleanId, formData.password)
+    if (!firebaseUser) {
+      setFormError(
+        'Could not create login account. The Student ID may already be registered, ' +
+        'or there was a network error. Please try a different ID.'
+      )
+      return
+    }
+
+    // 2. Save the Firestore student record (also seeds Zustand via useStorageData)
+    await storage.saveStudent({
+      id:  uid(),
+      name:      formData.name.trim(),
+      studentId: cleanId,
+      grade:     '7',
+      section:   formData.section.trim(),
+      scores:    { biology: null, chemistry: null },
+      completedLessonIds:       [],
+      completedLabExperimentIds:[],
+      completedQuizIds:         [],
+      unlockedLessonIds:        [],
+      unlockedQuizIds:          [],
+      quizAttempts:             [],
     })
+
     const updatedData = await storage.getAll()
     setStudents(updatedData.students)
     reset()
+    setShowPassword(false)
     setShowForm(false)
+    setSuccessName(formData.name.trim())
+    setTimeout(() => setSuccessName(null), 4000)
   })
 
   const handleExportCSV = () => {
@@ -186,7 +236,7 @@ export function StudentsTab() {
         <Card className="rounded-2xl p-6 mb-8 max-w-lg border-border">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-foreground">Add New Student</h3>
-            <Button variant="ghost" size="icon" onClick={() => setShowForm(false)} aria-label="Close">
+            <Button variant="ghost" size="icon" onClick={() => { setShowForm(false); setFormError(null); reset() }} aria-label="Close">
               <X size={16} />
             </Button>
           </div>
@@ -199,7 +249,7 @@ export function StudentsTab() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Student ID (6 digits)</label>
-                <Input {...register('studentId')} placeholder="e.g. 123456" />
+                <Input {...register('studentId')} placeholder="e.g. 123456" maxLength={6} />
                 {errors.studentId && <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>}
               </div>
               <div>
@@ -207,12 +257,57 @@ export function StudentsTab() {
                 <Input {...register('section')} placeholder="e.g. St. Jude" />
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Login Password</label>
+              <div className="relative">
+                <Input
+                  {...register('password')}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Min. 6 characters"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                This password will be used by the student to log in.
+              </p>
+            </div>
+            {formError && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                {formError}
+              </div>
+            )}
             <Button type="submit" className="w-full rounded-xl btn-glow mt-2">
               Save Student Record
             </Button>
           </form>
         </Card>
       )}
+
+      <AnimatePresence>
+        {successName && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold"
+          >
+            <CheckCircle2 size={16} className="shrink-0" />
+            <span>Student <span className="font-bold">{successName}</span> was added successfully.</span>
+            <button onClick={() => setSuccessName(null)} className="ml-auto text-success/60 hover:text-success transition-colors">
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Card className="rounded-2xl border-border overflow-hidden">
         <div className="overflow-x-auto">
@@ -366,36 +461,63 @@ export function StudentsTab() {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Quizzes</h3>
-                <p className="text-sm text-muted-foreground">Select a quiz to generate an unlock code for retake.</p>
+                <p className="text-sm text-muted-foreground">
+                  {viewStudent.quizAttempts?.length ?? 0} attempted &middot; select any to unlock for retake.
+                </p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setViewStudent(null)} aria-label="Close" className="shrink-0">
                 <X size={16} />
               </Button>
             </div>
-            
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-              {allQuizzes.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">No quizzes created yet.</p>
-              ) : (
-                allQuizzes.map((q) => (
-                  <div key={q.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
-                    <div className="min-w-0">
+
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {allQuizzes.map((q) => {
+                const attempts = (viewStudent.quizAttempts ?? [])
+                  .filter(a => a.quizId === q.id)
+                  .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+                const lastAttempt = attempts[0] ?? null
+                return (
+                  <div
+                    key={q.id}
+                    className={cn(
+                      'flex items-center justify-between gap-3 p-3 rounded-xl border bg-muted/20',
+                      lastAttempt ? 'border-primary/30' : 'border-border'
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground truncate">{q.title}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{q.subject}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground capitalize">{q.subject}</span>
+                        {lastAttempt ? (
+                          <>
+                            <span className="text-muted-foreground/40 text-xs">·</span>
+                            <span className="text-xs font-medium text-success">
+                              {lastAttempt.correctAnswers}/{lastAttempt.totalQuestions} correct
+                            </span>
+                            <span className="text-muted-foreground/40 text-xs">·</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {attempts.length} attempt{attempts.length !== 1 ? 's' : ''}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic">Not yet attempted</span>
+                        )}
+                      </div>
                     </div>
                     <Button
                       size="sm"
+                      variant={lastAttempt ? 'default' : 'outline'}
                       onClick={() => {
                         setUnlockStudent(viewStudent)
                         setUnlockQuiz(q)
                       }}
-                      className="rounded-lg text-xs"
+                      className="rounded-lg text-xs shrink-0"
                     >
-                      Unlock
+                      {lastAttempt ? 'Retake' : 'Unlock'}
                     </Button>
                   </div>
-                ))
-              )}
+                )
+              })}
             </div>
           </motion.div>
         </div>,
