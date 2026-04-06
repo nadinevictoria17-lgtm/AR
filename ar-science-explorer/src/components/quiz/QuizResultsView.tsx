@@ -11,7 +11,7 @@ interface QuizResultsViewProps {
   totalQuestions: number
   hintsUsed: number
   passed: boolean
-  onRetry: () => void
+  onRetry?: () => void
   onHome: () => void
   isLastQuiz?: boolean
   quizTitle?: string
@@ -28,16 +28,20 @@ export function QuizResultsView({
   quizTitle = 'Quiz',
 }: QuizResultsViewProps) {
   const [isRedirecting, setIsRedirecting] = useState(false)
-  const percentage = Math.round((score / totalQuestions) * 100)
+  const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0
   const passThreshold = 70
 
-  // Auto-redirect to Home after 4 seconds
+  // Auto-redirect to Home after 4 seconds; clear both timers on unmount
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let redirectTimer: ReturnType<typeof setTimeout>
+    const outer = setTimeout(() => {
       setIsRedirecting(true)
-      setTimeout(() => onHome(), 800)
+      redirectTimer = setTimeout(() => onHome(), 800)
     }, 4000)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(outer)
+      clearTimeout(redirectTimer)
+    }
   }, [onHome])
 
   return (
@@ -55,13 +59,13 @@ export function QuizResultsView({
         <div
           className={cn(
             'w-24 h-24 rounded-full flex items-center justify-center',
-            passed ? 'bg-emerald-100 dark:bg-emerald-950/30' : 'bg-amber-100 dark:bg-amber-950/30'
+            passed ? 'bg-success/15' : 'bg-warning/15'
           )}
         >
           {passed ? (
-            <Trophy size={48} className="text-emerald-600 dark:text-emerald-400" />
+            <Trophy size={48} className="text-success" />
           ) : (
-            <Zap size={48} className="text-amber-600 dark:text-amber-400" />
+            <Zap size={48} className="text-warning" />
           )}
         </div>
       </motion.div>
@@ -71,7 +75,7 @@ export function QuizResultsView({
         <h1
           className={cn(
             'text-3xl font-black mb-2',
-            passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+            passed ? 'text-success' : 'text-warning'
           )}
         >
           {passed ? 'Excellent!' : 'Keep Trying!'}
@@ -96,7 +100,7 @@ export function QuizResultsView({
         <div className="space-y-3 pt-6 border-t border-border">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Correct Answers</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="font-semibold text-success">
               {score}/{totalQuestions}
             </span>
           </div>
@@ -117,12 +121,12 @@ export function QuizResultsView({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="mb-8 p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-center"
+          className="mb-8 p-4 bg-success/10 border border-success/20 rounded-xl text-center"
         >
-          <Badge className="bg-emerald-600 text-white mb-2">
+          <Badge variant="success" size="md" className="mb-2">
             ✓ Quiz Completed
           </Badge>
-          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+          <p className="text-xs text-success">
             Great job! You've unlocked the next section.
           </p>
         </motion.div>
@@ -136,16 +140,25 @@ export function QuizResultsView({
             Returning to Dashboard...
           </Button>
         ) : (
-          <Button
-            onClick={() => {
-              setIsRedirecting(true)
-              setTimeout(() => onHome(), 800)
-            }}
-            className="w-full h-12 font-bold text-base"
-          >
-            <Home size={18} className="mr-2" />
-            Back to Dashboard
-          </Button>
+          <>
+            {onRetry && !passed && (
+              <Button
+                onClick={onRetry}
+                variant="secondary"
+                className="w-full h-12 font-bold text-base"
+              >
+                <Zap size={18} className="mr-2" />
+                Retry Quiz
+              </Button>
+            )}
+            <Button
+              onClick={onHome}
+              className="w-full h-12 font-bold text-base"
+            >
+              <Home size={18} className="mr-2" />
+              Back to Dashboard
+            </Button>
+          </>
         )}
       </div>
 

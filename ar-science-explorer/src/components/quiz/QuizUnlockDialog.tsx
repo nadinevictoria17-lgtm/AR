@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { Lock, Check, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useQuizAttempt } from '../../hooks/useQuizAttempt'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 
 interface QuizUnlockDialogProps {
   studentId: string
@@ -26,22 +28,14 @@ export function QuizUnlockDialog({
   const [errorMessage, setErrorMessage] = useState('')
 
   const handleSubmit = async () => {
-    if (!code.trim()) return
+    if (!code.trim() || status !== 'idle') return
 
     setStatus('checking')
-    const upperCode = code.trim().toUpperCase()
-
-    // Simulate brief validation delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    // Try quiz-specific unlock code from database
-    const success = await quizAttempt.applyUnlockCode(studentId, quizId, upperCode)
+    const success = await quizAttempt.applyUnlockCode(studentId, quizId, code.trim().toUpperCase())
 
     if (success) {
       setStatus('success')
-      setTimeout(() => {
-        onUnlock()
-      }, 1500)
+      setTimeout(onUnlock, 1200)
     } else {
       setStatus('error')
       setErrorMessage('Invalid or expired code. Please check and try again.')
@@ -78,7 +72,7 @@ export function QuizUnlockDialog({
         </p>
 
         <div className="space-y-3">
-          <input
+          <Input
             type="text"
             placeholder="Enter unlock code"
             value={code}
@@ -86,9 +80,8 @@ export function QuizUnlockDialog({
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             disabled={status !== 'idle'}
             className={cn(
-              'w-full px-3 py-2 rounded-xl border bg-background text-foreground font-mono text-center tracking-widest uppercase text-sm',
-              'disabled:opacity-60 disabled:cursor-not-allowed',
-              status === 'error' ? 'border-destructive bg-destructive/5' : 'border-border'
+              'font-mono text-center tracking-widest uppercase',
+              status === 'error' && 'border-destructive focus:ring-destructive/50 bg-destructive/5'
             )}
           />
 
@@ -99,32 +92,29 @@ export function QuizUnlockDialog({
           )}
 
           {status === 'success' && (
-            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-sm text-primary">
+            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-sm text-success">
               <Check size={16} /> Code accepted! Reloading...
             </motion.div>
           )}
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button
+          <Button
+            variant="outline"
             onClick={onCancel}
             disabled={status !== 'idle'}
-            className="flex-1 px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted disabled:opacity-60 transition-colors"
+            className="flex-1"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSubmit}
             disabled={!code.trim() || status !== 'idle'}
-            className={cn(
-              'flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-              code.trim() && status === 'idle'
-                ? 'bg-primary text-primary-foreground hover:opacity-90'
-                : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
-            )}
+            isLoading={status === 'checking'}
+            className="flex-1"
           >
             {status === 'checking' ? 'Checking...' : 'Unlock'}
-          </button>
+          </Button>
         </div>
       </div>
     </motion.div>,

@@ -1,18 +1,9 @@
 import { motion } from 'framer-motion'
 import { useAppStore } from '../../../store/useAppStore'
 import { cn } from '../../../lib/utils'
+import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { useNavigate } from 'react-router-dom'
-
-const SUBJECT_STYLES: Record<string, { badge: string }> = {
-  biology:   { badge: 'bg-subject-biology/15 text-subject-biology border-subject-biology/30' },
-  chemistry: { badge: 'bg-subject-chemistry/15 text-subject-chemistry border-subject-chemistry/30' },
-}
-
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
+import { Button } from '../../ui/button'
 
 export function GetStartedScreen() {
   const { setScreen } = useAppStore()
@@ -48,11 +39,11 @@ export function GetStartedScreen() {
           <span key={s} className={cn('px-3 py-1 rounded-full border text-xs font-semibold capitalize', SUBJECT_STYLES[s].badge)}>{s}</span>
         ))}
       </div>
-      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-        onClick={handleStart}
-        className="px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-bold text-base btn-glow hover:bg-primary/90 transition-all mb-4">
-        Get Started
-      </motion.button>
+      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} className="mb-4">
+        <Button size="lg" onClick={handleStart} className="px-10 rounded-2xl btn-glow font-bold">
+          Get Started
+        </Button>
+      </motion.div>
       <p className="text-xs text-muted-foreground">Tap to begin your science journey</p>
     </motion.div>
   )

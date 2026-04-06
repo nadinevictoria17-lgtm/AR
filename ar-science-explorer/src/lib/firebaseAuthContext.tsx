@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 import { User } from 'firebase/auth'
 import { firebaseOnAuthStateChanged } from './firebaseAuth'
 
@@ -29,8 +29,12 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     ? user.email.split('@')[0]
     : undefined
 
+  // Memoize context value to prevent all consumers from re-rendering when
+  // the provider re-renders for unrelated reasons (e.g. parent state change).
+  const value = useMemo(() => ({ user, isLoading, studentId }), [user, isLoading, studentId])
+
   return (
-    <FirebaseAuthContext.Provider value={{ user, isLoading, studentId }}>
+    <FirebaseAuthContext.Provider value={value}>
       {children}
     </FirebaseAuthContext.Provider>
   )

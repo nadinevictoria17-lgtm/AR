@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { KeyRound, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { KeyRound, X, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { cn } from '../../lib/utils'
 import { getUnlockCodeData } from '../../lib/unlockCodeManager'
 import { storage } from '../../lib/storage'
 import { useAppStore } from '../../store/useAppStore'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 
 interface AccessCodeModalProps {
   isOpen: boolean
@@ -17,7 +20,9 @@ interface AccessCodeModalProps {
 }
 
 export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSuccess }: AccessCodeModalProps) {
-  const { currentStudentId, unlockSubject } = useAppStore()
+  const { currentStudentId, unlockSubject } = useAppStore(
+    useShallow(s => ({ currentStudentId: s.currentStudentId, unlockSubject: s.unlockSubject }))
+  )
   const [code, setCode] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
@@ -104,11 +109,12 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
                   <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Required for {title}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={onClose}
-                className="p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground"
+                aria-label="Close"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -117,14 +123,14 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Teacher Access Code
                 </label>
-                <input
+                <Input
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   placeholder="ENTER CODE HERE"
                   disabled={status === 'loading' || status === 'success'}
-                  className="w-full px-5 py-4 bg-muted/50 border-2 border-border rounded-2xl text-xl font-mono font-black text-center tracking-widest focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
                   autoFocus
+                  className="text-xl font-mono font-black text-center tracking-widest h-auto py-4"
                 />
               </div>
 
@@ -133,33 +139,38 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={cn(
-                    "p-4 rounded-2xl flex items-start gap-3 text-sm font-medium",
-                    status === 'error' ? "bg-red-500/10 text-red-600 border border-red-500/20" : "bg-green-500/10 text-green-600 border border-green-500/20"
+                    'p-4 rounded-2xl flex items-start gap-3 text-sm font-medium border',
+                    status === 'error'
+                      ? 'bg-destructive/10 text-destructive border-destructive/20'
+                      : 'bg-success/10 text-success border-success/20'
                   )}
                 >
-                  {status === 'error' ? <AlertCircle size={18} className="shrink-0 mt-0.5" /> : <CheckCircle2 size={18} className="shrink-0 mt-0.5" />}
+                  {status === 'error'
+                    ? <AlertCircle  size={18} className="shrink-0 mt-0.5" />
+                    : <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                  }
                   {message}
                 </motion.div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <button
+                <Button
+                  variant="outline"
+                  size="lg"
                   onClick={onClose}
-                  className="px-6 py-4 rounded-2xl border border-border font-bold text-muted-foreground hover:bg-muted transition-all"
+                  className="rounded-2xl"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="lg"
                   onClick={handleUnlock}
                   disabled={!code.trim() || status === 'loading' || status === 'success'}
-                  className="px-6 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  isLoading={status === 'loading'}
+                  className="rounded-2xl btn-glow"
                 >
-                  {status === 'loading' ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <>Unlock Now</>
-                  )}
-                </button>
+                  {status !== 'loading' && 'Unlock Now'}
+                </Button>
               </div>
             </div>
           </motion.div>

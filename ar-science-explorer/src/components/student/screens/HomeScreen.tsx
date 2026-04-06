@@ -1,23 +1,36 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { cn } from '../../../lib/utils'
+import { pageVariants } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
 import { Trophy, KeyRound, ArrowRight, CheckCircle2, Star, Zap, GraduationCap } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { Badge } from '../../ui/badge'
+import { Input } from '../../ui/input'
+import { PageSkeleton } from '../../ui/skeleton'
 
 export function HomeScreen() {
-  const { setScreen, currentStudentId, applyAccessCode, setActiveLesson } = useAppStore()
+  const { setScreen, currentStudentId, applyAccessCode, setActiveLesson } = useAppStore(
+    useShallow(s => ({
+      setScreen:      s.setScreen,
+      currentStudentId: s.currentStudentId,
+      applyAccessCode: s.applyAccessCode,
+      setActiveLesson: s.setActiveLesson,
+    }))
+  )
   const navigate = useNavigate()
   const [accessCode, setAccessCode] = useState('')
   const [unlockMessage, setUnlockMessage] = useState<string | null>(null)
   const [isApplyingCode, setIsApplyingCode] = useState(false)
 
-  const { data } = useStorageData(true)
+  const { data, isLoading } = useStorageData(true)
+  const showSkeleton = useDeferredLoading(isLoading)
   const student = useMemo(() => 
     currentStudentId ? data.students.find(s => s.studentId === currentStudentId) : null
   , [data.students, currentStudentId])
@@ -46,22 +59,25 @@ export function HomeScreen() {
       .slice(0, 3)
   }, [student])
 
-  const handleStartNext = () => {
-    const nextLesson = LESSONS.find(l => !student?.completedLessonIds.includes(l.id))
-    if (nextLesson) {
-      setActiveLesson(nextLesson.id)
+  const handleStartNext = useCallback(() => {
+    const next = LESSONS.find(l => !student?.completedLessonIds.includes(l.id))
+    if (next) {
+      setActiveLesson(next.id)
       setScreen('arlab')
-      navigate(`/app/arlab?lessonId=${nextLesson.id}`)
+      navigate(`/app/arlab?lessonId=${next.id}`)
     } else {
       setScreen('learn')
       navigate('/app/learn')
     }
-  }
+  }, [student, setActiveLesson, setScreen, navigate])
+
+  if (showSkeleton) return <PageSkeleton />
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
       className="space-y-8 pb-10"
     >
       {/* Top Welcome Header */}
@@ -161,7 +177,7 @@ export function HomeScreen() {
                     </div>
                     <span className={cn(
                       "text-sm font-black",
-                      attempt.score >= 80 ? "text-emerald-500" : attempt.score >= 50 ? "text-amber-500" : "text-destructive"
+                      attempt.score >= 80 ? "text-success" : attempt.score >= 50 ? "text-warning" : "text-destructive"
                     )}>
                       {attempt.score}%
                     </span>
@@ -182,14 +198,14 @@ export function HomeScreen() {
                </div>
             </div>
             <div className="space-y-3">
-              <input
+              <Input
                 value={accessCode}
                 onChange={(e) => {
                   setAccessCode(e.target.value.toUpperCase())
                   setUnlockMessage(null)
                 }}
                 placeholder="e.g. UNLOCK-Q1W1"
-                className="w-full px-4 py-2.5 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                className="font-mono tracking-widest"
               />
               <Button
                 onClick={async () => {
@@ -217,8 +233,8 @@ export function HomeScreen() {
                 {isApplyingCode ? 'Applying...' : 'Apply Code'}
               </Button>
               {unlockMessage && (
-                <p className={cn('text-center text-[10px] font-bold uppercase tracking-wider', 
-                  unlockMessage.includes('Successfully') ? 'text-emerald-500' : 'text-destructive'
+                <p className={cn('text-center text-[10px] font-bold uppercase tracking-wider',
+                  unlockMessage.toLowerCase().includes('unlocked') ? 'text-success' : 'text-destructive'
                 )}>
                   {unlockMessage}
                 </p>

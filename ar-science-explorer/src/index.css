@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,6 +22,10 @@
     --accent-foreground:    220 30% 7%;
     --destructive:          0 72% 60%;
     --destructive-foreground: 0 0% 100%;
+    --success:              160 84% 44%;
+    --success-foreground:   0 0% 100%;
+    --warning:              38 92% 52%;
+    --warning-foreground:   0 0% 100%;
 
     --subject-physics:   195 83% 58%;
     --subject-biology:   142 70% 48%;
@@ -50,6 +52,10 @@
     --accent-foreground:    0 0% 100%;
     --destructive:          0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --success:              160 84% 36%;
+    --success-foreground:   0 0% 100%;
+    --warning:              38 92% 44%;
+    --warning-foreground:   0 0% 100%;
 
     --subject-physics:   195 83% 42%;
     --subject-biology:   142 70% 35%;

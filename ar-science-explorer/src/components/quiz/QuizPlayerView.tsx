@@ -5,6 +5,14 @@ import { Card } from '../ui/card'
 import { cn } from '../../lib/utils'
 import type { BuiltInQuestion } from '../../types'
 
+const PLAYER_INITIAL  = { opacity: 0, y: 10 } as const
+const PLAYER_ANIMATE  = { opacity: 1, y: 0  } as const
+const HOVER_ACTIVE    = { scale: 1.02 } as const
+const TAP_ACTIVE      = { scale: 0.98 } as const
+const HOVER_DISABLED  = {} as const
+const RESULT_INITIAL  = { opacity: 0, y: 10 } as const
+const RESULT_ANIMATE  = { opacity: 1, y: 0  } as const
+
 interface QuizPlayerViewProps {
   question: BuiltInQuestion
   questionIndex: number
@@ -37,8 +45,8 @@ export function QuizPlayerView({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={PLAYER_INITIAL}
+      animate={PLAYER_ANIMATE}
       className="max-w-2xl mx-auto pb-8"
     >
       {/* Header */}
@@ -58,10 +66,10 @@ export function QuizPlayerView({
       </div>
 
       {/* Progress Bar */}
-      <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden">
+      <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden" role="progressbar" aria-valuenow={questionIndex + 1} aria-valuemax={totalQuestions}>
         <div
           className="h-full bg-primary transition-all duration-300"
-          style={{ width: `${((questionIndex + 1) / totalQuestions) * 100}%` }}
+          style={{ width: totalQuestions > 0 ? `${((questionIndex + 1) / totalQuestions) * 100}%` : '0%' }}
         />
       </div>
 
@@ -78,14 +86,14 @@ export function QuizPlayerView({
               key={idx}
               onClick={() => !showResult && onSelectAnswer(idx)}
               disabled={showResult}
-              whileHover={!showResult ? { scale: 1.02 } : {}}
-              whileTap={!showResult ? { scale: 0.98 } : {}}
+              whileHover={!showResult ? HOVER_ACTIVE   : HOVER_DISABLED}
+              whileTap={!showResult  ? TAP_ACTIVE     : HOVER_DISABLED}
               className={cn(
                 'w-full text-left p-4 rounded-lg border-2 transition-all',
                 selectedAnswer === idx
                   ? 'border-primary bg-primary/10'
                   : 'border-border bg-muted/30 hover:border-primary/50',
-                showResult && idx === question.correctIndex && 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20',
+                showResult && idx === question.correctIndex && 'border-success bg-success/5',
                 showResult && selectedAnswer === idx && idx !== question.correctIndex && 'border-destructive bg-destructive/10'
               )}
             >
@@ -100,7 +108,7 @@ export function QuizPlayerView({
                 </div>
                 <span className="flex-1">{option}</span>
                 {showResult && idx === question.correctIndex && (
-                  <CheckCircle2 size={20} className="text-emerald-500 flex-shrink-0" />
+                  <CheckCircle2 size={20} className="text-success flex-shrink-0" />
                 )}
                 {showResult && selectedAnswer === idx && idx !== question.correctIndex && (
                   <XCircle size={20} className="text-destructive flex-shrink-0" />
@@ -126,37 +134,37 @@ export function QuizPlayerView({
 
         {/* Hint Display */}
         {question.hint && hintsUsedCount > 0 && !showResult && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-6">
-            <p className="text-sm text-amber-900 dark:text-amber-100">
+          <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg mb-6">
+            <p className="text-sm text-warning-foreground">
               <strong>Hint:</strong> {question.hint}
             </p>
           </div>
         )}
       </Card>
 
-      {/* Result Feedback */}
+        {/* Result Feedback */}
       <AnimatePresence>
         {showResult && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={RESULT_INITIAL}
+            animate={RESULT_ANIMATE}
             className={cn(
               'p-6 rounded-lg mb-8 text-center',
               isCorrect
-                ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800'
-                : 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800'
+                ? 'bg-success/10 border border-success/20'
+                : 'bg-warning/10 border border-warning/20'
             )}
           >
             <p
               className={cn(
                 'text-lg font-bold mb-2',
-                isCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
+                isCorrect ? 'text-success' : 'text-warning'
               )}
             >
               {isCorrect ? '✓ Correct!' : 'Incorrect'}
             </p>
             {!isCorrect && (
-              <p className="text-sm text-amber-600 dark:text-amber-300">
+              <p className="text-sm text-warning/80">
                 The correct answer is {String.fromCharCode(65 + question.correctIndex)}.
               </p>
             )}

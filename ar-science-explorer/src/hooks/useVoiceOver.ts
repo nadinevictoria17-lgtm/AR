@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface UseVoiceOverArgs {
   lines: string[]
@@ -7,9 +7,14 @@ interface UseVoiceOverArgs {
 
 export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [supported, setSupported] = useState(true)
+  const [isPlaying, setIsPlaying]       = useState(false)
+  const [supported, setSupported]       = useState(true)
 
+  // Always hold the latest lines without causing effect re-runs
+  const linesRef = useRef(lines)
+  linesRef.current = lines
+
+  // Detect support once on mount
   useEffect(() => {
     const isSupported =
       typeof window !== 'undefined' &&
@@ -18,14 +23,18 @@ export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
     setSupported(isSupported)
   }, [])
 
+  // Cancel + reset when language changes OR when the lines array reference changes
+  // (lines reference changes when the parent switches to a different lesson/script)
   useEffect(() => {
     setCurrentIndex(0)
     if (supported) {
       window.speechSynthesis.cancel()
       setIsPlaying(false)
     }
-  }, [language, supported])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, supported, lines])
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -39,7 +48,8 @@ export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
     const synth = window.speechSynthesis
     synth.cancel()
 
-    const queue = lines.slice(startIdx)
+    // Read from ref so the closure always has fresh lines
+    const queue = linesRef.current.slice(startIdx)
     if (queue.length === 0) return
     setIsPlaying(true)
     let relative = 0
@@ -52,8 +62,8 @@ export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
       }
 
       const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = language === 'en' ? 'en-US' : 'fil-PH'
-      utterance.rate = 0.95
+      utterance.lang  = language === 'en' ? 'en-US' : 'fil-PH'
+      utterance.rate  = 0.95
       utterance.pitch = 1
 
       utterance.onstart = () => {
@@ -85,11 +95,8 @@ export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
     isPlaying,
     supported,
     playAll: () => speakFromIndex(0),
-    replay: () => speakFromIndex(currentIndex),
+    replay:  () => speakFromIndex(currentIndex),
     stop,
-    reset: () => {
-      stop()
-      setCurrentIndex(0)
-    },
+    reset:   () => { stop(); setCurrentIndex(0) },
   }
 }

@@ -1,9 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
 import { useQuizAttempt } from '../../../hooks/useQuizAttempt'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { PageSkeleton } from '../../ui/skeleton'
 import { SUBJECTS } from '../../../data/subjects'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { storage } from '../../../lib/storage'
@@ -11,27 +14,24 @@ import { QuizUnlockDialog } from '../../quiz/QuizUnlockDialog'
 import { QuizListView } from '../../quiz/QuizListView'
 import { QuizPlayerView } from '../../quiz/QuizPlayerView'
 import { QuizResultsView } from '../../quiz/QuizResultsView'
-import { Zap, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { pageVariants } from '../../../lib/variants'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
-import type { SubjectKey } from '../../../types'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
+import type { SubjectKey, BuiltInQuestion } from '../../../types'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
 
 export function QuizScreen() {
-  const {
-    currentStudentId,
-    unlockSubject,
-    setScreen,
-    activeLessonId,
-  } = useAppStore()
+  const { currentStudentId, unlockSubject, setScreen, activeLessonId } = useAppStore(
+    useShallow((s) => ({
+      currentStudentId: s.currentStudentId,
+      unlockSubject:    s.unlockSubject,
+      setScreen:        s.setScreen,
+      activeLessonId:   s.activeLessonId,
+    }))
+  )
 
   const {
     activeQuizSubject,
@@ -44,11 +44,23 @@ export function QuizScreen() {
     useHint,
     quizHintsUsed,
     resetQuiz,
-  } = useQuizStore()
+  } = useQuizStore(useShallow((s) => ({
+    activeQuizSubject: s.activeQuizSubject,
+    initQuiz:          s.initQuiz,
+    quizQuestions:     s.quizQuestions,
+    quizIndex:         s.quizIndex,
+    submitAnswer:      s.submitAnswer,
+    nextQuestion:      s.nextQuestion,
+    quizScore:         s.quizScore,
+    useHint:           s.useHint,
+    quizHintsUsed:     s.quizHintsUsed,
+    resetQuiz:         s.resetQuiz,
+  })))
 
   const quizAttemptHook = useQuizAttempt()
   const navigate = useNavigate()
-  const { data } = useStorageData()
+  const { data, isLoading } = useStorageData()
+  const showSkeleton = useDeferredLoading(isLoading)
 
   // State
   const [selected, setSelected] = useState<number | null>(null)
@@ -255,7 +267,7 @@ export function QuizScreen() {
     setSelected(null)
   }
 
-  const handleBackHome = () => {
+  const handleBackHome = useCallback(() => {
     resetQuiz()
     setRunningQuizId(null)
     setRunningQuizIsLastInSubject(false)
@@ -263,7 +275,7 @@ export function QuizScreen() {
     setShowResult(false)
     setScreen('home')
     navigate('/app/home')
-  }
+  }, [resetQuiz, setRunningQuizId, setRunningQuizIsLastInSubject, setScreen, navigate])
 
   const handleShowBackConfirmation = () => {
     setShowBackConfirmation(true)
@@ -335,19 +347,10 @@ export function QuizScreen() {
     setPendingUnlockQuiz(null)
   }
 
-  // Render
+  if (showSkeleton) return <PageSkeleton />
+
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6">
-      {/* Header */}
-      {!inQuiz && (
-        <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Zap size={20} className="text-subject-biology" /> Quizzes
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Module-by-module practice</p>
-        </div>
-      )}
-
       {/* Quiz List */}
       {!inQuiz && !showResult && (
         <QuizListView
@@ -359,7 +362,7 @@ export function QuizScreen() {
       {/* Quiz Player */}
       {inQuiz && !showResult && question && (
         <QuizPlayerView
-          question={question}
+          question={question as BuiltInQuestion}
           questionIndex={quizIndex}
           totalQuestions={quizQuestions.length}
           selectedAnswer={selected}

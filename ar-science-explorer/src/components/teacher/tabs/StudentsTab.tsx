@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,17 +9,17 @@ import { format } from 'date-fns'
 import Papa from 'papaparse'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { QuizUnlockGenerator } from '../QuizUnlockGenerator'
 import { cn } from '../../../lib/utils'
-import type { StudentRecord } from '../../../types'
+import { pageVariants } from '../../../lib/variants'
+import type { StudentRecord, TeacherQuiz } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
+import { Input } from '../../ui/input'
+import { TableSkeleton } from '../../ui/skeleton'
+import { useNotificationStore } from '../../../store/useNotificationStore'
 
 const StudentSchema = z.object({
   name:      z.string().min(1,'Student name is required'),
@@ -34,14 +34,18 @@ function uid() { return Math.random().toString(36).slice(2, 9) }
 const ITEMS_PER_PAGE = 10
 
 export function StudentsTab() {
-  const { data } = useStorageData(true)
+  const { data, isLoading } = useStorageData(true)
+  const showSkeleton = useDeferredLoading(isLoading)
   const [students, setStudents] = useState<StudentRecord[]>(data.students)
   const [showForm, setShowForm] = useState(false)
   const [viewStudent, setViewStudent] = useState<StudentRecord | null>(null)
   const [unlockStudent, setUnlockStudent] = useState<StudentRecord | null>(null)
-  const [unlockQuiz, setUnlockQuiz] = useState<any>(null)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [unlockQuiz, setUnlockQuiz] = useState<TeacherQuiz | null>(null)
+  const [currentPage, setCurrentPage]     = useState(1)
+  const [filterSection, setFilterSection] = useState('all')
+  const [searchQuery, setSearchQuery]     = useState('')
   const allQuizzes = data.quizzes
+  const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormValues>({
     resolver: zodResolver(StudentSchema),
@@ -96,14 +100,29 @@ export function StudentsTab() {
     URL.revokeObjectURL(url)
   }
 
-  // Pagination
-  const totalPages = Math.ceil(students.length / ITEMS_PER_PAGE)
+  // Unique sections for the section filter
+  const sections = ['all', ...Array.from(new Set(students.map(s => s.section).filter(Boolean))).sort()]
+
+  // Filtered list (applied before pagination)
+  const filteredStudents = students.filter(s => {
+    if (filterSection !== 'all' && s.section !== filterSection) return false
+    if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !s.studentId.includes(searchQuery)) return false
+    return true
+  })
+
+  // Pagination over filtered set
+  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
-  const paginatedStudents = students.slice(startIndex, endIndex)
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex)
 
   const handlePrevPage = () => setCurrentPage(p => Math.max(1, p - 1))
   const handleNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1))
+
+  if (showSkeleton) {
+    return <TableSkeleton columns={['Student', 'Section', 'Last Quiz', 'Joined', '']} rows={8} />
+  }
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate">
@@ -112,7 +131,9 @@ export function StudentsTab() {
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Users size={20} className="text-primary" /> Students
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">{students.length} student{students.length !== 1 ? 's' : ''} enrolled</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {filteredStudents.length} of {students.length} student{students.length !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -131,29 +152,59 @@ export function StudentsTab() {
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
+            placeholder="Search name or ID…"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+          />
+        </div>
+        {sections.length > 1 && (
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border flex-wrap">
+            {sections.map(sec => (
+              <button key={sec} onClick={() => { setFilterSection(sec); setCurrentPage(1) }}
+                className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors',
+                  filterSection === sec ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                {sec === 'all' ? 'All Sections' : sec}
+              </button>
+            ))}
+          </div>
+        )}
+        {(searchQuery || filterSection !== 'all') && (
+          <button onClick={() => { setSearchQuery(''); setFilterSection('all'); setCurrentPage(1) }}
+            className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted transition-colors">
+            <X size={11} /> Clear
+          </button>
+        )}
+      </div>
+
       {showForm && (
         <Card className="rounded-2xl p-6 mb-8 max-w-lg border-border">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-foreground">Add New Student</h3>
-            <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" onClick={() => setShowForm(false)} aria-label="Close">
               <X size={16} />
-            </button>
+            </Button>
           </div>
           <form onSubmit={handleAdd} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Full Name</label>
-              <input {...register('name')} placeholder="e.g. Juan De La Cruz" className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <Input {...register('name')} placeholder="e.g. Juan De La Cruz" />
               {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Student ID (6 digits)</label>
-                <input {...register('studentId')} placeholder="e.g. 123456" className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <Input {...register('studentId')} placeholder="e.g. 123456" />
                 {errors.studentId && <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Section</label>
-                <input {...register('section')} placeholder="e.g. St. Jude" className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <Input {...register('section')} placeholder="e.g. St. Jude" />
               </div>
             </div>
             <Button type="submit" className="w-full rounded-xl btn-glow mt-2">
@@ -172,11 +223,26 @@ export function StudentsTab() {
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Section</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Bio</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Chem</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Last Quiz</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {paginatedStudents.map((s) => (
+              {paginatedStudents.map((s) => {
+                const lastAttempt = s.quizAttempts?.length
+                  ? [...s.quizAttempts].sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]
+                  : null
+                const lastQuizTitle = lastAttempt
+                  ? (allQuizzes.find(q => q.id === lastAttempt.quizId)?.title
+                    ?? (lastAttempt.quizId.startsWith('builtin-')
+                      ? (() => {
+                          const lessonId = lastAttempt.quizId.replace('builtin-', '')
+                          const firstQ = QUIZ_QUESTIONS.find(q => q.lessonId === lessonId)
+                          return firstQ ? `${lessonId.toUpperCase()} Quiz` : lastAttempt.quizId
+                        })()
+                      : lastAttempt.quizId))
+                  : null
+                return (
                 <tr key={s.id} className="hover:bg-muted/20 cursor-default transition-colors group">
                   <td className="px-6 py-4">
                     <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{s.name}</p>
@@ -191,37 +257,57 @@ export function StudentsTab() {
                   <td className="px-6 py-4 text-center">
                     <span className={cn('text-xs font-bold', s.scores.chemistry != null ? 'text-subject-chemistry' : 'text-muted-foreground opacity-40')}>{s.scores.chemistry ?? '—'}</span>
                   </td>
+                  <td className="px-6 py-4">
+                    {lastQuizTitle ? (
+                      <div>
+                        <p className="text-xs font-semibold text-foreground truncate max-w-[160px]">{lastQuizTitle}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {lastAttempt!.correctAnswers}/{lastAttempt!.totalQuestions} correct
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground opacity-40">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setViewStudent(s)
-                        }}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="View quizzes & unlock"
                         title="View Quizzes & Unlock"
-                        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setViewStudent(s) }}
                       >
                         <KeyRound size={14} />
-                      </button>
-                      <button
-                        onClick={async (e) => {
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete student"
+                        className="text-destructive/40 hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
                           e.stopPropagation()
-                          if (!window.confirm(`Delete student record for "${s.name}"?`)) return
-                          await storage.deleteStudent(s.id)
-                          const updatedData = await storage.getAll()
-                          setStudents(updatedData.students)
+                          showConfirmModal(
+                            'Delete Student',
+                            `Delete record for "${s.name}"? This cannot be undone.`,
+                            async () => {
+                              await storage.deleteStudent(s.id)
+                              const updatedData = await storage.getAll()
+                              setStudents(updatedData.students)
+                            }
+                          )
                         }}
-                        className="p-2 rounded-lg text-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-muted-foreground">No student records found. Add students to track their progress.</td>
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-muted-foreground">No student records found. Add students to track their progress.</td>
                 </tr>
               )}
             </tbody>
@@ -230,7 +316,7 @@ export function StudentsTab() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10">
             <div className="text-xs text-muted-foreground">
-              Showing {startIndex + 1}–{Math.min(endIndex, students.length)} of {students.length} students
+              Showing {startIndex + 1}–{Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -282,9 +368,9 @@ export function StudentsTab() {
                 <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Quizzes</h3>
                 <p className="text-sm text-muted-foreground">Select a quiz to generate an unlock code for retake.</p>
               </div>
-              <button onClick={() => setViewStudent(null)} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0">
+              <Button variant="ghost" size="icon" onClick={() => setViewStudent(null)} aria-label="Close" className="shrink-0">
                 <X size={16} />
-              </button>
+              </Button>
             </div>
             
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">

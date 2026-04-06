@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, Copy, Check, Info, GraduationCap, AlertCircle, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { pageVariants, SUBJECT_STYLES } from '../../lib/variants'
 import { getAllUnlockCodes, createUnlockCode, deleteUnlockCode, type UnlockCodeData } from '../../lib/unlockCodeManager'
 import { useStorageData } from '../../hooks/useStorageData'
 import { useNotificationStore } from '../../store/useNotificationStore'
@@ -9,15 +10,14 @@ import type { SubjectKey } from '../../types'
 import { SUBJECTS } from '../../data/subjects'
 import { LESSONS } from '../../data/lessons'
 
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
-
-const SUBJECT_STYLES: Record<SubjectKey, string> = {
-  biology:   'bg-subject-biology/10 text-subject-biology border-subject-biology/20',
-  chemistry: 'bg-subject-chemistry/10 text-subject-chemistry border-subject-chemistry/20',
+/** Returns a Tailwind text-size class that keeps the code readable regardless of length. */
+function codeTextClass(code: string): string {
+  const len = code.length
+  if (len <= 10) return 'text-2xl'
+  if (len <= 14) return 'text-xl'
+  if (len <= 18) return 'text-lg'
+  if (len <= 24) return 'text-base'
+  return 'text-sm'
 }
 
 // Derive weeks by subject from LESSONS
@@ -206,7 +206,7 @@ export function UnlockCodeManager() {
                           className={cn(
                             'flex-1 py-3 rounded-2xl text-xs font-bold border-2 transition-all',
                             selectedSubject === s.id
-                              ? SUBJECT_STYLES[s.id] + ' border-current'
+                              ? SUBJECT_STYLES[s.id as SubjectKey].badge + ' border-current'
                               : 'bg-muted/30 border-transparent text-muted-foreground hover:bg-muted'
                           )}
                         >
@@ -437,7 +437,7 @@ export function UnlockCodeManager() {
                     )}>
                       {codeData.type === 'subject' ? 'Lesson Unlock' : 'Quiz Retake'}
                     </span>
-                    <p className="text-2xl font-black font-mono tracking-tighter text-foreground">{codeData.code}</p>
+                    <p className={cn('font-black font-mono tracking-tighter text-foreground break-all leading-tight', codeTextClass(codeData.code))}>{codeData.code}</p>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -459,7 +459,7 @@ export function UnlockCodeManager() {
                   {codeData.subjects && (
                     <div className="flex flex-wrap gap-1">
                       {codeData.subjects.map(s => (
-                        <span key={s} className={cn('px-2 py-0.5 rounded-md border text-[10px] font-bold capitalize', SUBJECT_STYLES[s])}>
+                        <span key={s} className={cn('px-2 py-0.5 rounded-md border text-[10px] font-bold capitalize', SUBJECT_STYLES[s as SubjectKey].badge)}>
                           {s}
                         </span>
                       ))}

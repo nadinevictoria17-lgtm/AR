@@ -1,12 +1,7 @@
 import { motion } from 'framer-motion'
 import { KeyRound } from 'lucide-react'
 import { UnlockCodeManager } from '../UnlockCodeManager'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
+import { pageVariants } from '../../../lib/variants'
 
 export function UnlockCodesTab() {
   return (

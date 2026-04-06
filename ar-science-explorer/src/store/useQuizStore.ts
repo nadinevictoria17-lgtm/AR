@@ -1,16 +1,22 @@
 import { create } from 'zustand'
-import type { SubjectKey } from '../types'
+import type { SubjectKey, TeacherQuizQuestion } from '../types'
+
+/**
+ * QuizQuestion is the minimal shape the quiz engine needs at runtime.
+ * Both BuiltInQuestion and TeacherQuizQuestion satisfy this contract.
+ */
+export type QuizQuestion = Pick<TeacherQuizQuestion, 'question' | 'options' | 'correctIndex' | 'hint'>
 
 export interface QuizStore {
   activeQuizSubject: SubjectKey | null
-  quizQuestions: any[]
+  quizQuestions: QuizQuestion[]
   quizIndex: number
   quizScore: number
   quizAnswers: (number | null)[]
   quizHintsUsed: number
 
   setActiveQuizSubject: (s: SubjectKey | null) => void
-  initQuiz: (questions: any[]) => void
+  initQuiz: (questions: QuizQuestion[]) => void
   submitAnswer: (optionIndex: number) => void
   nextQuestion: () => void
   useHint: () => void
@@ -19,20 +25,20 @@ export interface QuizStore {
 
 export const useQuizStore = create<QuizStore>((set) => ({
   activeQuizSubject: null,
-  quizQuestions: [],
-  quizIndex: 0,
-  quizScore: 0,
-  quizAnswers: [],
-  quizHintsUsed: 0,
+  quizQuestions:    [],
+  quizIndex:        0,
+  quizScore:        0,
+  quizAnswers:      [],
+  quizHintsUsed:    0,
 
   setActiveQuizSubject: (s) => set({ activeQuizSubject: s }),
 
   initQuiz: (questions) =>
     set({
       quizQuestions: questions,
-      quizIndex: 0,
-      quizScore: 0,
-      quizAnswers: Array(questions.length).fill(null),
+      quizIndex:     0,
+      quizScore:     0,
+      quizAnswers:   Array(questions.length).fill(null),
       quizHintsUsed: 0,
     }),
 
@@ -40,8 +46,7 @@ export const useQuizStore = create<QuizStore>((set) => ({
     set((state) => {
       const newAnswers = [...state.quizAnswers]
       newAnswers[state.quizIndex] = optionIndex
-      const isCorrect =
-        optionIndex === state.quizQuestions[state.quizIndex].correctIndex
+      const isCorrect = optionIndex === state.quizQuestions[state.quizIndex]?.correctIndex
       return {
         quizAnswers: newAnswers,
         quizScore: isCorrect ? state.quizScore + 1 : state.quizScore,
@@ -49,22 +54,18 @@ export const useQuizStore = create<QuizStore>((set) => ({
     }),
 
   nextQuestion: () =>
-    set((state) => ({
-      quizIndex: state.quizIndex + 1,
-    })),
+    set((state) => ({ quizIndex: state.quizIndex + 1 })),
 
   useHint: () =>
-    set((state) => ({
-      quizHintsUsed: Math.min(state.quizHintsUsed + 1, 1),
-    })),
+    set((state) => ({ quizHintsUsed: Math.min(state.quizHintsUsed + 1, 1) })),
 
   resetQuiz: () =>
     set({
-      quizQuestions: [],
-      quizIndex: 0,
-      quizScore: 0,
-      quizAnswers: [],
-      quizHintsUsed: 0,
+      quizQuestions:    [],
+      quizIndex:        0,
+      quizScore:        0,
+      quizAnswers:      [],
+      quizHintsUsed:    0,
       activeQuizSubject: null,
     }),
 }))

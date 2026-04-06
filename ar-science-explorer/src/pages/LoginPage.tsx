@@ -26,13 +26,19 @@ export default function LoginPage() {
 
   const handleIdChange = (v: string) => {
     if (role === 'student') {
-      // Allow student ID (6 digits) or email address
+      // Allow student ID (00-0000 format) or email address
       if (v.includes('@')) {
         // Full email address
         setId(v)
       } else {
-        // Just student ID - allow up to 6 digits
-        setId(v.replace(/\D/g, '').slice(0, 6))
+        // Just student ID - auto-format as 00-0000
+        const digitsOnly = v.replace(/\D/g, '').slice(0, 6)
+        if (digitsOnly.length <= 2) {
+          setId(digitsOnly)
+        } else {
+          const formatted = `${digitsOnly.slice(0, 2)}-${digitsOnly.slice(2)}`
+          setId(formatted)
+        }
       }
     } else {
       setId(v)
@@ -52,30 +58,28 @@ export default function LoginPage() {
 
     try {
       if (role === 'student') {
-        const firebaseResult = await firebaseStudentLogin(id, password)
+        // Strip hyphen from formatted student ID for database
+        const cleanId = id.replace('-', '')
+        const firebaseResult = await firebaseStudentLogin(cleanId, password)
         if (firebaseResult) {
-          console.log('✅ Firebase Auth: Student logged in', { studentId: firebaseResult.studentId })
-          storage.ensureStudentRecord(id)
-          setCurrentStudentId(id)
+          // Ensure the Firestore record exists before navigating so subsequent
+          // reads don't race against a missing document.
+          await storage.ensureStudentRecord(cleanId)
+          setCurrentStudentId(cleanId)
           setScreen('unlock')
           navigate('/app')
           return
         }
 
-        // If null, it could be network error or invalid credentials
-        // Network errors are already logged in firebaseAuth
-        setPassError('Invalid credentials. Check internet and try again.')
+        setPassError('Invalid credentials. Check your internet connection and try again.')
       } else {
         const firebaseUser = await firebaseTeacherLogin(id, password)
         if (firebaseUser) {
-          console.log('✅ Firebase Auth: Teacher logged in', { email: firebaseUser.email })
           navigate('/teacher')
           return
         }
 
-        // If null, it could be network error or invalid credentials
-        // Network errors are already logged in firebaseAuth
-        setIdError('Invalid email or password. Check internet and try again.')
+        setIdError('Invalid email or password. Check your internet connection and try again.')
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -153,7 +157,7 @@ export default function LoginPage() {
                     value={id}
                     onChange={handleIdChange}
                     onBlur={() => setIdError(validateIdentifier(role, id))}
-                    placeholder={role === 'student' ? '6-digit ID' : 'teacher@school.edu'}
+                    placeholder={role === 'student' ? '00-0000' : 'teacher@school.edu'}
                     type={role === 'teacher' ? 'email' : 'text'}
                     error={idError}
                     icon={User}
@@ -179,12 +183,6 @@ export default function LoginPage() {
                       </button>
                     )}
                   />
-
-                  <div className="text-right">
-                    <button type="button" className="text-xs text-primary font-semibold hover:underline">
-                      Forgot password?
-                    </button>
-                  </div>
 
                   <motion.button
                     type="submit"

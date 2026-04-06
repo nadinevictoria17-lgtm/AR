@@ -349,6 +349,9 @@ export const storage = {
       const unlockCodeDoc = codesSnap.docs[0]
       const unlockCode = unlockCodeDoc.data() as QuizUnlockCode
 
+      // Reject already-used codes
+      if (unlockCode.isUsed) return false
+
       // Check expiration
       if (unlockCode.expiresAt && new Date(unlockCode.expiresAt) < new Date()) {
         return false
@@ -359,6 +362,25 @@ export const storage = {
         isUsed: true,
         usedAt: new Date().toISOString(),
       })
+
+      // Unlock the student's latest attempt for this quiz so
+      // validateQuizEligibility allows the retake
+      const studentRef = doc(db, 'students', studentId)
+      const studentSnap = await getDoc(studentRef)
+      if (studentSnap.exists()) {
+        const studentData = studentSnap.data() as StudentRecord
+        const attempts: QuizAttempt[] = studentData.quizAttempts ?? []
+        const sorted = [...attempts]
+          .filter((a) => a.quizId === quizId)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        const latest = sorted[0]
+        if (latest?.locked) {
+          const updated = attempts.map((a) =>
+            a.id === latest.id ? { ...a, locked: false } : a
+          )
+          await updateDoc(studentRef, { quizAttempts: updated })
+        }
+      }
 
       return true
     } catch (error) {

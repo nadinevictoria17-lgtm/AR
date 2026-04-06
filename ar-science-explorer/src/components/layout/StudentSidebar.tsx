@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Home, BookOpen, Trophy, ChevronLeft, ChevronRight, LogOut, Atom, Sun, Moon, X, AlertCircle, type LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../store/useAppStore'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
+import { firebaseSignOut } from '../../lib/firebaseAuth'
 import type { SubjectKey } from '../../types'
 
 const SUBJECT_DOT: Record<SubjectKey, string> = {
@@ -33,7 +35,9 @@ function SidebarContent({
   isMobile?: boolean;
   onMobileClose?: () => void;
 }) {
-  const { theme, toggleTheme, unlocked, currentStudentId } = useAppStore()
+  const { theme, toggleTheme, unlocked, currentStudentId } = useAppStore(
+    useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme, unlocked: s.unlocked, currentStudentId: s.currentStudentId }))
+  )
   const location = useLocation()
   const navigate = useNavigate()
   const [showExitConfirmation, setShowExitConfirmation] = useState(false)
@@ -206,7 +210,10 @@ function SidebarContent({
         </button>
 
         <button
-          onClick={() => { window.location.href = '/login' }}
+          onClick={async () => {
+            await firebaseSignOut()
+            navigate('/login', { replace: true })
+          }}
           title={collapsed ? 'Logout' : undefined}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all',

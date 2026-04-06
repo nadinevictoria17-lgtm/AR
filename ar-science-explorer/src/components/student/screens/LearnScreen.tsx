@@ -1,32 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GraduationCap, Lock, ChevronRight, FileText, Layout, Info } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { cn } from '../../../lib/utils'
+import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { SUBJECTS } from '../../../data/subjects'
 import type { SubjectKey, Lesson } from '../../../types'
 import { useNavigate } from 'react-router-dom'
-import { useStorageData } from '../../../hooks/useStorageData'
 import { storage } from '../../../lib/storage'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
 
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-}
-
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
-const SUBJECT_STYLES: Record<SubjectKey, { bg: string; border: string; text: string; badge: string }> = {
-  biology:   { bg: 'bg-subject-biology/10',   border: 'border-subject-biology/25',   text: 'text-subject-biology',   badge: 'bg-subject-biology/15 text-subject-biology border-subject-biology/30' },
-  chemistry: { bg: 'bg-subject-chemistry/10', border: 'border-subject-chemistry/25', text: 'text-subject-chemistry', badge: 'bg-subject-chemistry/15 text-subject-chemistry border-subject-chemistry/30' },
+
+// Static derived values — computed once since LESSONS / QUIZ_QUESTIONS are module-level constants
+const SUBJECTS_DATA = SUBJECTS.filter(s => SUBJECT_ORDER.includes(s.id as SubjectKey))
+const LESSON_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
+  chemistry: LESSONS.filter(l => l.subject === 'chemistry').length,
+  biology:   LESSONS.filter(l => l.subject === 'biology').length,
+}
+const QUIZ_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
+  chemistry: QUIZ_QUESTIONS.filter(q => q.subject === 'chemistry').length,
+  biology:   QUIZ_QUESTIONS.filter(q => q.subject === 'biology').length,
 }
 
 export function LearnScreen() {
-  const { setScreen, setActiveLesson, currentStudentId } = useAppStore()
-  useStorageData()
+  const { setScreen, setActiveLesson, currentStudentId } = useAppStore(
+    useShallow(s => ({ setScreen: s.setScreen, setActiveLesson: s.setActiveLesson, currentStudentId: s.currentStudentId }))
+  )
   const navigate = useNavigate()
 
   const [activeSubject, setActiveSubject] = useState<SubjectKey>('chemistry')
@@ -37,46 +40,39 @@ export function LearnScreen() {
     title: '',
   })
 
-  useEffect(() => {
-    if (currentStudentId) {
-      loadUnlockStatus()
-    }
-  }, [currentStudentId])
-
-  const loadUnlockStatus = async () => {
+  const loadUnlockStatus = useCallback(async () => {
     if (!currentStudentId) return
     const ids = await storage.getUnlockedLessons(currentStudentId)
     setUnlockedLessons(new Set(ids))
-  }
+  }, [currentStudentId])
 
-  const lessonsPool: Lesson[] = [...LESSONS]
-  const subjectsData = SUBJECTS.filter((s) => SUBJECT_ORDER.includes(s.id))
+  useEffect(() => {
+    if (currentStudentId) loadUnlockStatus()
+  }, [currentStudentId, loadUnlockStatus])
 
-  const lessonCountBySubject: Record<SubjectKey, number> = {
-    biology: lessonsPool.filter((l) => l.subject === 'biology').length,
-    chemistry: lessonsPool.filter((l) => l.subject === 'chemistry').length,
-  }
-
-  const quizCountBySubject: Record<SubjectKey, number> = {
-    biology: QUIZ_QUESTIONS.filter((q) => q.subject === 'biology').length,
-    chemistry: QUIZ_QUESTIONS.filter((q) => q.subject === 'chemistry').length,
-  }
-
-  const handleLessonClick = (lesson: Lesson) => {
+  const handleLessonClick = useCallback((lesson: Lesson) => {
     const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
-
     if (isUnlocked) {
       setActiveLesson(lesson.id)
       setScreen('arlab')
       navigate('/app/arlab')
     } else {
-      setUnlockModal({
-        isOpen: true,
-        lessonId: lesson.id,
-        title: lesson.title,
-      })
+      setUnlockModal({ isOpen: true, lessonId: lesson.id, title: lesson.title })
     }
-  }
+  }, [unlockedLessons, setActiveLesson, setScreen, navigate])
+
+  const handleModalClose = useCallback(() =>
+    setUnlockModal(m => ({ ...m, isOpen: false })), [])
+
+  const handleModalSuccess = useCallback(() => {
+    loadUnlockStatus()
+    setUnlockModal(m => ({ ...m, isOpen: false }))
+  }, [loadUnlockStatus])
+
+  const filteredLessons = useMemo(
+    () => LESSONS.filter(l => l.subject === activeSubject),
+    [activeSubject]
+  )
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-8 pb-12">
@@ -100,7 +96,7 @@ export function LearnScreen() {
           </div>
           
           <div className="grid grid-cols-2 gap-3 shrink-0">
-            {subjectsData.map((s) => (
+            {SUBJECTS_DATA.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setActiveSubject(s.id)}
@@ -134,9 +130,9 @@ export function LearnScreen() {
                 Quarter {SUBJECT_ORDER.indexOf(activeSubject) + 1}: {activeSubject}
               </h2>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs font-medium text-muted-foreground">{lessonCountBySubject[activeSubject]} Lessons</span>
+                <span className="text-xs font-medium text-muted-foreground">{LESSON_COUNT_BY_SUBJECT[activeSubject]} Lessons</span>
                 <span className="text-xs text-muted-foreground opacity-30">•</span>
-                <span className="text-xs font-medium text-muted-foreground">{quizCountBySubject[activeSubject]} Assessments</span>
+                <span className="text-xs font-medium text-muted-foreground">{QUIZ_COUNT_BY_SUBJECT[activeSubject]} Assessments</span>
               </div>
             </div>
           </div>
@@ -144,9 +140,7 @@ export function LearnScreen() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           <AnimatePresence mode="wait">
-            {lessonsPool
-              .filter((l) => l.subject === activeSubject)
-              .map((lesson, idx) => {
+            {filteredLessons.map((lesson, idx) => {
                 const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
                 const style = SUBJECT_STYLES[lesson.subject]
                 
@@ -226,14 +220,11 @@ export function LearnScreen() {
 
       <AccessCodeModal
         isOpen={unlockModal.isOpen}
-        onClose={() => setUnlockModal({ ...unlockModal, isOpen: false })}
+        onClose={handleModalClose}
         targetId={unlockModal.lessonId}
         type="lesson"
         title={unlockModal.title}
-        onSuccess={() => {
-          loadUnlockStatus()
-          setUnlockModal({ ...unlockModal, isOpen: false })
-        }}
+        onSuccess={handleModalSuccess}
       />
     </motion.div>
   )

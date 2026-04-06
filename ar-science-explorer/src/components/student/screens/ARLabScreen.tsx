@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Smartphone, Printer, Box, Target, ChevronRight, FileText, Lock, BookOpen, Star, CheckCircle2, Zap } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
 import { cn } from '../../../lib/utils'
@@ -9,25 +10,29 @@ import { LESSONS } from '../../../data/lessons'
 import type { Lesson, SubjectKey, TeacherLesson } from '../../../types'
 import { useVoiceOver } from '../../../hooks/useVoiceOver'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { PageSkeleton } from '../../ui/skeleton'
 import { ARLearningControls } from '../../ar/ARLearningControls'
 import { VOICE_SCRIPTS } from '../../../data/voiceScripts'
 import { storage } from '../../../lib/storage'
 import { db } from '../../../lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
-import { validateMarkerImage, getFallbackMarkerPath } from '../../../lib/markerUtils'
+import { getFallbackMarkerPath } from '../../../lib/markerUtils'
 import { useNavigate } from 'react-router-dom'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
-  exit:    { opacity: 0, y: -10, transition: { duration: 0.2 } },
-}
+import { pageVariants } from '../../../lib/variants'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
+
+const PHASE_TABS = [
+  { key: 'visual'     as const, icon: Target,   label: '1. AR Lab'    },
+  { key: 'curriculum' as const, icon: BookOpen,  label: '2. Study Hub' },
+  { key: 'reflection' as const, icon: Star,      label: '3. Finish'    },
+]
+
 
 function parseStepsFromContent(content: string): string[] {
   return content
@@ -37,16 +42,28 @@ function parseStepsFromContent(content: string): string[] {
     .slice(0, 5)
 }
 
+const PDF_LS_PREFIX = 'lesson-pdf:'
+
+function resolvePdfUrl(pdfUrl?: string): string | undefined {
+  if (!pdfUrl) return undefined
+  if (pdfUrl.startsWith('local:')) {
+    return localStorage.getItem(`${PDF_LS_PREFIX}${pdfUrl.slice(6)}`) ?? undefined
+  }
+  return pdfUrl
+}
+
 function mapTeacherLessonToLesson(lesson: TeacherLesson): Lesson {
   const fallbackModelIdx = lesson.arModelIndex ?? Math.max(SUBJECT_ORDER.indexOf(lesson.subject), 0)
   const content = lesson.content ?? ''
   return {
-    id: `teacher-${lesson.id}`,
+    id: lesson.id,
     title: lesson.title,
     subject: lesson.subject,
     summary: lesson.summary ?? (content.slice(0, 120) || 'Teacher-provided lesson content.'),
     steps: lesson.steps?.length ? lesson.steps : (content ? parseStepsFromContent(content) : []),
     labExperimentId: lesson.labExperimentId,
+    curriculum: lesson.curriculum,
+    pdfUrl: resolvePdfUrl(lesson.pdfUrl),
     arPayload: lesson.arPayload ?? {
       modelIndex: fallbackModelIdx,
       detectionMode: 'marker',
@@ -60,152 +77,108 @@ export function ARLabScreen() {
   const {
     currentStudentId,
     activeLessonId,
-    activeARPayload,
     activeLabExperimentId,
     setScreen,
     voiceLang,
     setVoiceLang,
-  } = useAppStore()
+  } = useAppStore(useShallow((s) => ({
+    currentStudentId:       s.currentStudentId,
+    activeLessonId:         s.activeLessonId,
+    activeLabExperimentId:  s.activeLabExperimentId,
+    setScreen:              s.setScreen,
+    voiceLang:              s.voiceLang,
+    setVoiceLang:           s.setVoiceLang,
+  })))
 
-  const {
-    setActiveQuizSubject,
-    initQuiz,
-  } = useQuizStore()
+  const { setActiveQuizSubject, initQuiz } = useQuizStore(
+    useShallow((s) => ({ setActiveQuizSubject: s.setActiveQuizSubject, initQuiz: s.initQuiz }))
+  )
 
   const [phase, setPhase] = useState<'visual' | 'curriculum' | 'reflection'>('visual')
   const [activeStep, setActiveStep] = useState(0)
   const [arMarked, setArMarked] = useState(false)
   const [isQuizUnlocked, setIsQuizUnlocked] = useState(false)
   const [showUnlockModal, setShowUnlockModal] = useState(false)
-  const [_quizUnlockError, setQuizUnlockError] = useState<string | null>(null)
-  const [_isCheckingQuiz, setIsCheckingQuiz] = useState(false)
-  const [_validatedMarkerPath, setValidatedMarkerPath] = useState<string | null>(null)
-  const [_markerLoadError, setMarkerLoadError] = useState(false)
-  const [_isValidatingMarker, setIsValidatingMarker] = useState(false)
 
-  const { data } = useStorageData()
+  const { data, isLoading } = useStorageData()
+  const showSkeleton = useDeferredLoading(isLoading)
   const navigate = useNavigate()
 
-  const teacherLessons = data.lessons
-  const mergedLessons: Lesson[] = [...LESSONS, ...teacherLessons.map(mapTeacherLessonToLesson)]
-
-  const activeLesson = mergedLessons.find((l) => l.id === activeLessonId) ?? null
+  const mergedLessons = useMemo<Lesson[]>(
+    () => [...LESSONS, ...data.lessons.map(mapTeacherLessonToLesson)],
+    [data.lessons]
+  )
+  const activeLesson = useMemo(
+    () => mergedLessons.find(l => l.id === activeLessonId) ?? null,
+    [mergedLessons, activeLessonId]
+  )
   const voiceList = VOICE_SCRIPTS[voiceLang || 'en'] || VOICE_SCRIPTS['en']
+
+  const checkQuizUnlock = useCallback(async () => {
+    if (!currentStudentId || !activeLessonId) return
+    try {
+      const studentRef = doc(db, 'students', currentStudentId)
+      const docSnap = await getDoc(studentRef)
+      if (!docSnap.exists()) { setIsQuizUnlocked(true); return }
+
+      const student = docSnap.data()
+      const hasAttempted = student?.quizAttempts?.some(
+        (a: { quizId: string }) => a.quizId === activeLessonId || a.quizId === `builtin-${activeLessonId}`
+      )
+      if (!hasAttempted) {
+        setIsQuizUnlocked(true)
+      } else {
+        setIsQuizUnlocked(await storage.isQuizUnlocked(currentStudentId, activeLessonId))
+      }
+    } catch (error) {
+      console.error('[ARLabScreen] Quiz unlock check failed:', error)
+      setIsQuizUnlocked(true)
+    }
+  }, [currentStudentId, activeLessonId])
 
   useEffect(() => {
     setPhase('visual')
     setActiveStep(0)
     setArMarked(false)
-    setQuizUnlockError(null)
-    setMarkerLoadError(false)
-    setValidatedMarkerPath(null)
-
-    if (activeLessonId && currentStudentId) {
-      checkQuizUnlock()
-    }
-
-    // Validate marker image exists and can be loaded
-    if (activeARPayload) {
-      validateMarker()
-    }
-  }, [activeLessonId, currentStudentId, activeARPayload])
-
-  const validateMarker = async () => {
-    try {
-      setIsValidatingMarker(true)
-      setMarkerLoadError(false)
-
-      const markerPath = activeARPayload?.markerImage ||
-        getFallbackMarkerPath(activeARPayload?.modelIndex ?? 0)
-
-      const validPath = await validateMarkerImage(markerPath, activeARPayload?.modelIndex ?? 0)
-      setValidatedMarkerPath(validPath)
-    } catch (error) {
-      console.error('[ARLabScreen] Marker validation failed:', error)
-      setMarkerLoadError(true)
-      setValidatedMarkerPath(getFallbackMarkerPath(activeARPayload?.modelIndex ?? 0))
-    } finally {
-      setIsValidatingMarker(false)
-    }
-  }
-
-  const checkQuizUnlock = async () => {
-    if (!currentStudentId || !activeLessonId) return
-    try {
-      setIsCheckingQuiz(true)
-      setQuizUnlockError(null)
-
-      // First attempt: students can always take the quiz after lesson completion
-      // Retake: requires unlock code
-      // Check if student has already attempted this quiz
-      const studentRef = doc(db, 'students', currentStudentId)
-      const docSnap = await getDoc(studentRef)
-      if (!docSnap.exists()) {
-        setIsQuizUnlocked(true) // Allow first attempt
-        return
-      }
-
-      const student = docSnap.data()
-      const hasAttempted = student?.quizAttempts?.some((a: any) => a.quizId === activeLessonId || a.quizId === `builtin-${activeLessonId}`)
-
-      if (!hasAttempted) {
-        // First attempt: automatically allowed
-        setIsQuizUnlocked(true)
-      } else {
-        // Retake: check if explicitly unlocked
-        const unlocked = await storage.isQuizUnlocked(currentStudentId, activeLessonId)
-        setIsQuizUnlocked(unlocked)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to check quiz unlock status'
-      setQuizUnlockError(message)
-      console.error('[ARLabScreen] Quiz unlock check failed:', error)
-      setIsQuizUnlocked(true) // Allow first attempt on error
-    } finally {
-      setIsCheckingQuiz(false)
-    }
-  }
+    if (activeLessonId && currentStudentId) checkQuizUnlock()
+  }, [activeLessonId, currentStudentId, checkQuizUnlock])
 
   const tutorialSteps = activeLesson?.arPayload?.lessonSteps ?? ['Open AR App', 'Scan Marker', 'View Model']
-  
-  // Custom marker image logic
-  const markerImage = activeLesson?.arPayload?.markerImage || (activeARPayload ? `/markers/marker-${activeARPayload.modelIndex}.svg` : null)
+
+  // Use lesson's quarter/week for marker path
+  const markerImage = activeLesson?.arPayload?.markerImage ||
+    (activeLesson ? `/markers/Q${activeLesson.quarter}W${activeLesson.week}.jpg` : null)
 
   const voiceOver = useVoiceOver({ lines: voiceList, language: voiceLang })
 
-  const handleStartQuizClick = () => {
-    if (!isQuizUnlocked) {
-      setShowUnlockModal(true)
-    } else {
-      void completeLabAndStartQuiz()
-    }
-  }
-
-  const completeLabAndStartQuiz = async () => {
+  const completeLabAndStartQuiz = useCallback(async () => {
     if (!currentStudentId || !activeLesson) return
     try {
-      setQuizUnlockError(null)
       await storage.saveStudentLessonCompletion(currentStudentId, activeLesson.id)
       if (activeLabExperimentId) {
         await storage.saveStudentLabCompletion(currentStudentId, activeLabExperimentId)
       }
-      // Filter quiz questions by lesson ID (5 questions per lesson)
-      const quizQuestions = QUIZ_QUESTIONS.filter((q) => q.lessonId === activeLesson.id)
+      const quizQuestions = QUIZ_QUESTIONS.filter(q => q.lessonId === activeLesson.id)
       setActiveQuizSubject(activeLesson.subject)
       initQuiz(quizQuestions)
       setScreen('quiz')
       navigate('/app/quiz')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to complete lab and start quiz'
-      setQuizUnlockError(message)
       console.error('[ARLabScreen] Complete lab failed:', error)
     }
-  }
+  }, [currentStudentId, activeLesson, activeLabExperimentId, setActiveQuizSubject, initQuiz, setScreen, navigate])
 
-  const handleBack = () => {
+  const handleStartQuizClick = useCallback(() => {
+    if (!isQuizUnlocked) setShowUnlockModal(true)
+    else void completeLabAndStartQuiz()
+  }, [isQuizUnlocked, completeLabAndStartQuiz])
+
+  const handleBack = useCallback(() => {
     setScreen('learn')
     navigate('/app/learn')
-  }
+  }, [setScreen, navigate])
+
+  if (showSkeleton) return <PageSkeleton />
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-5xl mx-auto pb-12">
@@ -236,14 +209,10 @@ export function ARLabScreen() {
         </div>
 
         <div className="flex p-1.5 bg-muted/50 border border-border rounded-[1.5rem] backdrop-blur-sm shadow-inner group">
-          {[
-            { key: 'visual', icon: Target, label: '1. AR Lab' },
-            { key: 'curriculum', icon: BookOpen, label: '2. Study Hub' },
-            { key: 'reflection', icon: Star, label: '3. Finish' },
-          ].map((item) => (
+          {PHASE_TABS.map((item) => (
             <button
               key={item.key}
-              onClick={() => setPhase(item.key as any)}
+              onClick={() => setPhase(item.key)}
               className={cn(
                 'flex items-center gap-2 px-6 py-2.5 rounded-2xl text-xs font-black transition-all duration-300 uppercase tracking-wider',
                 phase === item.key 
@@ -260,11 +229,12 @@ export function ARLabScreen() {
 
       <AnimatePresence mode="wait">
         {phase === 'curriculum' && (
-          <motion.div 
+          <motion.div
             key="curriculum"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             className="grid grid-cols-1 lg:grid-cols-12 gap-8"
           >
             <div className="lg:col-span-8 space-y-8">
@@ -302,7 +272,7 @@ export function ARLabScreen() {
                       <ul className="space-y-3">
                         {activeLesson?.curriculum?.learningCompetencies?.map((lc, i) => (
                           <li key={i} className="flex gap-3 text-sm text-foreground/80 font-medium leading-normal">
-                             <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5"><CheckCircle2 size={12} /></div>
+                             <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0 mt-0.5"><CheckCircle2 size={12} /></div>
                              {lc}
                           </li>
                         ))}
@@ -386,11 +356,20 @@ export function ARLabScreen() {
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">AR Target Marker</h4>
                 
                 {markerImage && (
-                  <div className="bg-white rounded-3xl overflow-hidden aspect-square flex items-center justify-center p-10 border border-border mb-6 shadow-inner ring-8 ring-muted/30">
-                    <img 
-                      src={markerImage} 
-                      alt="AR Target" 
-                      className="w-full h-full object-contain"
+                  <div
+                    data-print-marker
+                    className="mx-auto bg-white rounded-3xl overflow-hidden aspect-square w-full max-w-[280px] flex items-center justify-center p-6 border border-border mb-6 shadow-inner ring-4 ring-muted/20"
+                  >
+                    <img
+                      src={markerImage}
+                      alt="AR Target Marker"
+                      className="w-full h-full object-contain block"
+                      onError={(e) => {
+                        const fallback = getFallbackMarkerPath(activeLesson?.arPayload?.modelIndex ?? 0)
+                        if ((e.target as HTMLImageElement).src !== window.location.origin + fallback) {
+                          ;(e.target as HTMLImageElement).src = fallback
+                        }
+                      }}
                     />
                   </div>
                 )}
@@ -407,7 +386,27 @@ export function ARLabScreen() {
 
                 <Button
                   variant="ghost"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    if (!markerImage) return
+                    const absUrl = markerImage.startsWith('http')
+                      ? markerImage
+                      : `${window.location.origin}${markerImage}`
+                    const pw = window.open('', '_blank', 'width=700,height=700')
+                    if (!pw) return
+                    pw.document.write(`<!DOCTYPE html>
+<html><head><title>AR Marker</title>
+<style>
+  @page { margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: white; }
+  body { display: flex; align-items: center; justify-content: center; }
+  img { max-width: 90vmin; max-height: 90vmin; object-fit: contain; display: block; }
+</style>
+</head><body>
+<img src="${absUrl}" onload="window.print();window.close();" onerror="document.body.innerHTML='<p>Marker image not found.</p>'" />
+</body></html>`)
+                    pw.document.close()
+                  }}
                   className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
                 >
                   <Printer size={14} className="mr-2" /> Print Target Image
@@ -484,10 +483,11 @@ export function ARLabScreen() {
         )}
 
         {phase === 'reflection' && (
-          <motion.div 
+          <motion.div
             key="reflection"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
             className="max-w-2xl mx-auto"
           >
             <div className="bg-card border border-border rounded-[2.5rem] p-10 text-center shadow-xl">
@@ -503,25 +503,28 @@ export function ARLabScreen() {
               </p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
+                <Button
+                  size="lg"
                   onClick={handleStartQuizClick}
-                  className="py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-sm shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                  className="rounded-2xl font-bold gap-2 btn-glow"
                 >
                   {isQuizUnlocked ? (
                     <>Start Quiz <ChevronRight size={18} /></>
                   ) : (
                     <><Lock size={16} /> Unlock Quiz</>
                   )}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
                   onClick={() => {
                     setScreen('progress')
                     navigate('/app/progress')
                   }}
-                  className="py-4 bg-background border border-border rounded-2xl font-bold text-muted-foreground text-sm hover:text-foreground transition-all"
+                  className="rounded-2xl font-bold"
                 >
                   View My Progress
-                </button>
+                </Button>
               </div>
             </div>
           </motion.div>

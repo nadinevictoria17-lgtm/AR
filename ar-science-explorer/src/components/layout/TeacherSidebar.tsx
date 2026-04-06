@@ -16,6 +16,8 @@ interface Props {
   onMobileClose: () => void
 }
 
+const SIDEBAR_TRANSITION = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as const } as const
+
 const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [
   { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/teacher/quizzes',   icon: Brain,           label: 'Quizzes' },
@@ -188,7 +190,7 @@ export function TeacherSidebar({ onLogout, theme, onToggleTheme, mobileOpen, onM
       <motion.aside
         initial={false}
         animate={{ width: collapsed ? 72 : 240 }}
-        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        transition={SIDEBAR_TRANSITION}
         className="hidden md:flex relative flex-shrink-0 h-dvh sticky top-0 flex-col bg-background border-r border-border overflow-hidden"
       >
         <SidebarInner onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} collapsed={collapsed} />

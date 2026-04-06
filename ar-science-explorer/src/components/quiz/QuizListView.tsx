@@ -1,8 +1,14 @@
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, Lock, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { cn } from '../../lib/utils'
+
+const LIST_INITIAL   = { opacity: 0, y: 10 } as const
+const LIST_ANIMATE   = { opacity: 1, y: 0  } as const
+const ITEM_INITIAL   = { opacity: 0, x: -10 } as const
+const ITEM_ANIMATE   = { opacity: 1, x: 0  } as const
 
 interface QuizItem {
   id: string
@@ -23,8 +29,7 @@ export function QuizListView({
   quizzes,
   onSelectQuiz,
 }: QuizListViewProps) {
-  // Group quizzes by topic
-  const groupedByTopic = quizzes.reduce(
+  const groupedByTopic = useMemo(() => quizzes.reduce(
     (acc, quiz) => {
       const topic = quiz.topicName
       if (!acc[topic]) acc[topic] = []
@@ -32,12 +37,12 @@ export function QuizListView({
       return acc
     },
     {} as Record<string, QuizItem[]>
-  )
+  ), [quizzes])
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={LIST_INITIAL}
+      animate={LIST_ANIMATE}
       className="max-w-3xl mx-auto pb-8"
     >
       {/* Header */}
@@ -64,8 +69,8 @@ export function QuizListView({
               {topicQuizzes.map((quiz, idx) => (
                 <motion.div
                   key={quiz.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={ITEM_INITIAL}
+                  animate={ITEM_ANIMATE}
                   transition={{ delay: idx * 0.1 }}
                 >
                   <Card
@@ -85,7 +90,7 @@ export function QuizListView({
                           {quiz.isCompleted && (
                             <CheckCircle2
                               size={18}
-                              className="text-emerald-500 flex-shrink-0"
+                              className="text-success flex-shrink-0"
                             />
                           )}
                           {quiz.isLocked && (

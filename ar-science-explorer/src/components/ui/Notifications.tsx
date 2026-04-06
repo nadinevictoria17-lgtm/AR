@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 import { useNotificationStore } from '../../store/useNotificationStore'
 import { cn } from '../../lib/utils'
+import { Button } from './button'
 
 export function Toaster() {
   const { toasts, removeToast } = useNotificationStore()
@@ -16,27 +17,28 @@ export function Toaster() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 20, scale: 0.95 }}
             className={cn(
-              "relative grid gap-1 p-4 rounded-2xl border shadow-xl backdrop-blur-md",
-              t.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-              t.type === 'destructive' && "bg-destructive/10 border-destructive/20 text-destructive",
-              t.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
-              t.type === 'info' && "bg-primary/10 border-primary/20 text-primary"
+              'relative grid gap-1 p-4 rounded-2xl border shadow-xl backdrop-blur-md',
+              t.type === 'success'     && 'bg-success/10 border-success/20 text-success',
+              t.type === 'destructive' && 'bg-destructive/10 border-destructive/20 text-destructive',
+              t.type === 'warning'     && 'bg-warning/10 border-warning/20 text-warning',
+              t.type === 'info'        && 'bg-primary/10 border-primary/20 text-primary'
             )}
           >
             <div className="flex items-start gap-3">
-              {t.type === 'success' && <CheckCircle2 size={18} className="shrink-0 mt-0.5" />}
-              {t.type === 'destructive' && <AlertCircle size={18} className="shrink-0 mt-0.5" />}
-              {t.type === 'warning' && <AlertCircle size={18} className="shrink-0 mt-0.5" />}
-              {t.type === 'info' && <Info size={18} className="shrink-0 mt-0.5" />}
-              
+              {t.type === 'success'     && <CheckCircle2 size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'destructive' && <AlertCircle  size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'warning'     && <AlertCircle  size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'info'        && <Info         size={18} className="shrink-0 mt-0.5" />}
+
               <div className="flex-1">
                 {t.title && <p className="text-sm font-bold leading-tight mb-0.5">{t.title}</p>}
                 <p className="text-sm opacity-90">{t.description}</p>
               </div>
 
-              <button 
+              <button
                 onClick={() => removeToast(t.id)}
-                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="p-1 rounded-lg hover:bg-foreground/5 transition-colors"
+                aria-label="Dismiss"
               >
                 <X size={14} />
               </button>
@@ -72,15 +74,10 @@ export function ErrorModal() {
               <AlertCircle size={24} />
             </div>
             <h3 className="text-lg font-bold text-foreground mb-2">{errorModal.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-              {errorModal.message}
-            </p>
-            <button
-              onClick={hideErrorModal}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-opacity"
-            >
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">{errorModal.message}</p>
+            <Button onClick={hideErrorModal} className="w-full">
               Dismiss
-            </button>
+            </Button>
           </motion.div>
         </div>
       )}
@@ -91,9 +88,9 @@ export function ErrorModal() {
 export function ConfirmModal() {
   const { confirmModal, hideConfirmModal } = useNotificationStore()
 
-  const handleConfirm = () => {
-    confirmModal.onConfirm?.()
+  const handleConfirm = async () => {
     hideConfirmModal()
+    await confirmModal.onConfirm?.()
   }
 
   const handleCancel = () => {
@@ -122,22 +119,18 @@ export function ConfirmModal() {
               <AlertCircle size={24} />
             </div>
             <h3 className="text-lg font-bold text-foreground mb-2">{confirmModal.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-              {confirmModal.message}
-            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">{confirmModal.message}</p>
             <div className="flex gap-3">
-              <button
-                onClick={handleCancel}
-                className="flex-1 py-3 rounded-xl border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
-              >
+              <Button variant="outline" onClick={handleCancel} className="flex-1">
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={confirmModal.confirmVariant ?? 'destructive'}
                 onClick={handleConfirm}
-                className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-bold text-sm hover:opacity-90 transition-opacity"
+                className="flex-1"
               >
-                Delete
-              </button>
+                {confirmModal.confirmLabel ?? 'Delete'}
+              </Button>
             </div>
           </motion.div>
         </div>

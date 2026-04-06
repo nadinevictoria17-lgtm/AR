@@ -30,10 +30,10 @@ export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
           <textarea
             ref={ref}
             className={cn(
-              'w-full px-4 py-3 rounded-xl bg-muted border-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none',
+              'w-full px-4 py-3 rounded-xl bg-background border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed',
               error
-                ? 'border-destructive/50 focus:border-destructive'
-                : 'border-border focus:border-primary/50',
+                ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/50'
+                : 'border-border',
               className
             )}
             {...props}

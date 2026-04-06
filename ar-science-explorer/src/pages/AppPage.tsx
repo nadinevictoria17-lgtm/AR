@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, Outlet } from 'react-router-dom'
+import { useState, useCallback } from 'react'
+import { Outlet } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { StudentSidebar } from '../components/layout/StudentSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
@@ -7,19 +7,15 @@ import { cn } from '../lib/utils'
 import { Menu } from 'lucide-react'
 
 export default function AppPage() {
-  const { theme, currentStudentId } = useAppStore()
-  const navigate = useNavigate()
+  const theme = useAppStore(s => s.theme)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-  useEffect(() => {
-    if (!currentStudentId) navigate('/login')
-  }, [currentStudentId, navigate])
+  const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), [])
 
   return (
     <div className={cn('flex min-h-dvh bg-surface text-foreground', theme)}>
       <StudentSidebar
         mobileOpen={mobileSidebarOpen}
-        onMobileClose={() => setMobileSidebarOpen(false)}
+        onMobileClose={handleMobileClose}
       />
       <Toaster />
       <ErrorModal />
