@@ -6,7 +6,7 @@ import { useQuizStore } from '../../../store/useQuizStore'
 import { useQuizAttempt } from '../../../hooks/useQuizAttempt'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
-import { PageSkeleton } from '../../ui/skeleton'
+import { ContentSkeleton } from '../../ui/skeleton'
 import { SUBJECTS } from '../../../data/subjects'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { storage } from '../../../lib/storage'
@@ -347,7 +347,7 @@ export function QuizScreen() {
     setPendingUnlockQuiz(null)
   }
 
-  if (showSkeleton) return <PageSkeleton />
+  if (showSkeleton) return <ContentSkeleton />
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6">

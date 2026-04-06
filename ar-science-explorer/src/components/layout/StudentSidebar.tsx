@@ -294,12 +294,15 @@ function SidebarContent({
 export function StudentSidebar({ mobileOpen, onMobileClose }: StudentSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
+  const sidebarWidth = collapsed ? 72 : 240
+
   return (
     <>
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 72 : 240 }}
-        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+        style={{ width: sidebarWidth }}
+        animate={{ width: sidebarWidth }}
+        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] as const }}
         className="hidden md:flex relative flex-shrink-0 h-dvh sticky top-0 flex-col bg-background border-r border-border overflow-hidden"
       >
         <SidebarContent collapsed={collapsed} />

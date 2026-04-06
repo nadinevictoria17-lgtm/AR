@@ -11,7 +11,7 @@ import type { Lesson, SubjectKey, TeacherLesson } from '../../../types'
 import { useVoiceOver } from '../../../hooks/useVoiceOver'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
-import { PageSkeleton } from '../../ui/skeleton'
+import { ContentSkeleton } from '../../ui/skeleton'
 import { ARLearningControls } from '../../ar/ARLearningControls'
 import { VOICE_SCRIPTS } from '../../../data/voiceScripts'
 import { storage } from '../../../lib/storage'
@@ -178,7 +178,7 @@ export function ARLabScreen() {
     navigate('/app/learn')
   }, [setScreen, navigate])
 
-  if (showSkeleton) return <PageSkeleton />
+  if (showSkeleton) return <ContentSkeleton />
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-5xl mx-auto pb-12">

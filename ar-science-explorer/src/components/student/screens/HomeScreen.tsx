@@ -13,7 +13,7 @@ import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Input } from '../../ui/input'
-import { PageSkeleton } from '../../ui/skeleton'
+import { ContentSkeleton } from '../../ui/skeleton'
 
 export function HomeScreen() {
   const { setScreen, currentStudentId, applyAccessCode, setActiveLesson } = useAppStore(
@@ -71,7 +71,7 @@ export function HomeScreen() {
     }
   }, [student, setActiveLesson, setScreen, navigate])
 
-  if (showSkeleton) return <PageSkeleton />
+  if (showSkeleton) return <ContentSkeleton />
 
   return (
     <motion.div

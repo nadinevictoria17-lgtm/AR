@@ -185,11 +185,17 @@ function SidebarInner({
 export function TeacherSidebar({ onLogout, theme, onToggleTheme, mobileOpen, onMobileClose }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
+  // The static `style.width` sets the correct width on the very first React
+  // paint so there is no flash-of-collapsed-sidebar before Framer Motion's
+  // JavaScript take-over (which happens one frame later).
+  const sidebarWidth = collapsed ? 72 : 240
+
   return (
     <>
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 72 : 240 }}
+        style={{ width: sidebarWidth }}
+        animate={{ width: sidebarWidth }}
         transition={SIDEBAR_TRANSITION}
         className="hidden md:flex relative flex-shrink-0 h-dvh sticky top-0 flex-col bg-background border-r border-border overflow-hidden"
       >

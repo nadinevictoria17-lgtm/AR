@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, User, Lock, Moon, Sun, LogIn, Loader } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
@@ -13,7 +12,6 @@ import { Button } from '../components/ui/button'
 type Role = 'student' | 'teacher'
 
 export default function LoginPage() {
-  const navigate = useNavigate()
   const { theme, toggleTheme, setCurrentStudentId, setScreen } = useAppStore()
 
   const [role, setRole] = useState<Role>('student')
@@ -58,16 +56,17 @@ export default function LoginPage() {
 
     try {
       if (role === 'student') {
-        // Strip hyphen from formatted student ID for database
         const cleanId = id.replace('-', '')
         const firebaseResult = await firebaseStudentLogin(cleanId, password)
         if (firebaseResult) {
-          // Ensure the Firestore record exists before navigating so subsequent
-          // reads don't race against a missing document.
+          // Ensure the Firestore record exists before the app reads it.
           await storage.ensureStudentRecord(cleanId)
+          // Seed Zustand so screens that read currentStudentId work immediately.
           setCurrentStudentId(cleanId)
           setScreen('unlock')
-          navigate('/app')
+          // No manual navigate — PublicOnlyRoute detects the new Firebase auth
+          // state and redirects to /app automatically, avoiding a double-
+          // navigation that causes the two-blink flash.
           return
         }
 
@@ -75,7 +74,8 @@ export default function LoginPage() {
       } else {
         const firebaseUser = await firebaseTeacherLogin(id, password)
         if (firebaseUser) {
-          navigate('/teacher')
+          // Same reasoning: let PublicOnlyRoute drive the redirect so
+          // TeacherRoute never sees isLoading:true → no skeleton flash.
           return
         }
 

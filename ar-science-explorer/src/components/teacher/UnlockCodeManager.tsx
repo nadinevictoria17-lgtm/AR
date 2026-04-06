@@ -10,16 +10,6 @@ import type { SubjectKey } from '../../types'
 import { SUBJECTS } from '../../data/subjects'
 import { LESSONS } from '../../data/lessons'
 
-/** Returns a Tailwind text-size class that keeps the code readable regardless of length. */
-function codeTextClass(code: string): string {
-  const len = code.length
-  if (len <= 10) return 'text-2xl'
-  if (len <= 14) return 'text-xl'
-  if (len <= 18) return 'text-lg'
-  if (len <= 24) return 'text-base'
-  return 'text-sm'
-}
-
 // Derive weeks by subject from LESSONS
 const WEEKS_BY_SUBJECT: Record<SubjectKey, { id: string; title: string; week: number }[]> = {
   chemistry: LESSONS.filter(l => l.subject === 'chemistry' && l.week != null).map(l => ({ id: l.id, title: l.title, week: l.week! })),
@@ -425,37 +415,49 @@ export function UnlockCodeManager() {
           {codes.map((codeData) => {
             const lesson = codeData.targetId ? LESSONS.find(l => l.id === codeData.targetId) : null
             const weekLessons = codeData.lessonIds?.map(id => LESSONS.find(l => l.id === id)).filter(Boolean) || []
+            const isLesson = codeData.type === 'subject'
+            const isCopied = copiedCode === codeData.code
 
             return (
-              <div key={codeData.code} className="group relative bg-card rounded-[2rem] border border-border p-6 hover:shadow-xl hover:shadow-primary/5 transition-all">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="space-y-1">
-                    <span className={cn(
-                      'px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider',
-                      codeData.type === 'subject' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                      'bg-green-500/10 text-green-600 border border-green-500/20'
-                    )}>
-                      {codeData.type === 'subject' ? 'Lesson Unlock' : 'Quiz Retake'}
-                    </span>
-                    <p className={cn('font-black font-mono tracking-tighter text-foreground break-all leading-tight', codeTextClass(codeData.code))}>{codeData.code}</p>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div key={codeData.code} className="flex flex-col bg-card rounded-[2rem] border border-border overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+
+                {/* ── Type badge strip ── */}
+                <div className={cn(
+                  'px-5 py-2 flex items-center gap-2',
+                  isLesson ? 'bg-warning/10' : 'bg-success/10'
+                )}>
+                  <span className={cn(
+                    'text-[9px] font-black uppercase tracking-widest',
+                    isLesson ? 'text-warning' : 'text-success'
+                  )}>
+                    {isLesson ? '🔓 Lesson Unlock' : '🔁 Quiz Retake'}
+                  </span>
+                </div>
+
+                {/* ── Code display ── */}
+                <div className="px-5 pt-4 pb-3">
+                  <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-2xl px-4 py-3">
+                    <p className="flex-1 font-mono font-black text-sm text-foreground tracking-widest truncate min-w-0">
+                      {codeData.code}
+                    </p>
                     <button
                       onClick={() => handleCopyCode(codeData.code)}
-                      className="p-2.5 bg-background border border-border rounded-xl text-muted-foreground hover:text-primary transition-colors"
+                      title="Copy code"
+                      className={cn(
+                        'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all',
+                        isCopied
+                          ? 'bg-success/15 text-success border border-success/20'
+                          : 'bg-background border border-border text-muted-foreground hover:text-primary hover:border-primary/30'
+                      )}
                     >
-                      {copiedCode === codeData.code ? <Check size={14} /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCode(codeData.code)}
-                      className="p-2.5 bg-background border border-border rounded-xl text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 size={14} />
+                      {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                      {isCopied ? 'Copied' : 'Copy'}
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-4 border-t border-border/40">
+                {/* ── Details ── */}
+                <div className="flex-1 px-5 pb-4 space-y-2">
                   {codeData.subjects && (
                     <div className="flex flex-wrap gap-1">
                       {codeData.subjects.map(s => (
@@ -466,22 +468,37 @@ export function UnlockCodeManager() {
                     </div>
                   )}
                   {weekLessons.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
                       {weekLessons.map(l => l && (
                         <p key={l.id} className="text-[10px] text-muted-foreground font-medium flex items-center gap-1.5">
-                          <BookOpen size={10} className="text-primary" />
-                          <span className="font-bold text-foreground">W{l.week}</span> {l.title}
+                          <BookOpen size={10} className="text-primary shrink-0" />
+                          <span className="font-bold text-foreground shrink-0">W{l.week}</span>
+                          <span className="truncate">{l.title}</span>
                         </p>
                       ))}
                     </div>
                   )}
                   {lesson && (
                     <p className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
-                      <GraduationCap size={12} className="text-primary" /> {lesson.title}
+                      <GraduationCap size={12} className="text-primary shrink-0" /> {lesson.title}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground/60 font-medium">Created {new Date(codeData.createdAt).toLocaleDateString()}</p>
                 </div>
+
+                {/* ── Footer ── */}
+                <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground/60 font-medium">
+                    Created {new Date(codeData.createdAt).toLocaleDateString()}
+                  </p>
+                  <button
+                    onClick={() => handleDeleteCode(codeData.code)}
+                    title="Delete code"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-all"
+                  >
+                    <Trash2 size={11} /> Delete
+                  </button>
+                </div>
+
               </div>
             )
           })}

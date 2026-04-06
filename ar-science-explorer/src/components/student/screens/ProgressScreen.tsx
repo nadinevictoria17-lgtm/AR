@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
-import { PageSkeleton } from '../../ui/skeleton'
+import { ContentSkeleton } from '../../ui/skeleton'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { Trophy, ArrowLeft, BookOpen, ChevronRight, Brain, CheckCircle2, XCircle, RotateCcw, Clock } from 'lucide-react'
@@ -139,7 +139,7 @@ export function ProgressScreen() {
   const handleBack             = useCallback(() => { setScreen('home');  navigate('/app/home')  }, [setScreen, navigate])
   const handleContinueLearning = useCallback(() => { setScreen('learn'); navigate('/app/learn') }, [setScreen, navigate])
 
-  if (showSkeleton) return <PageSkeleton />
+  if (showSkeleton) return <ContentSkeleton />
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6 pb-10">
