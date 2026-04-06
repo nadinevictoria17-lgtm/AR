@@ -8,7 +8,7 @@ export default {
   theme: {
     fontFamily: {
       sans: ['Poppins', 'sans-serif'],
-      mono: ['JetBrains Mono', 'monospace'],
+      mono: ['Poppins', 'sans-serif'],
     },
     extend: {
       colors: {

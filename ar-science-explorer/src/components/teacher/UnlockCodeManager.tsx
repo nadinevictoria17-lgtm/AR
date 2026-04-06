@@ -4,6 +4,7 @@ import { Plus, Trash2, Copy, Check, Info, GraduationCap, AlertCircle, BookOpen, 
 import { cn } from '../../lib/utils'
 import { getAllUnlockCodes, createUnlockCode, deleteUnlockCode, type UnlockCodeData } from '../../lib/unlockCodeManager'
 import { useStorageData } from '../../hooks/useStorageData'
+import { useNotificationStore } from '../../store/useNotificationStore'
 import type { SubjectKey } from '../../types'
 import { SUBJECTS } from '../../data/subjects'
 import { LESSONS } from '../../data/lessons'
@@ -27,6 +28,7 @@ const WEEKS_BY_SUBJECT: Record<SubjectKey, { id: string; title: string; week: nu
 
 export function UnlockCodeManager() {
   const { data } = useStorageData(true)
+  const { showConfirmModal } = useNotificationStore()
   const [codes, setCodes] = useState<UnlockCodeData[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -96,10 +98,15 @@ export function UnlockCodeManager() {
     }
   }
 
-  const handleDeleteCode = async (code: string) => {
-    if (!window.confirm(`Delete code "${code}"? This cannot be undone.`)) return
-    const success = await deleteUnlockCode(code)
-    if (success) await loadCodes()
+  const handleDeleteCode = (code: string) => {
+    showConfirmModal(
+      'Delete Code',
+      `Are you sure you want to delete "${code}"? This cannot be undone.`,
+      async () => {
+        const success = await deleteUnlockCode(code)
+        if (success) await loadCodes()
+      }
+    )
   }
 
   const handleCopyCode = (code: string) => {

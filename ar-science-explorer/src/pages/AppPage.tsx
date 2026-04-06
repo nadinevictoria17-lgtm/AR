@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Outlet } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { StudentSidebar } from '../components/layout/StudentSidebar'
-import { Toaster, ErrorModal } from '../components/ui/Notifications'
+import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
 import { cn } from '../lib/utils'
 import { Menu } from 'lucide-react'
 
@@ -23,6 +23,7 @@ export default function AppPage() {
       />
       <Toaster />
       <ErrorModal />
+      <ConfirmModal />
       <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="sticky top-0 z-30 md:hidden bg-surface/95 backdrop-blur border-b border-border px-4 py-3">
           <button

@@ -87,3 +87,61 @@ export function ErrorModal() {
     </AnimatePresence>
   )
 }
+
+export function ConfirmModal() {
+  const { confirmModal, hideConfirmModal } = useNotificationStore()
+
+  const handleConfirm = () => {
+    confirmModal.onConfirm?.()
+    hideConfirmModal()
+  }
+
+  const handleCancel = () => {
+    confirmModal.onCancel?.()
+    hideConfirmModal()
+  }
+
+  return (
+    <AnimatePresence>
+      {confirmModal.show && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleCancel}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-2xl"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-warning/10 flex items-center justify-center text-warning mb-4">
+              <AlertCircle size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">{confirmModal.title}</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              {confirmModal.message}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancel}
+                className="flex-1 py-3 rounded-xl border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-bold text-sm hover:opacity-90 transition-opacity"
+              >
+                Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}

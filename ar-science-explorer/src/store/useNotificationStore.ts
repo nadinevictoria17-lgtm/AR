@@ -13,11 +13,15 @@ interface NotificationState {
   toasts: Toast[]
   showToast: (toast: Omit<Toast, 'id'>) => void
   removeToast: (id: string) => void
-  
+
   errorModal: { title: string; message: string; show: boolean }
   showErrorModal: (title: string, message: string) => void
   hideErrorModal: () => void
-  
+
+  confirmModal: { title: string; message: string; show: boolean; onConfirm?: () => void; onCancel?: () => void }
+  showConfirmModal: (title: string, message: string, onConfirm?: () => void, onCancel?: () => void) => void
+  hideConfirmModal: () => void
+
   loading: boolean
   setLoading: (loading: boolean) => void
 }
@@ -36,7 +40,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   errorModal: { title: '', message: '', show: false },
   showErrorModal: (title, message) => set({ errorModal: { title, message, show: true } }),
   hideErrorModal: () => set({ errorModal: { ...get().errorModal, show: false } }),
-  
+
+  confirmModal: { title: '', message: '', show: false },
+  showConfirmModal: (title, message, onConfirm, onCancel) =>
+    set({ confirmModal: { title, message, show: true, onConfirm, onCancel } }),
+  hideConfirmModal: () => set({ confirmModal: { ...get().confirmModal, show: false } }),
+
   loading: false,
   setLoading: (l) => {
     set({ loading: l })
