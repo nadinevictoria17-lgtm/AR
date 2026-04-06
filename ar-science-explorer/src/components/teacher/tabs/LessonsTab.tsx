@@ -46,6 +46,10 @@ type LessonFormValues = z.infer<typeof LessonSchema>
 
 function uid() { return Math.random().toString(36).slice(2, 9) }
 
+function isTeacherLesson(lesson: TeacherLesson | Lesson): lesson is TeacherLesson {
+  return 'createdAt' in lesson && 'content' in lesson
+}
+
 function SubjectBadge({ subject }: { subject: SubjectKey }) {
   const s = SUBJECT_STYLES[subject]
   return (
@@ -315,15 +319,19 @@ export function LessonsTab() {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-              {viewTarget.content || 'No content added yet.'}
-            </p>
-            {viewTarget.linkedQuizId && quizzes.find((q) => q.id === viewTarget.linkedQuizId) && (
-              <div className="pt-4 mt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  Linked quiz: <span className="text-primary font-semibold">{quizzes.find((q) => q.id === viewTarget.linkedQuizId)?.title}</span>
+            {isTeacherLesson(viewTarget) && (
+              <>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {viewTarget.content || 'No content added yet.'}
                 </p>
-              </div>
+                {viewTarget.linkedQuizId && quizzes.find((q) => q.id === viewTarget.linkedQuizId) && (
+                  <div className="pt-4 mt-4 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      Linked quiz: <span className="text-primary font-semibold">{quizzes.find((q) => q.id === viewTarget.linkedQuizId)?.title}</span>
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         </div>,
