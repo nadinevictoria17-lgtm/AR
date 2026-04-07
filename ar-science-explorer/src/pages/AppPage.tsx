@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
+import { useFirebaseAuth } from '../lib/firebaseAuthContext'
 import { StudentSidebar } from '../components/layout/StudentSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
 import { cn } from '../lib/utils'
@@ -8,8 +9,17 @@ import { Menu } from 'lucide-react'
 
 export default function AppPage() {
   const theme = useAppStore(s => s.theme)
+  const { studentId } = useFirebaseAuth()
+  const setCurrentStudentId = useAppStore(s => s.setCurrentStudentId)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), [])
+
+  // Initialize currentStudentId from Firebase auth context after hydration
+  useEffect(() => {
+    if (studentId) {
+      setCurrentStudentId(studentId)
+    }
+  }, [studentId, setCurrentStudentId])
 
   return (
     <div className={cn('flex min-h-dvh bg-surface text-foreground', theme)}>
