@@ -22,6 +22,7 @@ import { Button } from '../../ui/button'
 
 const BIOLOGY_COLOR   = 'hsl(var(--subject-biology))'
 const CHEMISTRY_COLOR = 'hsl(var(--subject-chemistry))'
+const PHYSICS_COLOR   = 'hsl(var(--subject-physics))'
 const PRIMARY_COLOR   = 'hsl(var(--primary))'
 const SUCCESS_COLOR   = 'hsl(var(--success))'
 const WARNING_COLOR   = 'hsl(var(--warning))'
@@ -134,13 +135,13 @@ export function AnalyticsDashboard() {
   }, [students])
 
   const subjectAverages = useMemo(() => {
-    return (['biology', 'chemistry'] as SubjectKey[]).map((subject) => {
+    return (['chemistry', 'biology', 'physics'] as SubjectKey[]).map((subject) => {
       const scored = students.filter((s) => s.scores[subject] != null)
       const avg = scored.length > 0
         ? Math.round(scored.reduce((acc, s) => acc + (s.scores[subject] ?? 0), 0) / scored.length)
         : 0
       return {
-        name:    subject === 'biology' ? 'Biology' : 'Chemistry',
+        name:    subject === 'biology' ? 'Biology' : subject === 'chemistry' ? 'Chemistry' : 'Physics',
         value:   avg,
         subject,
       }
@@ -296,8 +297,9 @@ export function AnalyticsDashboard() {
                   <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => v + '%'} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40}>
-                    <Cell fill={BIOLOGY_COLOR} />
                     <Cell fill={CHEMISTRY_COLOR} />
+                    <Cell fill={BIOLOGY_COLOR} />
+                    <Cell fill={PHYSICS_COLOR} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

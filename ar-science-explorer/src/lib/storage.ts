@@ -191,6 +191,7 @@ export const storage = {
         scores: {
           biology: null,
           chemistry: null,
+          physics: null,
         },
         completedLessonIds: [],
         completedLabExperimentIds: [],

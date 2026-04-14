@@ -48,4 +48,13 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
     bar:    'bg-subject-chemistry',
     label:  'Chemistry',
   },
+  physics: {
+    bg:     'bg-subject-physics/10',
+    border: 'border-subject-physics/25',
+    text:   'text-subject-physics',
+    badge:  'bg-subject-physics/15 text-subject-physics border-subject-physics/30',
+    dot:    'bg-subject-physics',
+    bar:    'bg-subject-physics',
+    label:  'Physics',
+  },
 }

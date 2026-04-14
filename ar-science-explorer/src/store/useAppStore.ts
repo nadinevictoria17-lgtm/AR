@@ -58,7 +58,7 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
       // Persisted state
-      unlocked: { biology: false, chemistry: true },
+      unlocked: { biology: false, chemistry: true, physics: false },
       voiceLang: 'en',
       theme: 'light',
 

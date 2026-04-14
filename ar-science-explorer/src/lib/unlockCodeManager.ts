@@ -137,6 +137,6 @@ export async function deleteUnlockCode(code: string): Promise<boolean> {
 export async function seedInitialUnlockCodes(): Promise<void> {
   const existing = await getUnlockCodeData('SCIGRADE7')
   if (!existing) {
-    await createUnlockCode('SCIGRADE7', 'subject', { subjects: ['biology', 'chemistry'] })
+    await createUnlockCode('SCIGRADE7', 'subject', { subjects: ['chemistry', 'biology', 'physics'] })
   }
 }

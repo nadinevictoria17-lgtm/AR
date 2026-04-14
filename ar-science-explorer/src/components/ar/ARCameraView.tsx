@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 interface ARCameraViewProps {
-  barcodeValue: number
+  markerImage: string
   glbPath: string
   title: string
   description: string
@@ -15,7 +15,7 @@ interface ARCameraViewProps {
  * Communicates with the iframe via postMessage for marker detection events
  */
 export function ARCameraView({
-  barcodeValue,
+  markerImage,
   glbPath,
   title,
   description,
@@ -44,8 +44,9 @@ export function ARCameraView({
   }, [onExit, onMarkerFound])
 
   // Build the AR viewer URL with query parameters
+  // Use markerImage as NFT (Natural Feature Tracking) marker
   const arViewerUrl = `/ar-viewer.html?${new URLSearchParams({
-    barcode: barcodeValue.toString(),
+    nft: markerImage,
     glb: glbPath,
     title,
     desc: description,

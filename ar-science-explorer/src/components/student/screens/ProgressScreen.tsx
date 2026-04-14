@@ -17,7 +17,7 @@ import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { db } from '../../../lib/firebase'
 import { doc, onSnapshot } from 'firebase/firestore'
 
-const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
+const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 const SCORE_BAR_TRANSITION = { duration: 0.7, ease: 'easeOut' } as const
 
 function scoreColor(pct: number) {

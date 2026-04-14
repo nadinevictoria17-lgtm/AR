@@ -21,7 +21,7 @@ import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import type { SubjectKey, BuiltInQuestion } from '../../../types'
 
-const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
+const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 export function QuizScreen() {
   const { currentStudentId, unlockSubject, setScreen, activeLessonId } = useAppStore(

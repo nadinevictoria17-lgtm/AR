@@ -16,6 +16,7 @@ function mapStudentDoc(docData: Record<string, unknown>, id: string): StudentRec
   const scores: Record<SubjectKey, number | null> = {
     biology:   (docData.scores as Record<string, number | null> | undefined)?.biology   ?? null,
     chemistry: (docData.scores as Record<string, number | null> | undefined)?.chemistry ?? null,
+    physics:   (docData.scores as Record<string, number | null> | undefined)?.physics   ?? null,
   }
   return { ...(docData as Omit<StudentRecord, 'id' | 'scores'>), id, scores } as StudentRecord
 }

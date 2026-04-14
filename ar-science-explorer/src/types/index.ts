@@ -1,4 +1,4 @@
-export type SubjectKey = 'chemistry' | 'biology';
+export type SubjectKey = 'chemistry' | 'biology' | 'physics';
 
 export interface CurriculumContent {
   standards?: string;

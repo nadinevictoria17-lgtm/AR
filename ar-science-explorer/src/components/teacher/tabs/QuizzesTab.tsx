@@ -24,6 +24,7 @@ import { useNotificationStore } from '../../../store/useNotificationStore'
 const SUBJECT_OPTIONS: { value: SubjectKey; label: string }[] = [
   { value: 'chemistry', label: 'Chemistry' },
   { value: 'biology',   label: 'Biology' },
+  { value: 'physics',   label: 'Physics' },
 ]
 
 const QuizQuestionSchema = z.object({
@@ -40,7 +41,7 @@ const QuizQuestionSchema = z.object({
 
 const QuizSchema = z.object({
   title:     z.string().min(1, 'Quiz title is required'),
-  subject:   z.enum(['biology','chemistry']),
+  subject:   z.enum(['biology','chemistry','physics']),
   topicId:   z.string().min(1, 'Please select a topic'),
   questions: z.array(QuizQuestionSchema).min(1, 'At least one question is required'),
 })
@@ -305,7 +306,7 @@ export function QuizzesTab() {
   const [editing, setEditing]         = useState<TeacherQuiz | null>(null)
   const [previewQuiz, setPreviewQuiz] = useState<TeacherQuiz | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [filterSubject, setFilterSubject] = useState<'all' | 'chemistry' | 'biology'>('all')
+  const [filterSubject, setFilterSubject] = useState<'all' | 'chemistry' | 'biology' | 'physics'>('all')
   const [searchQuery, setSearchQuery]     = useState('')
   const showErrorModal   = useNotificationStore(s => s.showErrorModal)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)

@@ -13,17 +13,19 @@ import { useNavigate } from 'react-router-dom'
 import { storage } from '../../../lib/storage'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
 
-const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
+const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 // Static derived values — computed once since LESSONS / QUIZ_QUESTIONS are module-level constants
 const SUBJECTS_DATA = SUBJECTS.filter(s => SUBJECT_ORDER.includes(s.id as SubjectKey))
 const LESSON_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
   chemistry: LESSONS.filter(l => l.subject === 'chemistry').length,
   biology:   LESSONS.filter(l => l.subject === 'biology').length,
+  physics:   LESSONS.filter(l => l.subject === 'physics').length,
 }
 const QUIZ_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
   chemistry: QUIZ_QUESTIONS.filter(q => q.subject === 'chemistry').length,
   biology:   QUIZ_QUESTIONS.filter(q => q.subject === 'biology').length,
+  physics:   QUIZ_QUESTIONS.filter(q => q.subject === 'physics').length,
 }
 
 export function LearnScreen() {
@@ -191,9 +193,9 @@ export function LearnScreen() {
                             </div>
                             <div className="ml-auto flex gap-2">
                               {lesson.pdfUrl && (
-                                <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
+                                <a href={lesson.pdfUrl} download className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
                                   <FileText size={14} />
-                                </button>
+                                </a>
                               )}
                               <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
                                 <Info size={14} />

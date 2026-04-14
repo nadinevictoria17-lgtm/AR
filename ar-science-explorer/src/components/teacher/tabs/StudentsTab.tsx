@@ -110,7 +110,7 @@ export function StudentsTab() {
       studentId: cleanId,
       grade:     '7',
       section:   formData.section.trim(),
-      scores:    { biology: null, chemistry: null },
+      scores:    { biology: null, chemistry: null, physics: null },
       completedLessonIds:       [],
       completedLabExperimentIds:[],
       completedQuizIds:         [],

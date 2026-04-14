@@ -21,6 +21,7 @@ import { Input } from '../ui/input'
 const WEEKS_BY_SUBJECT: Record<SubjectKey, { id: string; title: string; week: number }[]> = {
   chemistry: LESSONS.filter(l => l.subject === 'chemistry' && l.week != null).map(l => ({ id: l.id, title: l.title, week: l.week! })),
   biology:   LESSONS.filter(l => l.subject === 'biology'   && l.week != null).map(l => ({ id: l.id, title: l.title, week: l.week! })),
+  physics:   LESSONS.filter(l => l.subject === 'physics'   && l.week != null).map(l => ({ id: l.id, title: l.title, week: l.week! })),
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

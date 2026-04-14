@@ -27,12 +27,12 @@ const SUBJECT_OPTIONS: { value: SubjectKey; label: string }[] = [
 
 const LessonSchema = z.object({
   title:                  z.string().min(1, 'Lesson title is required'),
-  subject:                z.enum(['biology', 'chemistry']),
+  subject:                z.enum(['biology', 'chemistry', 'physics']),
   summary:                z.string(),
   content:                z.string(),
   linkedQuizId:           z.string(),
   labExperimentId:        z.string(),
-  arModelIndex:           z.coerce.number().min(0, 'Must be 0–7').max(7, 'Must be 0–7'),
+  arModelIndex:           z.coerce.number().min(0, 'Must be 0–8').max(8, 'Must be 0–8'),
   detectionMode:          z.enum(['marker', 'surface']),
   anchorHint:             z.string(),
   arSteps:                z.string(),
@@ -87,7 +87,7 @@ export function LessonsTab() {
   const [currentPage, setCurrentPage]   = useState(1)
   const [pdfDataUrl, setPdfDataUrl]         = useState<string | null>(null)
   const [pdfFileName, setPdfFileName]       = useState<string | null>(null)
-  const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology'>('all')
+  const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology' | 'physics'>('all')
   const [searchQuery, setSearchQuery]       = useState('')
   const pdfInputRef = useRef<HTMLInputElement>(null)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)

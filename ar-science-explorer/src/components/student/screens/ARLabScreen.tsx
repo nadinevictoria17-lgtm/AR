@@ -13,7 +13,6 @@ import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { ARLearningControls } from '../../ar/ARLearningControls'
-import { BarcodeDisplay } from '../../ar/BarcodeDisplay'
 import { VOICE_SCRIPTS } from '../../../data/voiceScripts'
 import { storage } from '../../../lib/storage'
 import { getFallbackMarkerPath } from '../../../lib/markerUtils'
@@ -26,7 +25,7 @@ import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { pageVariants } from '../../../lib/variants'
 
-const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology']
+const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 const PHASE_TABS = [
   { key: 'visual'     as const, icon: Target,   label: '1. AR Lab'    },
@@ -420,24 +419,18 @@ export function ARLabScreen() {
                   <Printer size={14} className="mr-2" /> Print Target Image
                 </Button>
 
-                {arConfig && (
-                  <div className="mt-4 space-y-4">
-                    <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">AR Barcode Marker</p>
-                      <BarcodeDisplay value={arConfig.barcodeValue} />
-                    </div>
-                    <Button
-                      onClick={() => setShowARCamera(true)}
-                      className="w-full rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Camera size={14} className="mr-2" /> Open AR Camera
-                    </Button>
-                  </div>
+                {markerImage && arConfig && (
+                  <Button
+                    onClick={() => setShowARCamera(true)}
+                    className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Camera size={14} className="mr-2" /> Open AR Camera
+                  </Button>
                 )}
-                {!arConfig && (
+                {!markerImage || !arConfig && (
                   <Button
                     disabled
-                    className="w-full mt-2 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-40"
+                    className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-40"
                   >
                     <Camera size={14} className="mr-2" /> AR Not Available
                   </Button>
@@ -562,9 +555,9 @@ export function ARLabScreen() {
         )}
       </AnimatePresence>
 
-      {showARCamera && arConfig && (
+      {showARCamera && arConfig && markerImage && (
         <ARCameraView
-          barcodeValue={arConfig.barcodeValue}
+          markerImage={markerImage}
           glbPath={arConfig.glbPath}
           title={activeLesson?.title ?? ''}
           description={activeLesson?.arPayload?.description ?? ''}

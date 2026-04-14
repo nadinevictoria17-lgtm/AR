@@ -1,10 +1,10 @@
 /**
  * AR.js Configuration and Lesson-to-Asset Mapping
- * Maps lesson quarter/week to barcode marker ID and GLB model path
+ * Maps lesson quarter/week to GLB model path
+ * Marker images are stored at /public/markers/Q{quarter}W{week}.jpg
  */
 
 export interface ARLessonConfig {
-  barcodeValue: number  // Barcode marker ID (0-1023)
   glbPath: string       // URL to GLB model (e.g. '/glb/democritus_atom.glb')
 }
 
@@ -12,25 +12,33 @@ export interface ARLessonConfig {
  * Mapping of lesson quarter/week to AR assets
  * Key format: `Q${quarter}W${week}` (e.g. 'Q1W1', 'Q2W5')
  * Q1W5 is intentionally omitted - it has hasAR: false
- * Q2W7 and Q2W8 share the same marker image file
+ * Marker images are automatically resolved from /markers/Q{quarter}W{week}.jpg
  */
 const AR_LESSON_MAP: Record<string, ARLessonConfig> = {
-  'Q1W1': { barcodeValue: 0, glbPath: '/glb/democritus_atom.glb' },
-  'Q1W2': { barcodeValue: 1, glbPath: '/glb/waterpolarity.glb' },
-  'Q1W3': { barcodeValue: 2, glbPath: '/glb/solid_liquid_gas.glb' },
-  'Q1W4': { barcodeValue: 3, glbPath: '/glb/particle_motion_temperature.glb' },
+  'Q1W1': { glbPath: '/glb/democritus_atom.glb' },
+  'Q1W2': { glbPath: '/glb/waterpolarity.glb' },
+  'Q1W3': { glbPath: '/glb/solid_liquid_gas.glb' },
+  'Q1W4': { glbPath: '/glb/particle_motion_temperature.glb' },
   // Q1W5 intentionally omitted - hasAR: false, no marker
-  'Q1W6': { barcodeValue: 4, glbPath: '/glb/beakers.glb' },
-  'Q1W7': { barcodeValue: 5, glbPath: '/glb/saturated_unsaturated.glb' },
-  'Q1W8': { barcodeValue: 6, glbPath: '/glb/salt_dissolving_in_water.glb' },
-  'Q2W1': { barcodeValue: 7, glbPath: '/glb/Microscope.glb' },
-  'Q2W2': { barcodeValue: 8, glbPath: '/glb/plant_cell.glb' },
-  'Q2W3': { barcodeValue: 9, glbPath: '/glb/prokaryoticCell.glb' },
-  'Q2W4': { barcodeValue: 10, glbPath: '/glb/mitosis_phases.glb' },
-  'Q2W5': { barcodeValue: 11, glbPath: '/glb/Fertilization_Model_Light.glb' },
-  'Q2W6': { barcodeValue: 12, glbPath: '/glb/amoeba_binary_fission.glb' },
-  'Q2W7': { barcodeValue: 13, glbPath: '/glb/biological_organization.glb' },
-  'Q2W8': { barcodeValue: 14, glbPath: '/glb/food_web.glb' },
+  'Q1W6': { glbPath: '/glb/beakers.glb' },
+  'Q1W7': { glbPath: '/glb/saturated_unsaturated.glb' },
+  'Q1W8': { glbPath: '/glb/salt_dissolving_in_water.glb' },
+  'Q2W1': { glbPath: '/glb/Microscope.glb' },
+  'Q2W2': { glbPath: '/glb/plant_cell.glb' },
+  'Q2W3': { glbPath: '/glb/prokaryoticCell.glb' },
+  'Q2W4': { glbPath: '/glb/mitosis_phases.glb' },
+  'Q2W5': { glbPath: '/glb/Fertilization_Model_Light.glb' },
+  'Q2W6': { glbPath: '/glb/amoeba_binary_fission.glb' },
+  'Q2W7': { glbPath: '/glb/biological_organization.glb' },
+  'Q2W8': { glbPath: '/glb/food_web.glb' },
+  'Q3W1': { glbPath: '/glb/democritus_atom.glb' },
+  'Q3W2': { glbPath: '/glb/waterpolarity.glb' },
+  'Q3W3': { glbPath: '/glb/solid_liquid_gas.glb' },
+  'Q3W4': { glbPath: '/glb/particle_motion_temperature.glb' },
+  'Q3W5': { glbPath: '/glb/beakers.glb' },
+  'Q3W6': { glbPath: '/glb/saturated_unsaturated.glb' },
+  'Q3W7': { glbPath: '/glb/salt_dissolving_in_water.glb' },
+  'Q3W8': { glbPath: '/glb/food_web.glb' },
 }
 
 /**

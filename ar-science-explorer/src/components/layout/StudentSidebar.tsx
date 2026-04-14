@@ -13,6 +13,7 @@ import type { SubjectKey } from '../../types'
 const SUBJECT_DOT: Record<SubjectKey, string> = {
   biology:   'bg-subject-biology',
   chemistry: 'bg-subject-chemistry',
+  physics:   'bg-subject-physics',
 }
 
 const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [

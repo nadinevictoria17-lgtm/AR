@@ -54,4 +54,17 @@ export const AR_MODELS: ARModel[] = [
       'Mutations can change the sequence of bases',
     ],
   },
+  {
+    id: 8,
+    name: 'Motion and Displacement',
+    subject: 'physics',
+    parts: ['Position Vector', 'Displacement Arrow', 'Distance Path', 'Coordinate Axes'],
+    facts: [
+      'Displacement is the straight-line distance from start to finish',
+      'Distance is the total path length traveled',
+      'Displacement has direction; distance does not',
+      'Slope of a displacement-time graph represents velocity',
+      'A displacement-time graph shows position changes over time',
+    ],
+  },
 ]
