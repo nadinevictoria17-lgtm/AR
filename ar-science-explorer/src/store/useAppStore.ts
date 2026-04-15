@@ -47,7 +47,7 @@ export interface AppStore {
   toggleTheme: () => void
   setVoiceLang: (lang: 'en' | 'Filipino') => void
   unlockSubject: (s: SubjectKey) => void
-  applyAccessCode: (code: string) => Promise<{ unlocked: SubjectKey[]; targetName?: string; invalid: boolean }>
+  applyAccessCode: (code: string) => Promise<{ unlocked: SubjectKey[]; targetName?: string; invalid: boolean; error?: string }>
 
   // AR actions
   setArModelIndex: (idx: number) => void
@@ -56,20 +56,20 @@ export interface AppStore {
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Persisted state
       unlocked: { biology: false, chemistry: true, physics: false },
-      voiceLang: 'en',
+      voiceLang: 'en' as 'en' | 'Filipino',
       theme: 'light',
 
       // Session state
-      currentStudentId: null,
+      currentStudentId: null as string | null,
       screen: 'getstarted',
-      activeSubject: null,
-      activeTopic: null,
-      activeLessonId: null,
-      activeARPayload: null,
-      activeLabExperimentId: null,
+      activeSubject: null as SubjectKey | null,
+      activeTopic: null as string | null,
+      activeLessonId: null as string | null,
+      activeARPayload: null as ARPayload | null,
+      activeLabExperimentId: null as string | null,
 
       arModelIndex: 0,
       arSourceVisible: true,
@@ -96,14 +96,24 @@ export const useAppStore = create<AppStore>()(
           unlocked: { ...state.unlocked, [s]: true },
         })),
 
-      applyAccessCode: async (code) => {
+      applyAccessCode: async (code): Promise<{ unlocked: SubjectKey[]; targetName?: string; invalid: boolean; error?: string }> => {
         const normalized = code.trim().toUpperCase()
-        const currentStudentId = useAppStore.getState().currentStudentId
+        const state = get()
+        const { currentStudentId } = state
 
         if (!normalized) return { unlocked: [], invalid: true }
 
         const data = await getUnlockCodeData(normalized)
         if (!data) return { unlocked: [], invalid: true }
+
+        // Security: If code is for a specific student ID, verify it matches
+        if (data.targetStudentId && data.targetStudentId !== currentStudentId) {
+          return { 
+            unlocked: [], 
+            invalid: true, 
+            error: `This code is restricted to student ID ${data.targetStudentId}.` 
+          }
+        }
 
         // Security: Check if THIS student has already used this specific code
         if (currentStudentId && data.usedByStudentIds?.includes(currentStudentId)) {
@@ -168,7 +178,7 @@ export const useAppStore = create<AppStore>()(
       },
 
       // AR actions
-      setArModelIndex: (idx) =>
+      setArModelIndex: (idx: number) =>
         set({
           arModelIndex: idx,
         }),

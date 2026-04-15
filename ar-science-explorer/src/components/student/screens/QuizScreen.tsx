@@ -231,16 +231,18 @@ export function QuizScreen() {
   const handleShowResult = async () => {
     if (selected === null) return
 
-    submitAnswer(selected)
-    const newAnswers = [...quizAnswers, selected]
-    setQuizAnswers(newAnswers)
-    const isLastQuestion = quizIndex >= quizQuestions.length - 1
+      submitAnswer(selected)
+      const newAnswers = [...quizAnswers, selected]
+      setQuizAnswers(newAnswers)
+      const isLastQuestion = quizIndex >= quizQuestions.length - 1
 
-    if (isLastQuestion) {
-      const correctCount = quizScore + (selected === question.correctIndex ? 1 : 0)
-      const pct = Math.round((correctCount / quizQuestions.length) * 100)
-      
-      console.log(`[Quiz Debug] Entering Final Save Block. Student: ${currentStudentId}, Quiz: ${runningQuizId}`)
+      if (isLastQuestion) {
+        // Wait for store to update or calculate correct total
+        const isCorrect = selected === question.correctIndex
+        const finalCount = quizScore + (isCorrect ? 1 : 0)
+        const pct = Math.round((finalCount / quizQuestions.length) * 100)
+        
+        console.log(`[Quiz Debug] Entering Final Save Block. Student: ${currentStudentId}, Total Correct: ${finalCount}`)
       
       // SUPER FAIL-SAFE: Look at the questions themselves to find the ID
       const firstQuestion = quizQuestions[0] as any
@@ -259,7 +261,7 @@ export function QuizScreen() {
           attemptNumber: (studentRecord?.quizAttempts?.filter(a => a.quizId === resolvedId).length || 0) + 1,
           score: pct,
           totalQuestions: quizQuestions.length,
-          correctAnswers: correctCount,
+          correctAnswers: finalCount,
           answers: newAnswers,
           timestamp: new Date().toISOString(),
           locked: true,
@@ -282,7 +284,7 @@ export function QuizScreen() {
       }
 
       setFinalScorePct(pct)
-      setFinalCorrectCount(correctCount)
+      setFinalCorrectCount(finalCount)
       setShowResult(true)
     } else {
       nextQuestion()
