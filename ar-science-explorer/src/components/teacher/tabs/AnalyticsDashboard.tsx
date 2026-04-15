@@ -5,7 +5,6 @@ import {
   Cell, PieChart, Pie, AreaChart, Area, Label
 } from 'recharts'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { storage } from '../../../lib/storage'
 import { useNotificationStore } from '../../../store/useNotificationStore'
 import { LESSONS } from '../../../data/lessons'
@@ -50,8 +49,8 @@ interface RecentAttempt {
 export function AnalyticsDashboard() {
   // useStorageData already opens real-time onSnapshot listeners for all collections.
   // A separate onSnapshot here was creating a duplicate student subscription — removed.
-  const { data, isLoading } = useStorageData(true)
-  const showSkeleton = useDeferredLoading(isLoading)
+  const { data } = useStorageData(true)
+  const showSkeleton = false
   const students = data.students
   const lessons = data.lessons
   const { showConfirmModal, showToast } = useNotificationStore()

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KeyRound, X, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -42,6 +42,8 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         const applied = await storage.applyQuizUnlockCode(currentStudentId, quizId, normalized)
         if (applied) {
           await storage.markQuizAsRetakeable(currentStudentId, quizId)
+          // Add quiz to unlockedQuizIds so it shows as unlocked in the UI
+          await storage.unlockContent(currentStudentId, quizId, 'quiz')
           setStatus('success')
           setMessage('Quiz unlocked successfully!')
           setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
@@ -62,6 +64,13 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       if (data.targetStudentId && data.targetStudentId !== currentStudentId) {
         setStatus('error')
         setMessage('This code is assigned to a different student.')
+        return
+      }
+
+      // Check if this student has already used this code (one-time use for lesson/subject codes)
+      if (data.usedByStudentIds?.includes(currentStudentId)) {
+        setStatus('error')
+        setMessage('This code has already been used. Ask your teacher for a new one.')
         return
       }
 
@@ -91,6 +100,26 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         return
       }
 
+      // ── Quiz Unlock code (type === 'lesson' for first-time quiz access) ──
+      if (data.type === 'lesson' && type === 'quiz') {
+        if (data.targetId && data.targetId !== targetId) {
+          setStatus('error')
+          setMessage('This code is not valid for this quiz.')
+          return
+        }
+        const quizId = `builtin-${targetId}`
+        const success = await storage.unlockContent(currentStudentId, quizId, 'quiz')
+        if (success) {
+          await trackCodeUsage(normalized, currentStudentId)
+          setStatus('success')
+          setMessage('Quiz unlocked successfully!')
+          setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
+        } else {
+          throw new Error('Storage update failed')
+        }
+        return
+      }
+
       // ── Manually-created quiz retake code (stored as type 'quiz' in unlockCodes) ──
       if (data.type === 'quiz' && type === 'quiz') {
         // Enforce one-time use
@@ -104,11 +133,22 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
           setMessage('This code is not valid for this quiz.')
           return
         }
+
+        // Validate: quiz must be completed before allowing retake
+        const student = (await storage.getAll()).students.find(s => s.studentId === currentStudentId)
         const quizId = `builtin-${targetId}`
+        if (!student?.completedQuizIds.includes(quizId)) {
+          setStatus('error')
+          setMessage('You must complete the quiz first before using a retake code.')
+          return
+        }
+
         await storage.markQuizAsRetakeable(currentStudentId, quizId)
+        // Add quiz to unlockedQuizIds so it shows as unlocked in the UI
+        await storage.unlockContent(currentStudentId, quizId, 'quiz')
         await trackCodeUsage(normalized, currentStudentId, true) // markAsUsed=true (1-time use)
         setStatus('success')
-        setMessage('Quiz unlocked successfully!')
+        setMessage('Quiz unlocked for retake!')
         setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
         return
       }
@@ -141,15 +181,10 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
     }
   }
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
-  if (!mounted) return null
-
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm" suppressHydrationWarning>
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

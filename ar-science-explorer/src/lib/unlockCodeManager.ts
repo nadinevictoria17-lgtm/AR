@@ -12,6 +12,7 @@ export interface UnlockCodeData {
   createdAt: string;
   isUsed?: boolean;              // True once a quiz-retake code has been applied
   usedByStudentIds?: string[];   // Students who have applied a lesson unlock code
+  isArchived?: boolean;          // Archived codes don't appear in the UI
 }
 
 /**
@@ -130,6 +131,7 @@ export async function deleteUnlockCode(code: string): Promise<boolean> {
     return false
   }
 }
+
 
 /**
  * Seed initial unlock codes (one-time setup)

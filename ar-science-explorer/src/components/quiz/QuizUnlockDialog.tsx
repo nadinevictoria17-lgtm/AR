@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { Lock, Check, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { storage } from '../../lib/storage'
 import { useQuizAttempt } from '../../hooks/useQuizAttempt'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -34,6 +35,8 @@ export function QuizUnlockDialog({
     const success = await quizAttempt.applyUnlockCode(studentId, quizId, code.trim().toUpperCase())
 
     if (success) {
+      // Add quiz to unlockedQuizIds so it shows as unlocked in the UI
+      await storage.unlockContent(studentId, quizId, 'quiz')
       setStatus('success')
       setTimeout(onUnlock, 1200)
     } else {
@@ -43,11 +46,6 @@ export function QuizUnlockDialog({
     }
   }
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
-  if (!mounted) return null
-
   return createPortal(
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -55,8 +53,9 @@ export function QuizUnlockDialog({
       exit={{ opacity: 0, scale: 0.95 }}
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
       onClick={onCancel}
+      suppressHydrationWarning
     >
-      <div className="bg-card rounded-2xl border border-border p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-2xl border border-border p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()} suppressHydrationWarning>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
             <Lock size={20} className="text-amber-600" />

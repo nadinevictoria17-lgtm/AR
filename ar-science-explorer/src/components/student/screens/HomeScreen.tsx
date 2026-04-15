@@ -3,7 +3,6 @@ import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { cn } from '../../../lib/utils'
 import { pageVariants } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
@@ -29,9 +28,9 @@ export function HomeScreen() {
   const [unlockMessage, setUnlockMessage] = useState<string | null>(null)
   const [isApplyingCode, setIsApplyingCode] = useState(false)
 
-  const { data, isLoading } = useStorageData(true)
-  const showSkeleton = useDeferredLoading(isLoading)
-  const student = useMemo(() => 
+  const { data } = useStorageData(true)
+  const showSkeleton = false
+  const student = useMemo(() =>
     currentStudentId ? data.students.find(s => s.studentId === currentStudentId) : null
   , [data.students, currentStudentId])
 

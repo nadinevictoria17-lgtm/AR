@@ -7,10 +7,11 @@ import {
   deleteDoc,
   doc,
   arrayUnion,
+  arrayRemove,
   query,
   where,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
 import type { StudentRecord, TeacherQuiz, TeacherLesson, QuizAttempt, QuizUnlockCode, SubjectKey } from '../types'
 import { generateUnlockCode } from './unlockCodeGenerator'
 
@@ -63,6 +64,17 @@ export const storage = {
     } catch (error) {
       console.error('[Storage] deleteStudent() failed:', error)
       return false
+    }
+  },
+
+  async archiveStudent(studentId: string) {
+    try {
+      const docRef = doc(db, 'students', studentId)
+      await updateDoc(docRef, { isArchived: true })
+      return true
+    } catch (error) {
+      console.error('[Storage] archiveStudent() failed:', error)
+      throw error
     }
   },
 
@@ -171,12 +183,20 @@ export const storage = {
 
       if (docSnap.exists()) {
         const data = docSnap.data()
-        // Migration: Ensure new arrays exist
-        if (!data.unlockedLessonIds || !data.unlockedQuizIds) {
-          await updateDoc(docRef, {
-            unlockedLessonIds: data.unlockedLessonIds || [],
-            unlockedQuizIds: data.unlockedQuizIds || [],
-          })
+        const currentUid = auth.currentUser?.uid
+        const needsUpdate = !data.unlockedLessonIds || !data.unlockedQuizIds || (currentUid && data.uid !== currentUid)
+        
+        if (needsUpdate) {
+          try {
+            await updateDoc(docRef, {
+              unlockedLessonIds: data.unlockedLessonIds || [],
+              unlockedQuizIds: data.unlockedQuizIds || [],
+              ...(currentUid ? { uid: currentUid } : {})
+            })
+            console.log(`[Storage] Updated student ${normalized} with UID: ${currentUid}`)
+          } catch (updateErr) {
+            console.error(`[Storage] Failed to update student record with UID. CHECK YOUR SECURITY RULES!`, updateErr)
+          }
         }
         return true
       }
@@ -199,6 +219,7 @@ export const storage = {
         unlockedLessonIds: [],
         unlockedQuizIds: [],
         quizAttempts: [],
+        uid: auth.currentUser?.uid || undefined,
       }
 
       await setDoc(docRef, newStudent)
@@ -227,6 +248,70 @@ export const storage = {
     } catch (error) {
       console.error('[Storage] saveQuizAttempt() failed:', error)
       return false
+    }
+  },
+
+  /**
+   * Consolidated method to save all quiz results in one go.
+   * This reduces race conditions and ensures data consistency between attempts, scores, and completion status.
+   */
+  async completeQuiz(attempt: QuizAttempt, subject: SubjectKey): Promise<void> {
+    try {
+      const authUid = auth.currentUser?.uid
+      let studentId = attempt.studentId.trim();
+      let studentRef = doc(db, 'students', studentId)
+      
+      // Safety Check: Verify if document exists at the direct ID path
+      const directSnap = await getDoc(studentRef)
+      
+      if (!directSnap.exists() && authUid) {
+        console.warn(`[Storage] Student ${studentId} not found by ID path. Searching by Auth UID...`)
+        const q = query(collection(db, 'students'), where('uid', '==', authUid))
+        const qSnap = await getDocs(q)
+        if (!qSnap.empty) {
+          studentId = qSnap.docs[0].id
+          studentRef = doc(db, 'students', studentId)
+          console.log(`[Storage] Corrected student document ID to: ${studentId}`)
+        }
+      }
+
+      const attemptsRef = doc(db, 'students', studentId, 'quizAttempts', attempt.id)
+
+      console.log(`[Storage] Processing completeQuiz for ${studentId}, quiz: ${attempt.quizId}, subject: ${subject}`)
+
+      // 1. Prepare updates for main student document
+      const updates: any = {
+        completedQuizIds: arrayUnion(attempt.quizId),
+        unlockedQuizIds: arrayRemove(attempt.quizId), // FORGET the unlock code after use
+      }
+      
+      // Safety: Also include the attempt in the main doc array
+      updates.quizAttempts = arrayUnion(attempt);
+
+      if (subject) {
+        updates[`scores.${subject}`] = attempt.score;
+      }
+
+      if (attempt.quizId.startsWith('builtin-')) {
+        const lessonId = attempt.quizId.replace('builtin-', '')
+        updates.completedLessonIds = arrayUnion(lessonId)
+      }
+
+      // 2. Save main document FIRST
+      await updateDoc(studentRef, updates)
+      console.log(`[Storage] Student document updated successfully`)
+
+      // 3. Save to subcollection as a backup
+      try {
+        await setDoc(attemptsRef, attempt)
+      } catch (e) {
+        console.warn('[Storage] Subcollection save failed (ignoring):', e)
+      }
+
+      console.log(`[Storage] Saved quiz results successfully for ${studentId}`)
+    } catch (error) {
+      console.error('[Storage] completeQuiz() failed with error:', error)
+      throw error
     }
   },
 
@@ -352,7 +437,10 @@ export const storage = {
       const updated = attempts.map(a =>
         a.id === latest.id ? { ...a, locked: false } : a
       )
-      await updateDoc(studentRef, { quizAttempts: updated })
+      await updateDoc(studentRef, { 
+        quizAttempts: updated,
+        unlockedQuizIds: arrayUnion(quizId)
+      })
       return true
     } catch (error) {
       console.error('[Storage] markQuizAsRetakeable() failed:', error)
@@ -379,6 +467,7 @@ export const storage = {
       return false
     }
   },
+
 
   async applyQuizUnlockCode(studentId: string, quizId: string, code: string): Promise<boolean> {
     try {
@@ -495,6 +584,27 @@ export const storage = {
     }
   },
 
+  async lockContent(studentId: string, targetId: string, type: 'lesson' | 'quiz'): Promise<boolean> {
+    try {
+      const studentRef = doc(db, 'students', studentId)
+      const field = type === 'lesson' ? 'unlockedLessonIds' : 'unlockedQuizIds'
+      const docSnap = await getDoc(studentRef)
+
+      if (!docSnap.exists()) return false
+
+      const currentArray = docSnap.data()[field] as string[] || []
+      const updated = currentArray.filter(id => id !== targetId)
+
+      await updateDoc(studentRef, {
+        [field]: updated,
+      })
+      return true
+    } catch (error) {
+      console.error('[Storage] lockContent() failed:', error)
+      return false
+    }
+  },
+
   /**
    * Comprehensive quiz unlock validation
    * Checks if a student can take a quiz based on current state
@@ -515,14 +625,34 @@ export const storage = {
       }
 
       const student = docSnap.data() as StudentRecord
+      const unlockedQuizIds = new Set(student.unlockedQuizIds ?? [])
 
-      // Check quiz attempts
-      const quizAttempts = (student.quizAttempts || [])
-        .filter((a) => a.quizId === quizId)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      // Check quiz attempts on the parent document first
+      let quizAttempts = (student.quizAttempts || []).filter((a) => a.quizId === quizId)
 
-      // If no attempts, student can take quiz
+      // FALLBACK: If main doc array is empty, check subcollection for higher persistence
       if (quizAttempts.length === 0) {
+        const attemptsSnap = await getDocs(
+          query(collection(studentRef, 'quizAttempts'), where('quizId', '==', quizId))
+        )
+        if (!attemptsSnap.empty) {
+          quizAttempts = attemptsSnap.docs.map(d => d.data() as QuizAttempt)
+        }
+      }
+
+      // Sort by timestamp descending
+      quizAttempts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+      // If no attempts found anywhere, check if quiz is unlocked
+      if (quizAttempts.length === 0) {
+        if (!unlockedQuizIds.has(quizId)) {
+          return {
+            canTake: false,
+            isLocked: true,
+            reason: 'Quiz is locked. Enter an unlock code to take it.',
+            attemptCount: 0,
+          }
+        }
         return {
           canTake: true,
           isLocked: false,
@@ -530,18 +660,30 @@ export const storage = {
         }
       }
 
-      // Check if latest attempt is locked
+      // Check if latest attempt is locked - BE VERY STRICT HERE
       const latestAttempt = quizAttempts[0]
-      if (latestAttempt.locked) {
+      console.log(`[Eligibility Debug] Latest attempt for ${quizId}:`, latestAttempt?.id, "Locked:", latestAttempt?.locked)
+      
+      if (latestAttempt && latestAttempt.locked) {
         return {
           canTake: false,
           isLocked: true,
-          reason: 'Quiz locked after first attempt. Use unlock code to retake.',
+          reason: 'Quiz locked after attempt. Enter an unlock code to retake.',
           attemptCount: quizAttempts.length,
         }
       }
 
-      // Latest attempt is unlocked, student can retake
+      // If they don't have an attempt but it's not in the unlocked list, it's also locked
+      if (quizAttempts.length === 0 && !unlockedQuizIds.has(quizId)) {
+         return {
+          canTake: false,
+          isLocked: true,
+          reason: 'Quiz requires an unlock code.',
+          attemptCount: 0,
+        }
+      }
+
+      // Latest attempt is unlocked (from code usage) OR it's a fresh first-time unlock
       return {
         canTake: true,
         isLocked: false,

@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
-import { useQuizAttempt } from '../../../hooks/useQuizAttempt'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { ContentSkeleton } from '../../ui/skeleton'
@@ -18,18 +17,20 @@ import { AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { pageVariants } from '../../../lib/variants'
 import { Button } from '../../ui/button'
+import { db } from '../../../lib/firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
+import type { StudentRecord, QuizAttempt } from '../../../types'
 import { Card } from '../../ui/card'
 import type { SubjectKey, BuiltInQuestion } from '../../../types'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 export function QuizScreen() {
-  const { currentStudentId, unlockSubject, setScreen, activeLessonId } = useAppStore(
+  const { currentStudentId, unlockSubject, setScreen } = useAppStore(
     useShallow((s) => ({
       currentStudentId: s.currentStudentId,
       unlockSubject:    s.unlockSubject,
       setScreen:        s.setScreen,
-      activeLessonId:   s.activeLessonId,
     }))
   )
 
@@ -44,8 +45,12 @@ export function QuizScreen() {
     useHint,
     quizHintsUsed,
     resetQuiz,
+    runningQuizId,
+    setRunningQuizId,
+    setActiveQuizSubject,
   } = useQuizStore(useShallow((s) => ({
     activeQuizSubject: s.activeQuizSubject,
+    setActiveQuizSubject: s.setActiveQuizSubject,
     initQuiz:          s.initQuiz,
     quizQuestions:     s.quizQuestions,
     quizIndex:         s.quizIndex,
@@ -55,18 +60,33 @@ export function QuizScreen() {
     useHint:           s.useHint,
     quizHintsUsed:     s.quizHintsUsed,
     resetQuiz:         s.resetQuiz,
+    runningQuizId:     s.runningQuizId,
+    setRunningQuizId:  s.setRunningQuizId,
   })))
 
-  const quizAttemptHook = useQuizAttempt()
   const navigate = useNavigate()
   const { data, isLoading } = useStorageData()
   const showSkeleton = useDeferredLoading(isLoading)
 
+  // Subscribe to real-time student updates for quiz unlock status
+  const [studentRealtime, setStudentRealtime] = useState<StudentRecord | null>(null)
+  useEffect(() => {
+    if (!currentStudentId) return
+    const unsub = onSnapshot(
+      doc(db, 'students', currentStudentId),
+      (snap) => {
+        if (snap.exists()) {
+          setStudentRealtime(snap.data() as StudentRecord)
+        }
+      },
+      () => {} // Ignore errors, fallback to useStorageData
+    )
+    return () => unsub()
+  }, [currentStudentId])
+
   // State
   const [selected, setSelected] = useState<number | null>(null)
   const [showResult, setShowResult] = useState(false)
-  const [runningSubject, setRunningSubject] = useState<SubjectKey | null>(null)
-  const [runningQuizId, setRunningQuizId] = useState<string | null>(null)
   const [runningQuizIsLastInSubject, setRunningQuizIsLastInSubject] = useState(false)
   const [finalScorePct,     setFinalScorePct]     = useState<number>(0)
   const [finalCorrectCount, setFinalCorrectCount] = useState<number>(0)
@@ -80,9 +100,16 @@ export function QuizScreen() {
     () => currentStudentId ? data.students.find((s) => s.studentId === currentStudentId) : null,
     [data.students, currentStudentId]
   )
+  // Use real-time data if available, otherwise fallback to useStorageData
+  const activeStudent = studentRealtime || studentRecord
+
   const completedQuizIds = useMemo(
-    () => new Set(studentRecord?.completedQuizIds ?? []),
-    [studentRecord?.completedQuizIds]
+    () => new Set(activeStudent?.completedQuizIds ?? []),
+    [activeStudent?.completedQuizIds]
+  )
+  const unlockedQuizIds = useMemo(
+    () => new Set(activeStudent?.unlockedQuizIds ?? []),
+    [activeStudent?.unlockedQuizIds]
   )
 
   const subject: SubjectKey | null = activeQuizSubject ?? null
@@ -116,7 +143,7 @@ export function QuizScreen() {
             title: q.title,
             topicName: topic.name,
             isCompleted: completedQuizIds.has(q.id),
-            isLocked: false, // TODO: check prerequisites
+            isLocked: !unlockedQuizIds.has(q.id),
             questionCount: q.questions.length,
           }))
         )
@@ -124,32 +151,24 @@ export function QuizScreen() {
         // Create one quiz per lesson (5 questions each)
         for (const lessonId of lessonIds) {
           const lessonQuestions = QUIZ_QUESTIONS.filter((q) => q.subject === subject && q.lessonId === lessonId)
+          const quizId = `builtin-${lessonId}`
           result.push({
-            id: `builtin-${lessonId}`,
+            id: quizId,
             title: `${lessonId.toUpperCase()} Quiz`,
             topicName: topic.name,
-            isCompleted: completedQuizIds.has(`builtin-${lessonId}`),
-            isLocked: false,
+            isCompleted: completedQuizIds.has(quizId),
+            isLocked: !unlockedQuizIds.has(quizId),
             questionCount: lessonQuestions.length,
           })
         }
       }
     }
     return result
-  }, [subject, topics, data.quizzes, completedQuizIds])
+  }, [subject, topics, data.quizzes, completedQuizIds, unlockedQuizIds])
 
   const question = quizQuestions[quizIndex]
   const inQuiz = quizQuestions.length > 0
-  const scoreSubject = runningSubject ?? activeQuizSubject ?? null
-
-  // Derive quiz ID from lesson if not explicitly set (quiz started from ARLabScreen)
-  useEffect(() => {
-    if (inQuiz && !runningQuizId && activeLessonId) {
-      const derivedQuizId = `builtin-${activeLessonId}`
-      console.log(`[Quiz] Auto-detected quiz ID from lesson: ${derivedQuizId}`)
-      setRunningQuizId(derivedQuizId)
-    }
-  }, [inQuiz, runningQuizId, activeLessonId])
+  const scoreSubject = activeQuizSubject || null
 
   // Prevent browser back navigation during quiz
   useEffect(() => {
@@ -172,6 +191,15 @@ export function QuizScreen() {
   const handleStartQuiz = async (quizId: string) => {
     if (!currentStudentId) return
 
+    // First check if quiz is unlocked (quiz unlock code required)
+    // Quiz must be explicitly unlocked to take it, even if previously completed
+    if (!unlockedQuizIds.has(quizId)) {
+      const quizTitle = quizzes.find((q) => q.id === quizId)?.title || 'Quiz'
+      setPendingUnlockQuiz({ id: quizId, title: quizTitle })
+      setShowUnlockDialog(true)
+      return
+    }
+
     // Check quiz eligibility using centralized validation
     const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
     if (!eligibility.canTake) {
@@ -188,7 +216,7 @@ export function QuizScreen() {
     const quizQuestionsList = quiz?.questions ?? (lessonId ? QUIZ_QUESTIONS.filter((q) => q.lessonId === lessonId) : [])
 
     initQuiz(quizQuestionsList.length > 0 ? quizQuestionsList : QUIZ_QUESTIONS)
-    setRunningSubject(subject)
+    setActiveQuizSubject(subject)
     setRunningQuizId(quizId)
     setRunningQuizIsLastInSubject(quizzes.findIndex((q) => q.id === quizId) === quizzes.length - 1)
     setSelected(null)
@@ -211,40 +239,46 @@ export function QuizScreen() {
     if (isLastQuestion) {
       const correctCount = quizScore + (selected === question.correctIndex ? 1 : 0)
       const pct = Math.round((correctCount / quizQuestions.length) * 100)
+      
+      console.log(`[Quiz Debug] Entering Final Save Block. Student: ${currentStudentId}, Quiz: ${runningQuizId}`)
+      
+      // SUPER FAIL-SAFE: Look at the questions themselves to find the ID
+      const firstQuestion = quizQuestions[0] as any
+      const deducedLessonId = firstQuestion?.lessonId || firstQuestion?.id?.split('-')[1]
+      const resolvedId = runningQuizId || (deducedLessonId ? `builtin-${deducedLessonId}` : activeQuizSubject ? `builtin-${activeQuizSubject}` : 'unknown-quiz')
+      
+      try {
+        const resolvedSubject = (scoreSubject || (resolvedId?.startsWith('builtin-') 
+          ? QUIZ_QUESTIONS.find(q => q.lessonId === resolvedId.replace('builtin-', ''))?.subject
+          : data.quizzes.find(q => q.id === resolvedId)?.subject) || 'chemistry') as SubjectKey;
 
-      // Save attempt
-      if (currentStudentId && scoreSubject && runningQuizId) {
-        try {
-          console.log(`[Quiz] Completing quiz: ${runningQuizId}, score: ${pct}%, subject: ${scoreSubject}`)
-
-          const saved = await quizAttemptHook.saveAttempt(
-            currentStudentId,
-            runningQuizId,
-            pct,
-            quizQuestions.length,
-            correctCount,
-            newAnswers
-          )
-          console.log(`[Quiz] Attempt saved: ${saved}`)
-
-          await storage.saveStudentScore(currentStudentId, scoreSubject, pct)
-          console.log(`[Quiz] Score saved: ${pct}%`)
-
-          await storage.saveStudentQuizCompletion(currentStudentId, runningQuizId)
-          console.log(`[Quiz] Completion recorded`)
-
-          // Unlock next subject if last quiz
-          if (runningQuizIsLastInSubject) {
-            const idx = SUBJECT_ORDER.indexOf(scoreSubject)
-            const nextSubject = SUBJECT_ORDER[idx + 1]
-            if (nextSubject) {
-              unlockSubject(nextSubject)
-              console.log(`[Quiz] Unlocked next subject: ${nextSubject}`)
-            }
-          }
-        } catch (error) {
-          console.error(`[Quiz] Failed to save quiz completion:`, error)
+        const attempt: QuizAttempt = {
+          id: `attempt-${resolvedId}-${currentStudentId || 'unknown'}-${Date.now()}`,
+          quizId: resolvedId,
+          studentId: currentStudentId || 'unknown',
+          attemptNumber: (studentRecord?.quizAttempts?.filter(a => a.quizId === resolvedId).length || 0) + 1,
+          score: pct,
+          totalQuestions: quizQuestions.length,
+          correctAnswers: correctCount,
+          answers: newAnswers,
+          timestamp: new Date().toISOString(),
+          locked: true,
         }
+
+        console.log(`[Quiz Debug] Calling storage.completeQuiz for:`, resolvedId)
+        await storage.completeQuiz(attempt, resolvedSubject)
+
+        // Manual local lock to be 100% sure the UI updates even if onSnapshot lags
+        await storage.lockContent(currentStudentId || '', resolvedId, 'quiz')
+        
+        if (runningQuizIsLastInSubject) {
+          const idx = SUBJECT_ORDER.indexOf(resolvedSubject as SubjectKey)
+          const nextSubject = SUBJECT_ORDER[idx + 1]
+          if (nextSubject) unlockSubject(nextSubject)
+        }
+      } catch (error) {
+        console.error(`[Quiz] Save failed:`, error)
+      } finally {
       }
 
       setFinalScorePct(pct)
@@ -272,7 +306,7 @@ export function QuizScreen() {
     setFinalCorrectCount(0)
     setScreen('progress')
     navigate('/app/progress')
-  }, [resetQuiz, setRunningQuizId, setRunningQuizIsLastInSubject, setScreen, navigate])
+  }, [resetQuiz, setScreen, navigate])
 
   const handleShowBackConfirmation = () => {
     setShowBackConfirmation(true)
@@ -299,26 +333,36 @@ export function QuizScreen() {
         const pct = Math.round((correctCount / quizQuestions.length) * 100)
         const finalAnswers = quizAnswers.length > quizIndex ? quizAnswers : [...quizAnswers, selected ?? -1]
 
-        console.log(`[Quiz] Exiting quiz early: ${runningQuizId}, score: ${pct}%, subject: ${scoreSubject}`)
+        // Fallback subject detection
+        const resolvedSubject = scoreSubject || (runningQuizId.startsWith('builtin-') 
+          ? QUIZ_QUESTIONS.find(q => q.lessonId === runningQuizId.replace('builtin-', ''))?.subject
+          : data.quizzes.find(q => q.id === runningQuizId)?.subject) || 'chemistry';
 
-        // Save the attempt with completed answers
-        const saved = await quizAttemptHook.saveAttempt(
-          currentStudentId,
-          runningQuizId,
-          pct,
-          quizQuestions.length,
-          correctCount,
-          finalAnswers
-        )
-        console.log(`[Quiz] Early exit attempt saved: ${saved}`)
+        console.log(`[Quiz] Saving early exit results: ${runningQuizId}, score: ${pct}%, subject: ${resolvedSubject}`)
 
-        await storage.saveStudentScore(currentStudentId, scoreSubject, pct)
-        console.log(`[Quiz] Early exit score saved: ${pct}%`)
+        const attempt: QuizAttempt = {
+          id: `attempt-${runningQuizId}-${currentStudentId}-${Date.now()}`,
+          quizId: runningQuizId,
+          studentId: currentStudentId,
+          attemptNumber: (studentRecord?.quizAttempts?.filter(a => a.quizId === runningQuizId).length || 0) + 1,
+          score: pct,
+          totalQuestions: quizQuestions.length,
+          correctAnswers: correctCount,
+          answers: finalAnswers,
+          timestamp: new Date().toISOString(),
+          locked: true,
+        }
 
-        await storage.saveStudentQuizCompletion(currentStudentId, runningQuizId)
-        console.log(`[Quiz] Early exit completion recorded`)
+      // setIsSaving replaced
+        try {
+          // Use consolidated atomic update
+          await storage.completeQuiz(attempt, resolvedSubject as SubjectKey)
+          console.log(`[Quiz] Early exit saved successfully`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } finally {
+        }
       } catch (error) {
-        console.error(`[Quiz] Failed to save early exit:`, error)
+        console.error(`[Quiz] CRITICAL ERROR during early exit save:`, error)
       }
     }
 
@@ -340,10 +384,11 @@ export function QuizScreen() {
 
   const handleUnlockSuccess = async () => {
     setShowUnlockDialog(false)
-    if (pendingUnlockQuiz) {
-      await handleStartQuiz(pendingUnlockQuiz.id)
-    }
     setPendingUnlockQuiz(null)
+    // Wait for Firestore to sync the unlockedQuizIds before attempting to start
+    // This ensures the quiz list updates and shows the quiz as unlocked
+    await new Promise(resolve => setTimeout(resolve, 500))
+    // Quiz list will auto-update from Firestore, student can click to start
   }
 
   if (showSkeleton) return <ContentSkeleton />

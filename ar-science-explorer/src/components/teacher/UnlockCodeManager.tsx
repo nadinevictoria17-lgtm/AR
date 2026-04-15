@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../lib/variants'
-import { getAllUnlockCodes, createUnlockCode, deleteUnlockCode, type UnlockCodeData } from '../../lib/unlockCodeManager'
+import { getAllUnlockCodes, createUnlockCode, getUnlockCodeData, deleteUnlockCode, type UnlockCodeData } from '../../lib/unlockCodeManager'
 import { storage } from '../../lib/storage'
 import { useStorageData } from '../../hooks/useStorageData'
 import { useNotificationStore } from '../../store/useNotificationStore'
@@ -53,13 +53,13 @@ export function UnlockCodeManager() {
   const [showForm, setShowForm]     = useState(false)
 
   // Filters
-  const [filterType,   setFilterType]   = useState<'all' | 'lesson' | 'retake'>('all')
+  const [filterType,   setFilterType]   = useState<'all' | 'subject' | 'lesson' | 'quiz'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'used'>('all')
   const [searchQuery,  setSearchQuery]  = useState('')
 
   // Form state
   const [newCode,               setNewCode]               = useState('')
-  const [codeType,              setCodeType]              = useState<'subject' | 'quiz'>('subject')
+  const [codeType,              setCodeType]              = useState<'subject' | 'lesson' | 'quiz'>('subject')
   const [selectedSubject,       setSelectedSubject]       = useState<SubjectKey>('chemistry')
   const [selectedWeeks,         setSelectedWeeks]         = useState<string[]>([])
   const [selectedTargetId,      setSelectedTargetId]      = useState<string>(LESSONS[0]?.id || '')
@@ -72,7 +72,6 @@ export function UnlockCodeManager() {
   const [errorVisible, setErrorVisible] = useState<string | null>(null)
 
   useEffect(() => { loadCodes() }, [])
-  useEffect(() => { setSelectedWeeks([]) }, [selectedSubject])
 
   const loadCodes = async () => {
     setLoading(true)
@@ -93,16 +92,34 @@ export function UnlockCodeManager() {
       setErrorVisible('Select at least one week to unlock.')
       return
     }
-    if (codeType === 'quiz' && !selectedTargetId) return
+    if ((codeType === 'lesson' || codeType === 'quiz') && !selectedTargetId) {
+      setErrorVisible('Select a quiz.')
+      return
+    }
     setErrorVisible(null)
 
-    const config = codeType === 'subject'
-      ? { subjects: [selectedSubject], lessonIds: selectedWeeks }
-      : { targetId: selectedTargetId, ...(selectedTargetStudent ? { targetStudentId: selectedTargetStudent } : {}) }
+    // Check if code already exists
+    const normalizedCode = newCode.trim().toUpperCase()
+    const existingCode = await getUnlockCodeData(normalizedCode)
+    if (existingCode) {
+      setErrorVisible(`Code "${normalizedCode}" already exists. Please use a different code name.`)
+      return
+    }
 
-    const result = await createUnlockCode(newCode.trim().toUpperCase(), codeType, config)
+    let config: any
+    if (codeType === 'subject') {
+      config = { subjects: [selectedSubject], lessonIds: selectedWeeks }
+    } else if (codeType === 'lesson') {
+      // Quiz Unlock — no student targeting
+      config = { targetId: selectedTargetId }
+    } else {
+      // Quiz Retake — with optional student targeting
+      config = { targetId: selectedTargetId, ...(selectedTargetStudent ? { targetStudentId: selectedTargetStudent } : {}) }
+    }
+
+    const result = await createUnlockCode(normalizedCode, codeType, config)
     if (result.success) {
-      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent('')
+      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(LESSONS[0]?.id || '')
       setShowForm(false); await loadCodes()
     } else {
       setErrorVisible(result.error || 'Failed to generate code.')
@@ -110,10 +127,25 @@ export function UnlockCodeManager() {
   }
 
   const handleDelete = (row: CodeRow) => {
-    showConfirmModal('Delete Code', `Delete "${row.code}"? This cannot be undone.`, async () => {
-      if (row._retakeCode) await storage.deleteQuizRetakeCode(row._retakeCode.id)
-      else if (row._lessonCode) await deleteUnlockCode(row._lessonCode.code)
-      await loadCodes()
+    showConfirmModal('Delete Code', `Permanently delete code "${row.code}"? This action cannot be undone.`, async () => {
+      const showToast = useNotificationStore.getState().showToast
+      try {
+        if (row._retakeCode) {
+          await storage.deleteQuizRetakeCode(row._retakeCode.id)
+        } else if (row._lessonCode) {
+          await deleteUnlockCode(row._lessonCode.code)
+        }
+        showToast({
+          description: `Code "${row.code}" deleted.`,
+          type: 'success',
+        })
+        await loadCodes()
+      } catch (error) {
+        showToast({
+          description: `Failed to delete code.`,
+          type: 'destructive',
+        })
+      }
     })
   }
 
@@ -132,13 +164,25 @@ export function UnlockCodeManager() {
   const allRows = useMemo<CodeRow[]>(() => {
     const rows: CodeRow[] = []
 
-    // Lesson unlock codes
+    // Lesson/Subject unlock codes
     codes.filter(c => c.type !== 'quiz').forEach(c => {
       const weekTitles = (c.lessonIds ?? [])
         .map(id => { const l = LESSONS.find(x => x.id === id); return l ? `W${l.week} ${l.title}` : id })
+      
+      let targetLabel = 'All'
+      if (weekTitles.length > 0) {
+        targetLabel = weekTitles.join(' · ')
+      } else if (c.type === 'lesson' && c.targetId) {
+        const lessonId = c.targetId.startsWith('builtin-') ? c.targetId.replace('builtin-', '') : c.targetId
+        const lesson = LESSONS.find(l => l.id === lessonId)
+        targetLabel = lesson?.title ?? c.targetId
+      } else if (c.subjects?.length) {
+        targetLabel = c.subjects.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
+      }
+
       rows.push({
         key: `lesson-${c.code}`, kind: 'lesson', code: c.code,
-        target: weekTitles.length > 0 ? weekTitles.join(' · ') : (c.subjects?.join(', ') ?? 'All'),
+        target: targetLabel,
         studentName: null, studentId: null, status: 'active',
         createdAt: c.createdAt,
         usedByStudentIds: c.usedByStudentIds ?? [],
@@ -185,8 +229,14 @@ export function UnlockCodeManager() {
 
   const filteredRows = useMemo(() => {
     return allRows.filter(row => {
-      if (filterType === 'lesson'  && row.kind !== 'lesson') return false
-      if (filterType === 'retake'  && row.kind === 'lesson') return false
+      // Filter by code type
+      if (filterType === 'subject' && row._lessonCode?.type !== 'subject') return false
+      if (filterType === 'lesson' && row._lessonCode?.type !== 'lesson') return false
+      if (filterType === 'quiz') {
+        const isRetake = row.kind === 'retake-auto' || row.kind === 'retake-manual' || row._lessonCode?.type === 'quiz'
+        if (!isRetake) return false
+      }
+
       if (filterStatus === 'active' && row.status !== 'active') return false
       if (filterStatus === 'used'   && row.status === 'active') return false
       if (searchQuery) {
@@ -244,9 +294,10 @@ export function UnlockCodeManager() {
               </div>
 
               {/* Type selector */}
-              <div className="grid grid-cols-2 gap-3 max-w-sm">
+              <div className="grid grid-cols-3 gap-3 max-w-sm">
                 {([
                   { id: 'subject', label: 'Lesson Unlock', icon: BookOpen },
+                  { id: 'lesson',  label: 'Quiz Unlock',   icon: GraduationCap },
                   { id: 'quiz',    label: 'Quiz Retake',   icon: GraduationCap },
                 ] as const).map(t => (
                   <button key={t.id} onClick={() => setCodeType(t.id)}
@@ -276,6 +327,8 @@ export function UnlockCodeManager() {
                   <p className="text-[11px] text-muted-foreground">
                     {codeType === 'subject'
                       ? 'Unlocks selected weeks for any student who enters this.'
+                      : codeType === 'lesson'
+                      ? 'Unlocks a quiz for first-time access. Any student can use it.'
                       : 'Allows a student to retake the selected quiz once.'}
                   </p>
                 </div>
@@ -283,11 +336,12 @@ export function UnlockCodeManager() {
                 {/* Right panel */}
                 <div className="space-y-3">
                   {codeType === 'subject' ? (
+                    // Lesson Unlock: Subject + Weeks
                     <>
                       {/* Subject */}
                       <div className="flex gap-2">
                         {SUBJECTS.map(s => (
-                          <button key={s.id} onClick={() => setSelectedSubject(s.id as SubjectKey)}
+                          <button key={s.id} onClick={() => { setSelectedSubject(s.id as SubjectKey); setSelectedWeeks([]) }}
                             className={cn(
                               'flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all',
                               selectedSubject === s.id
@@ -330,7 +384,34 @@ export function UnlockCodeManager() {
                         )}
                       </div>
                     </>
-                  ) : (
+                  ) : codeType === 'lesson' ? (
+                    // Quiz Unlock: Quiz only
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
+                      <button onClick={() => setShowQuizPicker(p => !p)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
+                        <span className="truncate">{selectedTargetId ? LESSONS.find(l => l.id === selectedTargetId)?.title : 'Select quiz…'}</span>
+                        {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      {showQuizPicker && (
+                        <div className="mt-1.5 p-2 rounded-xl border border-border bg-muted/30 space-y-1 max-h-44 overflow-y-auto">
+                          {LESSONS.map(l => (
+                            <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false) }}
+                              className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
+                                selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
+                              <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                                selectedTargetId === l.id ? 'bg-primary border-primary' : 'border-border')}>
+                                {selectedTargetId === l.id && <Check size={9} className="text-primary-foreground" />}
+                              </div>
+                              <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase">{l.id}</span>
+                              <span className="text-xs truncate">{l.title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : codeType === 'quiz' ? (
+                    // Quiz Retake: Quiz + Student
                     <>
                       {/* Quiz picker */}
                       <div>
@@ -393,7 +474,7 @@ export function UnlockCodeManager() {
                         )}
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -405,7 +486,7 @@ export function UnlockCodeManager() {
 
               <div className="flex gap-3 pt-2 border-t border-border">
                 <Button onClick={handleCreateCode}
-                  disabled={!newCode.trim() || (codeType === 'subject' && selectedWeeks.length === 0)}
+                  disabled={!newCode.trim() || (codeType === 'subject' && selectedWeeks.length === 0) || ((codeType === 'lesson' || codeType === 'quiz') && !selectedTargetId)}
                   className="flex-1 btn-glow rounded-xl">
                   Generate Access Code
                 </Button>
@@ -427,7 +508,12 @@ export function UnlockCodeManager() {
             className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-52" />
         </div>
         <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
-          {([{ id: 'all', label: 'All' }, { id: 'lesson', label: 'Lesson Unlock' }, { id: 'retake', label: 'Quiz Retake' }] as const).map(f => (
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'subject', label: 'Subject Unlock' },
+            { id: 'lesson', label: 'Quiz Unlock' },
+            { id: 'quiz', label: 'Quiz Retake' }
+          ] as const).map(f => (
             <button key={f.id} onClick={() => { setFilterType(f.id); setFilterStatus('all') }}
               className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors',
                 filterType === f.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
@@ -530,9 +616,13 @@ export function UnlockCodeManager() {
                         <td className="px-6 py-4">
                           <span className={cn(
                             'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide',
-                            isLesson ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
+                            row._lessonCode?.type === 'subject' ? 'bg-warning/10 text-warning' : 
+                            row._lessonCode?.type === 'lesson' ? 'bg-primary/10 text-primary' :
+                            'bg-success/10 text-success'
                           )}>
-                            {isLesson ? <><BookOpen size={10} /> Lesson</> : <><GraduationCap size={10} /> Retake</>}
+                            {row._lessonCode?.type === 'subject' ? <><BookOpen size={10} /> Subject</> : 
+                             row._lessonCode?.type === 'lesson' ? <><GraduationCap size={10} /> Quiz</> :
+                             <><RefreshCw size={10} /> Retake</>}
                           </span>
                         </td>
 

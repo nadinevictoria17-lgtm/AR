@@ -83,10 +83,12 @@ export interface QuizUnlockCode {
   usedAt?: string;
   expiresAt?: string;
   isUsed: boolean;
+  isArchived?: boolean;
 }
 
 export interface StudentRecord {
   id: string;
+  uid?: string;
   name: string;
   studentId: string;
   grade: string;
@@ -98,6 +100,7 @@ export interface StudentRecord {
   unlockedLessonIds: string[];
   unlockedQuizIds: string[];
   quizAttempts: QuizAttempt[];
+  isArchived?: boolean;
 }
 
 export interface TeacherQuizQuestion {

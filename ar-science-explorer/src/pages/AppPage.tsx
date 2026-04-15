@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../store/useAppStore'
 import { useFirebaseAuth } from '../lib/firebaseAuthContext'
 import { StudentSidebar } from '../components/layout/StudentSidebar'
@@ -8,15 +9,16 @@ import { cn } from '../lib/utils'
 import { Menu } from 'lucide-react'
 
 export default function AppPage() {
-  const theme = useAppStore(s => s.theme)
+  const { theme, setCurrentStudentId } = useAppStore(
+    useShallow(s => ({ theme: s.theme, setCurrentStudentId: s.setCurrentStudentId }))
+  )
   const { studentId } = useFirebaseAuth()
-  const setCurrentStudentId = useAppStore(s => s.setCurrentStudentId)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), [])
 
-  // Initialize currentStudentId from Firebase auth context after hydration
+  // Sync Firebase studentId to store once when studentId becomes available
   useEffect(() => {
-    if (studentId) {
+    if (studentId && !studentId.startsWith('teacher')) {
       setCurrentStudentId(studentId)
     }
   }, [studentId, setCurrentStudentId])

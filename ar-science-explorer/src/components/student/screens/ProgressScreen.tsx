@@ -6,7 +6,7 @@ import { useStorageData } from '../../../hooks/useStorageData'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
-import { Trophy, ArrowLeft, BookOpen, ChevronRight, Brain, CheckCircle2, XCircle, RotateCcw, Clock } from 'lucide-react'
+import { Trophy, ArrowLeft, BookOpen, ChevronRight, Brain, CheckCircle2, XCircle, RotateCcw, Clock, Lock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import type { QuizAttempt, SubjectKey, TeacherQuiz, StudentRecord } from '../../../types'
@@ -185,10 +185,14 @@ export function ProgressScreen() {
           <Button variant="link" className="h-auto p-0 text-sm" onClick={handleBack}>Go back to Home</Button>.
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
 
           {/* ── Summary stats ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-muted/30 border border-border rounded-2xl p-6">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Overview</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard icon={BookOpen} iconColor="bg-subject-biology/10 text-subject-biology"
               label="Lessons Completed" value={completedLessons} sub="interactive sessions" />
             <StatCard icon={Brain} iconColor="bg-primary/10 text-primary"
@@ -202,9 +206,113 @@ export function ProgressScreen() {
                                                'bg-destructive/10 text-destructive'
               }
               label="Average Best Score" value={avgScore == null ? '—' : `${avgScore}%`} sub="across all quizzes" />
+            </div>
           </div>
 
-          {/* ── Per-subject quiz breakdown ── */}
+          {/* ─────────────────────────────────────────────── */}
+          {/* SECTION 1: COMPLETED LESSONS */}
+          {/* ─────────────────────────────────────────────── */}
+          <div className="pt-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-success/10 flex items-center justify-center text-success">
+                <BookOpen size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Lessons Completed</h3>
+                <p className="text-xs text-muted-foreground">Your finished lessons by subject</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Per-subject lessons & quiz status (completed only) ── */}
+          {SUBJECT_ORDER.map(subject => {
+            const completedLessonIds = new Set(student?.completedLessonIds ?? [])
+            const lessons = LESSONS.filter(l => l.subject === subject && completedLessonIds.has(l.id))
+            if (!lessons.length) return null
+
+            const ss = SUBJECT_STYLES[subject]
+            return (
+              <div key={`lessons-${subject}`} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-2 h-2 rounded-full shrink-0', ss.dot)} />
+                    <span className={cn('text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full border', ss.badge)}>
+                      {ss.label} Completed
+                    </span>
+                    <span className="text-xs text-muted-foreground">{lessons.length} lesson{lessons.length !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+
+                <Card className="overflow-hidden divide-y divide-border">
+                  {lessons.map(lesson => {
+                    const quizId = `builtin-${lesson.id}`
+                    const hasQuizAttempt = student?.quizAttempts?.some(a => a.quizId === quizId)
+                    const isQuizUnlocked = student?.unlockedQuizIds?.includes(quizId)
+                    const isQuizCompleted = student?.completedQuizIds?.includes(quizId)
+
+                    return (
+                      <div key={lesson.id} className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 size={14} className="text-success shrink-0" />
+                              <p className="text-sm font-semibold text-foreground">{lesson.title}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">Week {lesson.week} · {lesson.summary.substring(0, 50)}...</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50 ml-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Quiz Status:</span>
+                            <div className="flex items-center gap-2">
+                              {!isQuizUnlocked && !hasQuizAttempt && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
+                                  <Lock size={10} /> Locked (No Code)
+                                </span>
+                              )}
+                              {isQuizUnlocked && !isQuizCompleted && (
+                                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-1 rounded-full border border-success/20">
+                                  ✓ Unlocked - Ready
+                                </span>
+                              )}
+                              {isQuizCompleted && (
+                                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-1 rounded-full border border-success/20">
+                                  ✓ Attempted
+                                </span>
+                              )}
+                              {hasQuizAttempt && isQuizCompleted && (
+                                <span className="text-[10px] font-bold text-muted-foreground">
+                                  {student?.quizAttempts?.filter(a => a.quizId === quizId).length || 0} attempt(s)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </Card>
+              </div>
+            )
+          })}
+
+          {/* ─────────────────────────────────────────────── */}
+          {/* SECTION 2: QUIZ ATTEMPTS & SCORES */}
+          {/* ─────────────────────────────────────────────── */}
+          <div className="pt-4 border-t border-border">
+            <div className="flex items-center gap-3 mb-6 mt-6">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                <Brain size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Quiz Attempts & Scores</h3>
+                <p className="text-xs text-muted-foreground">Your quiz performance by subject</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Per-subject quiz attempts breakdown ── */}
           {totalQuizzes === 0 ? (
             <Card className="p-8 text-center">
               <div className="w-14 h-14 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-3">

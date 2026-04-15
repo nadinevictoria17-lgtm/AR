@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, Plus, Edit3, Trash2, X, ChevronLeft, ChevronRight, FileText, Upload, Search } from 'lucide-react'
@@ -8,13 +8,12 @@ import { z } from 'zod'
 import { format, parseISO } from 'date-fns'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { EXPERIMENTS } from '../../../data/experiments'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
-import type { TeacherLesson, Lesson, TeacherQuiz, SubjectKey } from '../../../types'
+import type { TeacherLesson, Lesson, SubjectKey } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { TableSkeleton } from '../../ui/skeleton'
@@ -77,14 +76,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function LessonsTab() {
-  const { data, isLoading } = useStorageData()
-  const showSkeleton = useDeferredLoading(isLoading)
-  const [lessons, setLessons]           = useState<(TeacherLesson | Lesson)[]>([])
-  const [quizzes, setQuizzes]           = useState<TeacherQuiz[]>(data.quizzes)
+  const { data } = useStorageData()
+  const showSkeleton = false
+  const [currentPage, setCurrentPage]   = useState(1)
   const [showForm, setShowForm]         = useState(false)
   const [editTarget, setEditTarget]     = useState<(TeacherLesson | Lesson) | null>(null)
   const [viewTarget, setViewTarget]     = useState<(TeacherLesson | Lesson) | null>(null)
-  const [currentPage, setCurrentPage]   = useState(1)
   const [pdfDataUrl, setPdfDataUrl]         = useState<string | null>(null)
   const [pdfFileName, setPdfFileName]       = useState<string | null>(null)
   const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology' | 'physics'>('all')
@@ -104,17 +101,24 @@ export function LessonsTab() {
     },
   })
 
-  useEffect(() => {
-    const allLessons: (TeacherLesson | Lesson)[] = [...data.lessons]
+  // Compute merged lessons (teacher + built-in) without storing in state
+  const lessons = useMemo(() => {
+    const merged: (TeacherLesson | Lesson)[] = [...data.lessons]
     for (const builtInLesson of LESSONS) {
       if (!data.lessons.some(l => l.id === builtInLesson.id)) {
-        allLessons.push(builtInLesson)
+        merged.push(builtInLesson)
       }
     }
-    setLessons(allLessons)
-    setQuizzes(data.quizzes)
+    return merged
+  }, [data.lessons])
+
+  // Use quizzes directly from data instead of mirroring
+  const quizzes = data.quizzes
+
+  // Reset pagination when lessons change
+  useEffect(() => {
     setCurrentPage(1)
-  }, [data.lessons, data.quizzes])
+  }, [data.lessons])
 
   const subject = watch('subject')
 
@@ -238,8 +242,8 @@ export function LessonsTab() {
         } : {}),
       },
     })
-    const updatedData = await storage.getAll()
-    setLessons(updatedData.lessons)
+    await storage.getAll()
+    // Lessons list will auto-update via Firestore subscription in useStorageData
     setShowForm(false)
   })
 
@@ -544,7 +548,7 @@ export function LessonsTab() {
                               await storage.deleteLesson(l.id)
                               // Clear local PDF if stored
                               localStorage.removeItem(`${PDF_LS_PREFIX}${l.id}`)
-                              setLessons(prev => prev.filter(lesson => lesson.id !== l.id))
+                              // Lessons list will auto-update via Firestore subscription
                             }
                           )}
                         >

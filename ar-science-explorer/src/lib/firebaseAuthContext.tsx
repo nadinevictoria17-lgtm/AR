@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 import { User } from 'firebase/auth'
 import { firebaseOnAuthStateChanged } from './firebaseAuth'
+import { auth } from './firebase'
 
 interface FirebaseAuthContextType {
   user: User | null
@@ -15,6 +16,12 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Dev mode: sign out only on first app load (not on refresh)
+    if (import.meta.env.MODE === 'development' && !sessionStorage.getItem('dev-session-started')) {
+      sessionStorage.setItem('dev-session-started', 'true')
+      auth.signOut().catch(() => {})
+    }
+
     // Subscribe to Firebase auth state changes
     const unsubscribe = firebaseOnAuthStateChanged((firebaseUser) => {
       setUser(firebaseUser)

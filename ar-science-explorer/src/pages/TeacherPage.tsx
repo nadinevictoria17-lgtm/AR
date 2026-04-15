@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { Menu } from 'lucide-react'
 import { TeacherSidebar } from '../components/layout/TeacherSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
@@ -8,7 +9,9 @@ import { useAppStore } from '../store/useAppStore'
 import { firebaseSignOut } from '../lib/firebaseAuth'
 
 export function TeacherPage() {
-  const { theme, toggleTheme } = useAppStore()
+  const { theme, toggleTheme } = useAppStore(
+    useShallow(s => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
+  )
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const navigate = useNavigate()
 

@@ -1,11 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion'
+import { useShallow } from 'zustand/react/shallow'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 import { useNotificationStore } from '../../store/useNotificationStore'
 import { cn } from '../../lib/utils'
 import { Button } from './button'
 
 export function Toaster() {
-  const { toasts, removeToast } = useNotificationStore()
+  const { toasts, removeToast } = useNotificationStore(
+    useShallow(s => ({ toasts: s.toasts, removeToast: s.removeToast }))
+  )
 
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 w-full max-w-[400px]">
@@ -51,7 +54,9 @@ export function Toaster() {
 }
 
 export function ErrorModal() {
-  const { errorModal, hideErrorModal } = useNotificationStore()
+  const { errorModal, hideErrorModal } = useNotificationStore(
+    useShallow(s => ({ errorModal: s.errorModal, hideErrorModal: s.hideErrorModal }))
+  )
 
   return (
     <AnimatePresence>
@@ -86,7 +91,9 @@ export function ErrorModal() {
 }
 
 export function ConfirmModal() {
-  const { confirmModal, hideConfirmModal } = useNotificationStore()
+  const { confirmModal, hideConfirmModal } = useNotificationStore(
+    useShallow(s => ({ confirmModal: s.confirmModal, hideConfirmModal: s.hideConfirmModal }))
+  )
 
   const handleConfirm = async () => {
     hideConfirmModal()

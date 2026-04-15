@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useShallow } from 'zustand/react/shallow'
 import { Eye, EyeOff, User, Lock, Moon, Sun, LogIn, Loader } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { cn } from '../lib/utils'
@@ -12,7 +13,9 @@ import { Button } from '../components/ui/button'
 type Role = 'student' | 'teacher'
 
 export default function LoginPage() {
-  const { theme, toggleTheme, setCurrentStudentId, setScreen } = useAppStore()
+  const { theme, toggleTheme, setCurrentStudentId, setScreen } = useAppStore(
+    useShallow(s => ({ theme: s.theme, toggleTheme: s.toggleTheme, setCurrentStudentId: s.setCurrentStudentId, setScreen: s.setScreen }))
+  )
 
   const [role, setRole] = useState<Role>('student')
   const [id, setId] = useState('')

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
+import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search, Eye, EyeOff, CheckCircle2, Lock as LucideLock } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,7 +10,6 @@ import Papa from 'papaparse'
 import { storage } from '../../../lib/storage'
 import { firebaseCreateStudentAccount } from '../../../lib/firebaseAuth'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { QuizUnlockGenerator } from '../QuizUnlockGenerator'
@@ -26,7 +25,7 @@ import { useNotificationStore } from '../../../store/useNotificationStore'
 const StudentSchema = z.object({
   name:      z.string().min(1, 'Student name is required'),
   studentId: z.string().regex(/^\d{6}$/, 'Student ID must be exactly 6 digits'),
-  section:   z.string(),
+  section:   z.string().min(1, 'Section is required'),
   password:  z.string().min(6, 'Password must be at least 6 characters'),
 })
 
@@ -62,9 +61,10 @@ function buildAllQuizzes(teacherQuizzes: TeacherQuiz[]): TeacherQuiz[] {
 const ITEMS_PER_PAGE = 10
 
 export function StudentsTab() {
-  const { data, isLoading } = useStorageData(true)
-  const showSkeleton = useDeferredLoading(isLoading)
-  const [students, setStudents] = useState<StudentRecord[]>(data.students)
+  const { data } = useStorageData(true)
+  const showSkeleton = false
+  // Use data.students directly instead of mirroring to state
+  const students = data.students
   const [showForm, setShowForm] = useState(false)
   const [viewStudent, setViewStudent] = useState<StudentRecord | null>(null)
   const [unlockStudent, setUnlockStudent] = useState<StudentRecord | null>(null)
@@ -83,11 +83,6 @@ export function StudentsTab() {
     resolver: zodResolver(StudentSchema),
     defaultValues: { name:'', studentId:'', section:'', password:'' },
   })
-
-  useEffect(() => {
-    setStudents(data.students)
-    setCurrentPage(1) // Reset to first page when students change
-  }, [data.students])
 
   const handleAdd = handleSubmit(async (formData) => {
     setFormError(null)
@@ -119,8 +114,6 @@ export function StudentsTab() {
       quizAttempts:             [],
     })
 
-    const updatedData = await storage.getAll()
-    setStudents(updatedData.students)
     reset()
     setShowPassword(false)
     setShowForm(false)
@@ -136,6 +129,7 @@ export function StudentsTab() {
       section: s.section,
       biology_score: s.scores.biology ?? '',
       chemistry_score: s.scores.chemistry ?? '',
+      physics_score: s.scores.physics ?? '',
       completed_lessons:  (s.completedLessonIds ?? []).length,
       completed_labs:     (s.completedLabExperimentIds ?? []).length,
       completed_quizzes:  (s.completedQuizIds ?? []).length,
@@ -150,11 +144,21 @@ export function StudentsTab() {
     URL.revokeObjectURL(url)
   }
 
+  const handleUnlockLatest = async (studentId: string, quizId: string) => {
+    try {
+      await storage.markQuizAsRetakeable(studentId, quizId)
+      // The real-time listener on useStorageData will update the view
+    } catch (error) {
+      console.error('[StudentsTab] Failed to unlock quiz:', error)
+    }
+  }
+
   // Unique sections for the section filter
   const sections = ['all', ...Array.from(new Set(students.map(s => s.section).filter(Boolean))).sort()]
 
   // Filtered list (applied before pagination)
   const filteredStudents = students.filter(s => {
+    if (s.isArchived) return false // Hide archived students
     if (filterSection !== 'all' && s.section !== filterSection) return false
     if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
         !s.studentId.includes(searchQuery)) return false
@@ -180,6 +184,10 @@ export function StudentsTab() {
         <div>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Users size={20} className="text-primary" /> Students
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-success/20 text-success text-xs font-semibold">
+              <span className="animate-pulse w-2 h-2 rounded-full bg-success" />
+              Live
+            </span>
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             {filteredStudents.length} of {students.length} student{students.length !== 1 ? 's' : ''}
@@ -318,6 +326,7 @@ export function StudentsTab() {
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Section</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Bio</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Chem</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Phys</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Last Quiz</th>
                 <th className="px-6 py-4"></th>
               </tr>
@@ -352,6 +361,9 @@ export function StudentsTab() {
                   <td className="px-6 py-4 text-center">
                     <span className={cn('text-xs font-bold', s.scores.chemistry != null ? 'text-subject-chemistry' : 'text-muted-foreground opacity-40')}>{s.scores.chemistry ?? '—'}</span>
                   </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn('text-xs font-bold', s.scores.physics != null ? 'text-subject-physics' : 'text-muted-foreground opacity-40')}>{s.scores.physics ?? '—'}</span>
+                  </td>
                   <td className="px-6 py-4">
                     {lastQuizTitle ? (
                       <div>
@@ -383,12 +395,23 @@ export function StudentsTab() {
                         onClick={(e) => {
                           e.stopPropagation()
                           showConfirmModal(
-                            'Delete Student',
-                            `Delete record for "${s.name}"? This cannot be undone.`,
+                            'Archive Student',
+                            `Archive record for "${s.name}"? This marks the ID as used. Firestore record stays for history.`,
                             async () => {
-                              await storage.deleteStudent(s.id)
-                              const updatedData = await storage.getAll()
-                              setStudents(updatedData.students)
+                              try {
+                                await storage.archiveStudent(s.studentId)
+                                const showToast = useNotificationStore.getState().showToast
+                                showToast({
+                                  description: `Student "${s.name}" archived. ID "${s.studentId}" marked as used.`,
+                                  type: 'success',
+                                })
+                              } catch (error) {
+                                const showToast = useNotificationStore.getState().showToast
+                                showToast({
+                                  description: `Failed to archive student.`,
+                                  type: 'destructive',
+                                })
+                              }
                             }
                           )
                         }}
@@ -471,53 +494,68 @@ export function StudentsTab() {
             </div>
 
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-              {allQuizzes.map((q) => {
-                const attempts = (viewStudent.quizAttempts ?? [])
-                  .filter(a => a.quizId === q.id)
-                  .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-                const lastAttempt = attempts[0] ?? null
-                return (
-                  <div
-                    key={q.id}
-                    className={cn(
-                      'flex items-center justify-between gap-3 p-3 rounded-xl border bg-muted/20',
-                      lastAttempt ? 'border-primary/30' : 'border-border'
-                    )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{q.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-muted-foreground capitalize">{q.subject}</span>
-                        {lastAttempt ? (
-                          <>
-                            <span className="text-muted-foreground/40 text-xs">·</span>
-                            <span className="text-xs font-medium text-success">
-                              {lastAttempt.correctAnswers}/{lastAttempt.totalQuestions} correct
+              {(() => {
+                // Combine built-in and teacher-created quizzes for comprehensive monitoring
+                const builtInQuizIds = Array.from(new Set(QUIZ_QUESTIONS.map(q => q.lessonId))).filter((id): id is string => !!id)
+                const builtInQuizzes = builtInQuizIds.map(lessonId => {
+                  const firstQ = QUIZ_QUESTIONS.find(q => q.lessonId === lessonId)!
+                  return {
+                    id: `builtin-${lessonId}`,
+                    title: `${lessonId.toUpperCase()} Quiz`,
+                    subject: firstQ.subject
+                  }
+                })
+                
+                const combinedQuizzes = [...builtInQuizzes, ...allQuizzes]
+
+                return combinedQuizzes.map((q) => {
+                  const attempts = (viewStudent.quizAttempts ?? [])
+                    .filter(a => a.quizId === q.id)
+                    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+                  const lastAttempt = attempts[0] ?? null
+                  
+                  return (
+                    <div
+                      key={q.id}
+                      className={cn(
+                        'flex items-center justify-between gap-3 p-3 rounded-xl border bg-muted/20',
+                        lastAttempt ? 'border-primary/30' : 'border-border'
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground truncate">{q.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className={cn('text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted', 
+                            q.subject === 'biology' ? 'text-subject-biology' : 
+                            q.subject === 'chemistry' ? 'text-subject-chemistry' : 'text-subject-physics')}>{q.subject}</span>
+                          {lastAttempt && (
+                            <span className="text-xs text-muted-foreground">
+                              {lastAttempt.score}% ({lastAttempt.correctAnswers}/{lastAttempt.totalQuestions})
                             </span>
-                            <span className="text-muted-foreground/40 text-xs">·</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {attempts.length} attempt{attempts.length !== 1 ? 's' : ''}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Not yet attempted</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {lastAttempt && lastAttempt.locked && (
+                          <div className="p-1.5 rounded-lg bg-destructive/10 text-destructive" title="Locked">
+                            <LucideLock size={14} />
+                          </div>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnlockLatest(viewStudent.studentId, q.id)}
+                          disabled={!lastAttempt || !lastAttempt.locked}
+                          className="h-8 text-[10px] font-black uppercase"
+                        >
+                          Unlock
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant={lastAttempt ? 'default' : 'outline'}
-                      onClick={() => {
-                        setUnlockStudent(viewStudent)
-                        setUnlockQuiz(q)
-                      }}
-                      className="rounded-lg text-xs shrink-0"
-                    >
-                      {lastAttempt ? 'Retake' : 'Unlock'}
-                    </Button>
-                  </div>
-                )
-              })}
+                  )
+                })
+              })()}
             </div>
           </motion.div>
         </div>,

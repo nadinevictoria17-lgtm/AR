@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, Plus, Trash2, Edit3, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCircle2, Search } from 'lucide-react'
@@ -7,7 +7,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { SUBJECTS } from '../../../data/subjects'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
@@ -299,9 +298,8 @@ function buildQuizList(teacherQuizzes: TeacherQuiz[]): TeacherQuiz[] {
 }
 
 export function QuizzesTab() {
-  const { data, isLoading } = useStorageData()
-  const showSkeleton = useDeferredLoading(isLoading)
-  const [quizzes, setQuizzes]         = useState<TeacherQuiz[]>([])
+  const { data } = useStorageData()
+  const showSkeleton = false // Disabled - Firebase loads from cache instantly
   const [building, setBuilding]       = useState(false)
   const [editing, setEditing]         = useState<TeacherQuiz | null>(null)
   const [previewQuiz, setPreviewQuiz] = useState<TeacherQuiz | null>(null)
@@ -311,8 +309,11 @@ export function QuizzesTab() {
   const showErrorModal   = useNotificationStore(s => s.showErrorModal)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
 
+  // Compute quiz list (teacher + built-in) without storing in state
+  const quizzes = useMemo(() => buildQuizList(data.quizzes), [data.quizzes])
+
+  // Reset pagination when quiz list changes
   useEffect(() => {
-    setQuizzes(buildQuizList(data.quizzes))
     setCurrentPage(1)
   }, [data.quizzes])
 
@@ -337,8 +338,8 @@ export function QuizzesTab() {
         showErrorModal('Save Failed', 'Failed to save quiz. Check your connection and try again.')
         return
       }
-      const updatedData = await storage.getAll()
-      setQuizzes(buildQuizList(updatedData.quizzes))
+      await storage.getAll()
+      // Quiz list will auto-update via Firestore subscription in useStorageData
       setBuilding(false)
       setEditing(null)
     } catch (error) {
@@ -457,8 +458,8 @@ export function QuizzesTab() {
                               if (!isCustom) {
                                 hideBuiltIn(q.id)
                               }
-                              const updatedData = await storage.getAll()
-                              setQuizzes(buildQuizList(updatedData.quizzes))
+                              await storage.getAll()
+                              // Quiz list will auto-update via Firestore subscription
                             }
                           )}
                         >

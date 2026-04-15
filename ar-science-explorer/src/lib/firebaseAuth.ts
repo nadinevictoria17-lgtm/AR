@@ -16,7 +16,7 @@ function firebaseCode(err: unknown): string {
 /**
  * Firebase Auth — Student Login
  * Accepts either a 6-digit student ID (derives `{id}@arscience.school`)
- * or a full email address. Auto-creates the account on first login.
+ * or a full email address. Account must be created by teacher first.
  */
 export async function firebaseStudentLogin(
   studentIdOrEmail: string,
@@ -30,7 +30,7 @@ export async function firebaseStudentLogin(
     ? studentIdOrEmail.split('@')[0]
     : studentIdOrEmail
 
-  // ── Try sign-in ────────────────────────────────────────────────────────────
+  // ── Try sign-in (account must exist, created by teacher) ──────────────────
   try {
     const cred = await signInWithEmailAndPassword(auth, email, pin)
     return { user: cred.user, studentId }
@@ -42,23 +42,12 @@ export async function firebaseStudentLogin(
       return null
     }
 
-    if (code !== 'auth/user-not-found' && code !== 'auth/invalid-credential') {
-      console.error('[Firebase Auth] Student sign-in failed:', code)
+    if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+      console.error('[Firebase Auth] Student account does not exist. Teacher must create it first.')
       return null
     }
-  }
 
-  // ── Account doesn't exist yet — create it on first login ──────────────────
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pin)
-    return { user: cred.user, studentId }
-  } catch (createErr: unknown) {
-    const code = firebaseCode(createErr)
-    if (code === 'auth/network-request-failed' || code === 'auth/timeout') {
-      console.error('[Firebase Auth] Network error during student account creation')
-    } else {
-      console.error('[Firebase Auth] Failed to create student account:', code)
-    }
+    console.error('[Firebase Auth] Student sign-in failed:', code)
     return null
   }
 }

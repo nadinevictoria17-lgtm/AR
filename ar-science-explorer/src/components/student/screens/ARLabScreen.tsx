@@ -77,14 +77,12 @@ export function ARLabScreen() {
   const {
     currentStudentId,
     activeLessonId,
-    activeLabExperimentId,
     setScreen,
     voiceLang,
     setVoiceLang,
   } = useAppStore(useShallow((s) => ({
     currentStudentId:       s.currentStudentId,
     activeLessonId:         s.activeLessonId,
-    activeLabExperimentId:  s.activeLabExperimentId,
     setScreen:              s.setScreen,
     voiceLang:              s.voiceLang,
     setVoiceLang:           s.setVoiceLang,
@@ -115,24 +113,26 @@ export function ARLabScreen() {
   )
   const voiceList = VOICE_SCRIPTS[voiceLang || 'en'] || VOICE_SCRIPTS['en']
 
-  const checkQuizUnlock = useCallback(async () => {
-    if (!currentStudentId || !activeLessonId) return
-    try {
-      const quizId = `builtin-${activeLessonId}`
-      const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
-      setIsQuizUnlocked(eligibility.canTake)
-    } catch (error) {
-      console.error('[ARLabScreen] Quiz unlock check failed:', error)
-      setIsQuizUnlocked(false)
-    }
-  }, [currentStudentId, activeLessonId])
-
   useEffect(() => {
     setPhase('visual')
     setActiveStep(0)
     setArMarked(false)
-    if (activeLessonId && currentStudentId) checkQuizUnlock()
-  }, [activeLessonId, currentStudentId, checkQuizUnlock])
+
+    if (!currentStudentId || !activeLessonId) return
+
+    const checkQuizUnlock = async () => {
+      try {
+        const quizId = `builtin-${activeLessonId}`
+        const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
+        setIsQuizUnlocked(eligibility.canTake)
+      } catch (error) {
+        console.error('[ARLabScreen] Quiz unlock check failed:', error)
+        setIsQuizUnlocked(false)
+      }
+    }
+
+    checkQuizUnlock()
+  }, [activeLessonId, currentStudentId])
 
   const tutorialSteps = activeLesson?.arPayload?.lessonSteps ?? ['Open AR App', 'Scan Marker', 'View Model']
 
@@ -147,22 +147,18 @@ export function ARLabScreen() {
 
   const voiceOver = useVoiceOver({ lines: voiceList, language: voiceLang })
 
-  const completeLabAndStartQuiz = useCallback(async () => {
-    if (!currentStudentId || !activeLesson) return
+  const startQuiz = useCallback(async () => {
+    if (!currentStudentId || !activeLessonId || !activeLesson) return
     try {
-      await storage.saveStudentLessonCompletion(currentStudentId, activeLesson.id)
-      if (activeLabExperimentId) {
-        await storage.saveStudentLabCompletion(currentStudentId, activeLabExperimentId)
-      }
       const quizQuestions = QUIZ_QUESTIONS.filter(q => q.lessonId === activeLesson.id)
       setActiveQuizSubject(activeLesson.subject)
       initQuiz(quizQuestions)
       setScreen('quiz')
       navigate('/app/quiz')
     } catch (error) {
-      console.error('[ARLabScreen] Complete lab failed:', error)
+      console.error('[ARLabScreen] Start quiz failed:', error)
     }
-  }, [currentStudentId, activeLesson, activeLabExperimentId, setActiveQuizSubject, initQuiz, setScreen, navigate])
+  }, [currentStudentId, activeLessonId, activeLesson, setActiveQuizSubject, initQuiz, setScreen, navigate])
 
   const handleStartQuizClick = useCallback(async () => {
     if (!currentStudentId || !activeLessonId) return
@@ -172,13 +168,13 @@ export function ARLabScreen() {
       if (!eligibility.canTake) {
         setShowUnlockModal(true)
       } else {
-        void completeLabAndStartQuiz()
+        void startQuiz()
       }
     } catch {
       // fail-closed: if check errors out, do not allow quiz start
       setShowUnlockModal(true)
     }
-  }, [currentStudentId, activeLessonId, completeLabAndStartQuiz])
+  }, [currentStudentId, activeLessonId, startQuiz])
 
   const handleBack = useCallback(() => {
     setScreen('learn')
@@ -309,9 +305,18 @@ export function ARLabScreen() {
                        <Zap size={16} className="text-primary" /> {activeLesson?.curriculum?.integration?.qualities.join(' & ')}
                     </p>
                  </div>
-                 <Button className="rounded-xl px-6 bg-primary text-primary-foreground font-black text-xs uppercase" onClick={() => setPhase('reflection')}>
+                  <Button 
+                    className="rounded-xl px-6 bg-primary text-primary-foreground font-black text-xs uppercase" 
+                    onClick={async () => {
+                      if (currentStudentId && activeLessonId) {
+                        console.log(`[Storage] Marking lesson ${activeLessonId} as completed...`)
+                        await storage.saveStudentLessonCompletion(currentStudentId, activeLessonId)
+                      }
+                      setPhase('reflection')
+                    }}
+                  >
                     Mark as Read
-                 </Button>
+                  </Button>
               </div>
             </div>
 
@@ -574,7 +579,7 @@ export function ARLabScreen() {
         title={`${activeLesson?.title || ''} Quiz`}
         onSuccess={() => {
           setIsQuizUnlocked(true)
-          void completeLabAndStartQuiz()
+          void startQuiz()
         }}
       />
     </motion.div>

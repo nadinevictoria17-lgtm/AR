@@ -8,31 +8,25 @@ interface UseVoiceOverArgs {
 export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying]       = useState(false)
-  const [supported, setSupported]       = useState(true)
+
+  // Detect browser support synchronously on mount
+  const [supported] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
+  })
 
   // Always hold the latest lines without causing effect re-runs
   const linesRef = useRef(lines)
   linesRef.current = lines
 
-  // Detect support once on mount
-  useEffect(() => {
-    const isSupported =
-      typeof window !== 'undefined' &&
-      'speechSynthesis' in window &&
-      'SpeechSynthesisUtterance' in window
-    setSupported(isSupported)
-  }, [])
-
-  // Cancel + reset when language changes OR when the lines array reference changes
-  // (lines reference changes when the parent switches to a different lesson/script)
+  // Cancel + reset when language changes (using ref to track latest lines without re-runs)
   useEffect(() => {
     setCurrentIndex(0)
     if (supported) {
       window.speechSynthesis.cancel()
       setIsPlaying(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, supported, lines])
+  }, [language, supported])
 
   // Cleanup on unmount
   useEffect(() => {

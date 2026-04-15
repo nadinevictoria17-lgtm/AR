@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ARPayload, SubjectKey } from '../types'
 import { LESSONS } from '../data/lessons'
-import { getUnlockCodeData } from '../lib/unlockCodeManager'
+import { getUnlockCodeData, trackCodeUsage } from '../lib/unlockCodeManager'
 import { storage } from '../lib/storage'
 
 type Screen =
@@ -105,12 +105,20 @@ export const useAppStore = create<AppStore>()(
         const data = await getUnlockCodeData(normalized)
         if (!data) return { unlocked: [], invalid: true }
 
+        // Security: Check if THIS student has already used this specific code
+        if (currentStudentId && data.usedByStudentIds?.includes(currentStudentId)) {
+          return { unlocked: [], invalid: true, error: "You have already used this code." }
+        }
+
         if (data.type === 'subject') {
           // If specific lesson IDs are included, unlock those in Firestore for this student
           if (data.lessonIds && data.lessonIds.length > 0 && currentStudentId) {
             await Promise.all(
               data.lessonIds.map(id => storage.unlockContent(currentStudentId, id, 'lesson'))
             )
+            // Track usage for this student
+            await trackCodeUsage(normalized, currentStudentId)
+            
             const lessonTitles = data.lessonIds
               .map(id => LESSONS.find(l => l.id === id)?.title || id)
               .join(', ')
@@ -121,26 +129,33 @@ export const useAppStore = create<AppStore>()(
             set((state) => ({
               unlocked: data.subjects!.reduce((acc, s) => ({ ...acc, [s]: true }), state.unlocked),
             }))
+            // Track usage if possible (optional for global subject codes but good for consistency)
+            if (currentStudentId) await trackCodeUsage(normalized, currentStudentId)
+
             return { unlocked: data.subjects, invalid: false }
           }
         }
 
-        // Handle specific lesson unlock (type='lesson')
+        // Handle specific lesson unlock (type='lesson') - which is the "Quiz Unlock"
         if (data.type === 'lesson' && data.targetId && currentStudentId) {
           const success = await storage.unlockContent(currentStudentId, data.targetId, 'lesson')
           if (success) {
+            // Track usage so they can't use it again for a retake
+            await trackCodeUsage(normalized, currentStudentId)
+
             const lesson = LESSONS.find(l => l.id === data.targetId)
             return { unlocked: [], targetName: lesson?.title || data.targetId, invalid: false }
           }
         }
 
-        // Handle quiz retake codes created via UnlockCodeManager.
-        // The targetId is a lesson ID (e.g. 'q1w1'). The actual quiz ID used
-        // by the attempt system is 'builtin-q1w1'.  We must unlock the latest
-        // locked attempt so validateQuizEligibility allows the retake.
+        // Handle quiz retake codes (type='quiz')
         if (data.type === 'quiz' && data.targetId && currentStudentId) {
           const builtInQuizId = `builtin-${data.targetId}`
           await storage.markQuizAsRetakeable(currentStudentId, builtInQuizId)
+          
+          // Track usage - retake codes are always 1-time-use per student
+          await trackCodeUsage(normalized, currentStudentId, true)
+
           const lesson = LESSONS.find(l => l.id === data.targetId)
           return {
             unlocked: [],
@@ -169,6 +184,7 @@ export const useAppStore = create<AppStore>()(
         unlocked: state.unlocked,
         voiceLang: state.voiceLang,
         theme: state.theme,
+        currentStudentId: state.currentStudentId,
       }),
     }
   )

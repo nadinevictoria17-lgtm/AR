@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GraduationCap, Lock, ChevronRight, FileText, Layout, Info } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
@@ -12,8 +12,90 @@ import type { SubjectKey, Lesson } from '../../../types'
 import { useNavigate } from 'react-router-dom'
 import { storage } from '../../../lib/storage'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
+import { db, auth } from '../../../lib/firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
+
+// Memoized card to prevent re-renders when parent updates
+const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
+  lesson: Lesson
+  idx: number
+  isUnlocked: boolean
+  onLessonClick: (lesson: Lesson) => void
+}) => {
+  const style = SUBJECT_STYLES[lesson.subject]
+  return (
+    <motion.div
+      key={lesson.id}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3 }}
+      onClick={() => onLessonClick(lesson)}
+      className={cn(
+        "group relative p-6 rounded-[2rem] border-2 cursor-pointer overflow-hidden hover:shadow-xl",
+        isUnlocked
+          ? "bg-card border-border hover:border-primary/40 hover:shadow-primary/5"
+          : "bg-muted/30 border-transparent grayscale opacity-80"
+      )}
+    >
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="space-y-1">
+            <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
+              isUnlocked
+                ? style.badge
+                : "bg-muted text-muted-foreground border-border"
+            )}>
+              {`Week ${lesson.week || idx + 1}`}
+            </span>
+            <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors leading-tight mt-2">
+              {lesson.title}
+            </h3>
+          </div>
+          {isUnlocked ? (
+            <div className={cn("p-2.5 rounded-2xl bg-card border-2 border-border shadow-md text-primary group-hover:border-primary/50 group-hover:scale-110 transition-all")}>
+              <ChevronRight size={20} />
+            </div>
+          ) : (
+            <div className="p-2.5 rounded-2xl bg-muted/50 border border-border text-muted-foreground">
+              <Lock size={18} />
+            </div>
+          )}
+        </div>
+
+        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-6">
+          {lesson.summary}
+        </p>
+
+        <div className="flex items-center gap-3 pt-4 border-t border-border/50">
+          {isUnlocked ? (
+            <>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider">
+                <GraduationCap size={14} /> Ready to Explore
+              </div>
+              <div className="ml-auto flex gap-2">
+                {lesson.pdfUrl && (
+                  <a href={lesson.pdfUrl} download className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
+                    <FileText size={14} />
+                  </a>
+                )}
+                <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
+                  <Info size={14} />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <Lock size={14} /> Unlock to Explore
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  )
+})
 
 // Static derived values — computed once since LESSONS / QUIZ_QUESTIONS are module-level constants
 const SUBJECTS_DATA = SUBJECTS.filter(s => SUBJECT_ORDER.includes(s.id as SubjectKey))
@@ -42,18 +124,33 @@ export function LearnScreen() {
     title: '',
   })
 
-  const loadUnlockStatus = useCallback(async () => {
+  useEffect(() => {
+    console.log('[Auth Status] Logged in as UID:', auth.currentUser?.uid || 'NOT LOGGED IN')
+    console.log('[Auth Status] Student ID from Store:', currentStudentId)
+    
     if (!currentStudentId) return
-    const ids = await storage.getUnlockedLessons(currentStudentId)
-    setUnlockedLessons(new Set(ids))
+
+    // Subscribe to student document for real-time updates
+    const unsub = onSnapshot(
+      doc(db, 'students', currentStudentId),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data()
+          setUnlockedLessons(new Set(data.unlockedLessonIds ?? []))
+        }
+      },
+      (err) => {
+        console.error('[LearnScreen] Student data subscription error:', err)
+        // On error, set empty sets
+        setUnlockedLessons(new Set())
+      }
+    )
+
+    return () => unsub()
   }, [currentStudentId])
 
-  useEffect(() => {
-    if (currentStudentId) loadUnlockStatus()
-  }, [currentStudentId, loadUnlockStatus])
-
   const handleLessonClick = useCallback((lesson: Lesson) => {
-    const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
+    const isUnlocked = lesson.isUnlockedByDefault || (unlockedLessons && unlockedLessons.has(lesson.id))
     if (isUnlocked) {
       setActiveLesson(lesson.id)
       setScreen('arlab')
@@ -66,10 +163,14 @@ export function LearnScreen() {
   const handleModalClose = useCallback(() =>
     setUnlockModal(m => ({ ...m, isOpen: false })), [])
 
-  const handleModalSuccess = useCallback(() => {
-    loadUnlockStatus()
+  const handleModalSuccess = useCallback(async () => {
+    // Reload unlock status after successful unlock
+    if (currentStudentId) {
+      const ids = await storage.getUnlockedLessons(currentStudentId)
+      setUnlockedLessons(new Set(ids))
+    }
     setUnlockModal(m => ({ ...m, isOpen: false }))
-  }, [loadUnlockStatus])
+  }, [currentStudentId])
 
   const filteredLessons = useMemo(
     () => LESSONS.filter(l => l.subject === activeSubject),
@@ -143,79 +244,17 @@ export function LearnScreen() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           <AnimatePresence mode="wait">
             {filteredLessons.map((lesson, idx) => {
-                const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
-                const style = SUBJECT_STYLES[lesson.subject]
-                
-                return (
-                  <motion.div
-                    key={lesson.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    onClick={() => handleLessonClick(lesson)}
-                    className={cn(
-                      "group relative p-6 rounded-[2rem] border-2 transition-all cursor-pointer overflow-hidden",
-                      isUnlocked 
-                        ? "bg-card border-border hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5" 
-                        : "bg-muted/30 border-transparent grayscale opacity-80"
-                    )}
-                  >
-                    <div className="relative z-10">
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="space-y-1">
-                          <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm", isUnlocked ? style.badge : "bg-muted text-muted-foreground border-border")}>
-                            Week {lesson.week || idx + 1}
-                          </span>
-                          <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors leading-tight mt-2">
-                            {lesson.title}
-                          </h3>
-                        </div>
-                        {isUnlocked ? (
-                          <div className={cn("p-2.5 rounded-2xl bg-card border-2 border-border shadow-md text-primary group-hover:border-primary/50 group-hover:scale-110 transition-all")}>
-                            <ChevronRight size={20} />
-                          </div>
-                        ) : (
-                          <div className="p-2.5 rounded-2xl bg-muted/50 border border-border text-muted-foreground">
-                            <Lock size={18} />
-                          </div>
-                        )}
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-6">
-                        {lesson.summary}
-                      </p>
-
-                      <div className="flex items-center gap-3 pt-4 border-t border-border/50">
-                        {isUnlocked ? (
-                          <>
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider">
-                              <GraduationCap size={14} /> Ready to Explore
-                            </div>
-                            <div className="ml-auto flex gap-2">
-                              {lesson.pdfUrl && (
-                                <a href={lesson.pdfUrl} download className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
-                                  <FileText size={14} />
-                                </a>
-                              )}
-                              <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
-                                <Info size={14} />
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                            <Lock size={12} /> Contact Teacher for Access
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {isUnlocked && (
-                      <div className="absolute top-0 right-0 -mt-8 -mr-8 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />
-                    )}
-                  </motion.div>
-                )
-              })}
+              const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
+              return (
+                <LessonCard
+                  key={lesson.id}
+                  lesson={lesson}
+                  idx={idx}
+                  isUnlocked={isUnlocked}
+                  onLessonClick={handleLessonClick}
+                />
+              )
+            })}
           </AnimatePresence>
         </div>
       </div>
