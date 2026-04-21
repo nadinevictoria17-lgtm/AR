@@ -57,7 +57,7 @@ export function useVoiceOver({ lines, language }: UseVoiceOverArgs) {
 
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang  = language === 'en' ? 'en-US' : 'fil-PH'
-      utterance.rate  = 0.95
+      utterance.rate  = language === 'en' ? 0.95 : 1.2
       utterance.pitch = 1
 
       utterance.onstart = () => {

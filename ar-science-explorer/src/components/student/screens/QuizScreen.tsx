@@ -8,6 +8,7 @@ import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { SUBJECTS } from '../../../data/subjects'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
+import { LESSONS } from '../../../data/lessons'
 import { storage } from '../../../lib/storage'
 import { QuizUnlockDialog } from '../../quiz/QuizUnlockDialog'
 import { QuizListView } from '../../quiz/QuizListView'
@@ -151,10 +152,11 @@ export function QuizScreen() {
         // Create one quiz per lesson (5 questions each)
         for (const lessonId of lessonIds) {
           const lessonQuestions = QUIZ_QUESTIONS.filter((q) => q.subject === subject && q.lessonId === lessonId)
+          const lesson = LESSONS.find((l) => l.id === lessonId)
           const quizId = `builtin-${lessonId}`
           result.push({
             id: quizId,
-            title: `${lessonId.toUpperCase()} Quiz`,
+            title: lesson?.title || `${lessonId.toUpperCase()} Quiz`,
             topicName: topic.name,
             isCompleted: completedQuizIds.has(quizId),
             isLocked: !unlockedQuizIds.has(quizId),

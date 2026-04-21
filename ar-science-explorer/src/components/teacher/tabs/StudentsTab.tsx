@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Plus, X, Trash2, KeyRound, ChevronLeft, ChevronRight, Search, Eye, EyeOff, CheckCircle2, Lock as LucideLock } from 'lucide-react'
+import { Users, Plus, X, Trash2, Book, ChevronLeft, ChevronRight, Search, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,7 +12,6 @@ import { firebaseCreateStudentAccount } from '../../../lib/firebaseAuth'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { LESSONS } from '../../../data/lessons'
 import { QUIZ_QUESTIONS } from '../../../data/quiz'
-import { QuizUnlockGenerator } from '../QuizUnlockGenerator'
 import { cn } from '../../../lib/utils'
 import { pageVariants } from '../../../lib/variants'
 import type { StudentRecord, TeacherQuiz } from '../../../types'
@@ -67,8 +66,6 @@ export function StudentsTab() {
   const students = data.students
   const [showForm, setShowForm] = useState(false)
   const [viewStudent, setViewStudent] = useState<StudentRecord | null>(null)
-  const [unlockStudent, setUnlockStudent] = useState<StudentRecord | null>(null)
-  const [unlockQuiz, setUnlockQuiz] = useState<TeacherQuiz | null>(null)
   const [currentPage, setCurrentPage]     = useState(1)
   const [filterSection, setFilterSection] = useState('all')
   const [searchQuery, setSearchQuery]     = useState('')
@@ -142,15 +139,6 @@ export function StudentsTab() {
     a.download = `students-${format(new Date(), 'yyyy-MM-dd')}.csv`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  const handleUnlockLatest = async (studentId: string, quizId: string) => {
-    try {
-      await storage.markQuizAsRetakeable(studentId, quizId)
-      // The real-time listener on useStorageData will update the view
-    } catch (error) {
-      console.error('[StudentsTab] Failed to unlock quiz:', error)
-    }
   }
 
   // Unique sections for the section filter
@@ -381,11 +369,11 @@ export function StudentsTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label="View quizzes & unlock"
-                        title="View Quizzes & Unlock"
+                        aria-label="View quizzes"
+                        title="View Quizzes"
                         onClick={(e) => { e.stopPropagation(); setViewStudent(s) }}
                       >
-                        <KeyRound size={14} />
+                        <Book size={14} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -485,7 +473,7 @@ export function StudentsTab() {
               <div>
                 <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Quizzes</h3>
                 <p className="text-sm text-muted-foreground">
-                  {viewStudent.quizAttempts?.length ?? 0} attempted &middot; select any to unlock for retake.
+                  {viewStudent.quizAttempts?.length ?? 0} attempted
                 </p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setViewStudent(null)} aria-label="Close" className="shrink-0">
@@ -495,20 +483,7 @@ export function StudentsTab() {
 
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
               {(() => {
-                // Combine built-in and teacher-created quizzes for comprehensive monitoring
-                const builtInQuizIds = Array.from(new Set(QUIZ_QUESTIONS.map(q => q.lessonId))).filter((id): id is string => !!id)
-                const builtInQuizzes = builtInQuizIds.map(lessonId => {
-                  const firstQ = QUIZ_QUESTIONS.find(q => q.lessonId === lessonId)!
-                  return {
-                    id: `builtin-${lessonId}`,
-                    title: `${lessonId.toUpperCase()} Quiz`,
-                    subject: firstQ.subject
-                  }
-                })
-                
-                const combinedQuizzes = [...builtInQuizzes, ...allQuizzes]
-
-                return combinedQuizzes.map((q) => {
+                return allQuizzes.map((q) => {
                   const attempts = (viewStudent.quizAttempts ?? [])
                     .filter(a => a.quizId === q.id)
                     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -536,22 +511,6 @@ export function StudentsTab() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        {lastAttempt && lastAttempt.locked && (
-                          <div className="p-1.5 rounded-lg bg-destructive/10 text-destructive" title="Locked">
-                            <LucideLock size={14} />
-                          </div>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUnlockLatest(viewStudent.studentId, q.id)}
-                          disabled={!lastAttempt || !lastAttempt.locked}
-                          className="h-8 text-[10px] font-black uppercase"
-                        >
-                          Unlock
-                        </Button>
-                      </div>
                     </div>
                   )
                 })
@@ -562,18 +521,6 @@ export function StudentsTab() {
         document.body
       )}
 
-      <AnimatePresence>
-        {unlockStudent && unlockQuiz && (
-          <QuizUnlockGenerator
-            student={unlockStudent}
-            quiz={unlockQuiz}
-            onClose={() => {
-              setUnlockStudent(null)
-              setUnlockQuiz(null)
-            }}
-          />
-        )}
-      </AnimatePresence>
     </motion.div>
   )
 }
