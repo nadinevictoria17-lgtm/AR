@@ -249,27 +249,31 @@ export function LessonsTab() {
   }
 
   const handleSave = handleSubmit(async (formData) => {
-    const lessonId = editTarget?.id ?? uid()
-    const createdAt = editTarget && isTeacherLesson(editTarget)
-      ? editTarget.createdAt
-      : new Date().toISOString()
+    try {
+      const lessonId = editTarget?.id ?? uid()
+      const createdAt = (editTarget && isTeacherLesson(editTarget) && editTarget.createdAt)
+        ? editTarget.createdAt
+        : new Date().toISOString()
 
-    // Check for duplicate lessons in same week for same subject
-    const duplicateLesson = lessons.find(l =>
-      l.id !== lessonId &&
-      l.subject === formData.subject &&
-      l.week === formData.week
-    )
-    if (duplicateLesson) {
-      showConfirmModal(
-        'Duplicate Week',
-        `A lesson already exists for ${formData.subject} Week ${formData.week}: "${duplicateLesson.title}". Continue anyway?`,
-        () => handleSaveAfterValidation(lessonId, createdAt as string, formData, pdfDataUrl ?? null)
+      // Check for duplicate lessons in same week for same subject
+      const duplicateLesson = lessons.find(l =>
+        l.id !== lessonId &&
+        l.subject === formData.subject &&
+        l.week === formData.week
       )
-      return
-    }
+      if (duplicateLesson) {
+        showConfirmModal(
+          'Duplicate Week',
+          `A lesson already exists for ${formData.subject} Week ${formData.week}: "${duplicateLesson.title}". Continue anyway?`,
+          () => handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
+        )
+        return
+      }
 
-    await handleSaveAfterValidation(lessonId, createdAt as string, formData, pdfDataUrl ?? null)
+      await handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
+    } catch (error) {
+      console.error('[LessonsTab] Save error:', error)
+    }
   });
 
   const handleSaveAfterValidation = async (lessonId: string, createdAt: string, formData: LessonFormValues, pdfDataUrl: string | null | undefined) => {
@@ -383,11 +387,13 @@ export function LessonsTab() {
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Summary</label>
                   <input {...register('summary')} placeholder="Short lesson summary…"
                     className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  {errors.summary && <p className="text-xs text-destructive mt-1">{errors.summary.message}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Content</label>
                   <textarea {...register('content')} placeholder="Write your lesson content…" rows={4}
                     className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+                  {errors.content && <p className="text-xs text-destructive mt-1">{errors.content.message}</p>}
                 </div>
               </div>
 
@@ -511,6 +517,7 @@ export function LessonsTab() {
               </label>
               <textarea {...register('steps')} placeholder={'Understand the concept\nExplore through AR\nPractice and review'} rows={3}
                 className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+              {errors.steps && <p className="text-xs text-destructive mt-1">{errors.steps.message}</p>}
             </div>
           </div>
         )}
@@ -659,6 +666,7 @@ export function LessonsTab() {
                     <option value="surface">Surface</option>
                   </select>
                 )} />
+                {errors.detectionMode && <p className="text-xs text-destructive mt-1">{errors.detectionMode.message}</p>}
               </div>
             </div>
             <div>
