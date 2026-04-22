@@ -57,6 +57,8 @@ export function UnlockCodeManager() {
   const [filterType,   setFilterType]   = useState<'all' | 'subject' | 'lesson' | 'quiz'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'used'>('all')
   const [searchQuery,  setSearchQuery]  = useState('')
+  const [quizSearchInput, setQuizSearchInput] = useState('')
+  const [studentSearchInput, setStudentSearchInput] = useState('')
 
   // Form state
   const [newCode,               setNewCode]               = useState('')
@@ -420,7 +422,7 @@ export function UnlockCodeManager() {
                     </>
                   ) : codeType === 'lesson' ? (
                     // Quiz Unlock: Quiz only
-                    <div>
+                    <div onBlur={() => setTimeout(() => setShowQuizPicker(false), 200)} tabIndex={-1}>
                       <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
                       <button onClick={() => setShowQuizPicker(p => !p)}
                         className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
@@ -428,37 +430,17 @@ export function UnlockCodeManager() {
                         {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
                       {showQuizPicker && (
-                        <div className="mt-1.5 p-2 rounded-xl border border-border bg-muted/30 space-y-1 max-h-44 overflow-y-auto">
-                          {LESSONS.map(l => (
-                            <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false) }}
-                              className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
-                                selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
-                              <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
-                                selectedTargetId === l.id ? 'bg-primary border-primary' : 'border-border')}>
-                                {selectedTargetId === l.id && <Check size={9} className="text-primary-foreground" />}
-                              </div>
-                              <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase">{l.id}</span>
-                              <span className="text-xs truncate">{l.title}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : codeType === 'quiz' ? (
-                    // Quiz Retake: Quiz + Student
-                    <>
-                      {/* Quiz picker */}
-                      <div>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
-                        <button onClick={() => setShowQuizPicker(p => !p)}
-                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
-                          <span className="truncate">{selectedTargetId ? LESSONS.find(l => l.id === selectedTargetId)?.title : 'Select quiz…'}</span>
-                          {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
-                        {showQuizPicker && (
-                          <div className="mt-1.5 p-2 rounded-xl border border-border bg-muted/30 space-y-1 max-h-44 overflow-y-auto">
-                            {LESSONS.map(l => (
-                              <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false) }}
+                        <div className="mt-1.5 rounded-xl border border-border bg-muted/30">
+                          <input
+                            type="text"
+                            placeholder="Search quizzes..."
+                            value={quizSearchInput}
+                            onChange={(e) => setQuizSearchInput(e.target.value)}
+                            className="w-full px-2.5 py-2 text-xs bg-muted/50 border-b border-border rounded-t-lg focus:outline-none focus:ring-1 focus:ring-primary/50"
+                          />
+                          <div className="space-y-1 max-h-44 overflow-y-auto p-2">
+                            {LESSONS.filter(l => l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase())).map(l => (
+                              <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false); setQuizSearchInput('') }}
                                 className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
                                   selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
                                 <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
@@ -470,11 +452,49 @@ export function UnlockCodeManager() {
                               </button>
                             ))}
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : codeType === 'quiz' ? (
+                    // Quiz Retake: Quiz + Student
+                    <>
+                      {/* Quiz picker */}
+                      <div onBlur={() => setTimeout(() => setShowQuizPicker(false), 200)} tabIndex={-1}>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
+                        <button onClick={() => setShowQuizPicker(p => !p)}
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
+                          <span className="truncate">{selectedTargetId ? LESSONS.find(l => l.id === selectedTargetId)?.title : 'Select quiz…'}</span>
+                          {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                        {showQuizPicker && (
+                          <div className="mt-1.5 rounded-xl border border-border bg-muted/30">
+                            <input
+                              type="text"
+                              placeholder="Search quizzes..."
+                              value={quizSearchInput}
+                              onChange={(e) => setQuizSearchInput(e.target.value)}
+                              className="w-full px-2.5 py-2 text-xs bg-muted/50 border-b border-border rounded-t-lg focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            />
+                            <div className="space-y-1 max-h-44 overflow-y-auto p-2">
+                              {LESSONS.filter(l => l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase())).map(l => (
+                                <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false); setQuizSearchInput('') }}
+                                  className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
+                                    selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
+                                  <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                                    selectedTargetId === l.id ? 'bg-primary border-primary' : 'border-border')}>
+                                    {selectedTargetId === l.id && <Check size={9} className="text-primary-foreground" />}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase">{l.id}</span>
+                                  <span className="text-xs truncate">{l.title}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
 
                       {/* Student picker */}
-                      <div>
+                      <div onBlur={() => setTimeout(() => setShowStudentPicker(false), 200)} tabIndex={-1}>
                         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Student (optional)</label>
                         <button onClick={() => setShowStudentPicker(p => !p)}
                           className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
@@ -482,28 +502,37 @@ export function UnlockCodeManager() {
                           {showStudentPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                         {showStudentPicker && (
-                          <div className="mt-1.5 p-2 rounded-xl border border-border bg-muted/30 space-y-1 max-h-44 overflow-y-auto">
-                            <button onClick={() => { setSelectedTargetStudent(''); setShowStudentPicker(false) }}
-                              className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
-                                !selectedTargetStudent ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
-                              <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
-                                !selectedTargetStudent ? 'bg-primary border-primary' : 'border-border')}>
-                                {!selectedTargetStudent && <Check size={9} className="text-primary-foreground" />}
-                              </div>
-                              <span className="text-xs font-semibold">Any student</span>
-                            </button>
-                            {data.students.map(s => (
-                              <button key={s.id} onClick={() => { setSelectedTargetStudent(s.id); setShowStudentPicker(false) }}
+                          <div className="mt-1.5 rounded-xl border border-border bg-muted/30">
+                            <input
+                              type="text"
+                              placeholder="Search students..."
+                              value={studentSearchInput}
+                              onChange={(e) => setStudentSearchInput(e.target.value)}
+                              className="w-full px-2.5 py-2 text-xs bg-muted/50 border-b border-border rounded-t-lg focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            />
+                            <div className="space-y-1 max-h-44 overflow-y-auto p-2">
+                              <button onClick={() => { setSelectedTargetStudent(''); setShowStudentPicker(false); setStudentSearchInput('') }}
                                 className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
-                                  selectedTargetStudent === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
+                                  !selectedTargetStudent ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
                                 <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
-                                  selectedTargetStudent === s.id ? 'bg-primary border-primary' : 'border-border')}>
-                                  {selectedTargetStudent === s.id && <Check size={9} className="text-primary-foreground" />}
+                                  !selectedTargetStudent ? 'bg-primary border-primary' : 'border-border')}>
+                                  {!selectedTargetStudent && <Check size={9} className="text-primary-foreground" />}
                                 </div>
-                                <span className="text-[10px] font-bold text-muted-foreground shrink-0">ID {s.studentId}</span>
-                                <span className="text-xs truncate">{s.name}</span>
+                                <span className="text-xs font-semibold">Any student</span>
                               </button>
-                            ))}
+                              {data.students.filter(s => s.name.toLowerCase().includes(studentSearchInput.toLowerCase()) || s.studentId.toLowerCase().includes(studentSearchInput.toLowerCase())).map(s => (
+                                <button key={s.id} onClick={() => { setSelectedTargetStudent(s.id); setShowStudentPicker(false); setStudentSearchInput('') }}
+                                  className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
+                                    selectedTargetStudent === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
+                                  <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                                    selectedTargetStudent === s.id ? 'bg-primary border-primary' : 'border-border')}>
+                                    {selectedTargetStudent === s.id && <Check size={9} className="text-primary-foreground" />}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-muted-foreground shrink-0">ID {s.studentId}</span>
+                                  <span className="text-xs truncate">{s.name}</span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>

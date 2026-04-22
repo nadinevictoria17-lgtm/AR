@@ -9,9 +9,10 @@ import { format, parseISO } from 'date-fns'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { LESSONS } from '../../../data/lessons'
+import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
-import type { TeacherLesson, Lesson, SubjectKey } from '../../../types'
+import type { TeacherLesson, Lesson, SubjectKey, TeacherQuiz } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { TableSkeleton } from '../../ui/skeleton'
@@ -58,6 +59,29 @@ function uid() { return Math.random().toString(36).slice(2, 9) }
 
 const ITEMS_PER_PAGE = 10
 
+// Build combined quiz list: teacher-created + built-in templates
+function buildQuizList(teacherQuizzes: TeacherQuiz[]): { builtin: TeacherQuiz[]; created: TeacherQuiz[] } {
+  const created = [...teacherQuizzes]
+  const builtin: TeacherQuiz[] = []
+
+  for (const lesson of LESSONS) {
+    const builtInId = `builtin-${lesson.id}`
+    if (created.some(q => q.id === builtInId)) continue
+    const lessonQuestions = QUIZ_QUESTIONS.filter(q => q.lessonId === lesson.id)
+    if (lessonQuestions.length === 0) continue
+    builtin.push({
+      id: builtInId,
+      title: lesson.title,
+      subject: lesson.subject,
+      topicId: lesson.id,
+      questions: lessonQuestions,
+      createdAt: new Date(0).toISOString(),
+    })
+  }
+
+  return { builtin, created }
+}
+
 function isTeacherLesson(lesson: TeacherLesson | Lesson): lesson is TeacherLesson {
   return 'createdAt' in lesson && 'content' in lesson
 }
@@ -89,6 +113,8 @@ export function LessonsTab() {
   const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology' | 'physics' >('all')
   const [searchQuery, setSearchQuery]       = useState('')
   const [activeTab, setActiveTab]       = useState<'basic' | 'curriculum' | 'ar'>('basic')
+  const [quizSearchOpen, setQuizSearchOpen] = useState(false)
+  const [quizSearchInput, setQuizSearchInput] = useState('')
   const pdfInputRef = useRef<HTMLInputElement>(null)
   const markerInputRef = useRef<HTMLInputElement>(null)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
@@ -117,8 +143,14 @@ export function LessonsTab() {
     return merged
   }, [data.lessons])
 
-  // Use quizzes directly from data instead of mirroring
-  const quizzes = data.quizzes
+  // Compute combined quiz list (teacher + built-in templates)
+  const quizzesByType = useMemo(() => buildQuizList(data.quizzes), [data.quizzes])
+
+  // Create flat quiz list for quick lookup by ID
+  const allQuizzesFlat = useMemo(() =>
+    [...quizzesByType.builtin, ...quizzesByType.created],
+    [quizzesByType]
+  )
 
   // Reset pagination when lessons change
   useEffect(() => {
@@ -222,6 +254,26 @@ export function LessonsTab() {
       ? editTarget.createdAt
       : new Date().toISOString()
 
+    // Check for duplicate lessons in same week for same subject
+    const duplicateLesson = lessons.find(l =>
+      l.id !== lessonId &&
+      l.subject === formData.subject &&
+      l.week === formData.week
+    )
+    if (duplicateLesson) {
+      showConfirmModal(
+        'Duplicate Week',
+        `A lesson already exists for ${formData.subject} Week ${formData.week}: "${duplicateLesson.title}". Continue anyway?`,
+        () => handleSaveAfterValidation(lessonId, createdAt as string, formData, pdfDataUrl ?? null)
+      )
+      return
+    }
+
+    await handleSaveAfterValidation(lessonId, createdAt as string, formData, pdfDataUrl ?? null)
+  });
+
+  const handleSaveAfterValidation = async (lessonId: string, createdAt: string, formData: LessonFormValues, pdfDataUrl: string | null | undefined) => {
+
     // Upload PDF to Firebase Storage
     let pdfUrl: string | undefined
     if (pdfDataUrl && pdfDataUrl.startsWith('data:')) {
@@ -283,7 +335,7 @@ export function LessonsTab() {
     await storage.getAll()
     // Lessons list will auto-update via Firestore subscription in useStorageData
     setShowForm(false)
-  })
+  };
 
   if (showSkeleton) {
     return <TableSkeleton columns={['Lesson', 'Linked Quiz', 'Created', '']} rows={8} />
@@ -364,6 +416,91 @@ export function LessonsTab() {
                       className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     {errors.week && <p className="text-xs text-destructive mt-1">{errors.week.message}</p>}
                   </div>
+                </Card>
+
+                <Card className="p-4 space-y-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Linked Quiz</p>
+                  <Controller
+                    control={control}
+                    name="linkedQuizId"
+                    render={({ field }) => (
+                      <div className="relative" onBlur={() => setTimeout(() => setQuizSearchOpen(false), 200)}>
+                        <label className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase">Search & Select Quiz (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="Type to search quizzes..."
+                          value={quizSearchInput}
+                          onChange={(e) => {
+                            setQuizSearchInput(e.target.value)
+                            setQuizSearchOpen(true)
+                          }}
+                          onFocus={() => setQuizSearchOpen(true)}
+                          className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                        {quizSearchOpen && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                field.onChange('')
+                                setQuizSearchInput('')
+                                setQuizSearchOpen(false)
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted/50 transition-colors border-b border-border/50"
+                            >
+                              — None —
+                            </button>
+                            {quizzesByType.builtin.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase bg-muted/30 sticky top-0 border-b border-border/50">Built-in Templates</div>
+                                {quizzesByType.builtin
+                                  .filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase()))
+                                  .map(q => (
+                                    <button
+                                      key={q.id}
+                                      type="button"
+                                      onClick={() => {
+                                        field.onChange(q.id)
+                                        setQuizSearchInput(q.title)
+                                        setQuizSearchOpen(false)
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-muted/50 transition-colors truncate"
+                                    >
+                                      {q.title}
+                                    </button>
+                                  ))}
+                              </>
+                            )}
+                            {quizzesByType.created.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase bg-muted/30 sticky top-0 border-b border-border/50">Your Quizzes</div>
+                                {quizzesByType.created
+                                  .filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase()))
+                                  .map(q => (
+                                    <button
+                                      key={q.id}
+                                      type="button"
+                                      onClick={() => {
+                                        field.onChange(q.id)
+                                        setQuizSearchInput(q.title)
+                                        setQuizSearchOpen(false)
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-muted/50 transition-colors truncate"
+                                    >
+                                      {q.title}
+                                    </button>
+                                  ))}
+                              </>
+                            )}
+                            {quizzesByType.builtin.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length === 0 &&
+                             quizzesByType.created.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length === 0 && (
+                              <div className="px-3 py-3 text-center text-xs text-muted-foreground">No quizzes found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  />
                 </Card>
               </div>
             </div>
@@ -649,8 +786,8 @@ export function LessonsTab() {
             <tbody className="divide-y divide-border">
               {paginatedLessons.map((l) => {
                 const isTeacher = isTeacherLesson(l)
-                const linkedQuizId = isTeacher ? l.linkedQuizId : undefined
-                const linkedQuizTitle = linkedQuizId ? quizzes.find(q => q.id === linkedQuizId)?.title ?? null : null
+                const linkedQuizId = (isTeacher ? l.linkedQuizId : null) || `builtin-${l.id}`
+                const linkedQuizTitle = allQuizzesFlat.find(q => q.id === linkedQuizId)?.title ?? null
                 const hasPdf = !!(isTeacher ? l.pdfUrl : (l as Lesson).pdfUrl)
                 return (
                   <tr
@@ -667,8 +804,8 @@ export function LessonsTab() {
                     </td>
                     <td className="px-6 py-4">
                       {linkedQuizTitle
-                        ? <span className="text-xs font-medium text-primary truncate max-w-[140px] block">{linkedQuizTitle}</span>
-                        : <span className="text-xs text-muted-foreground opacity-40">—</span>
+                        ? <span className="text-xs font-semibold text-primary truncate max-w-[160px] block">{linkedQuizTitle}</span>
+                        : <span className="text-xs text-muted-foreground/50">—</span>
                       }
                     </td>
                     <td className="px-6 py-4">
@@ -779,13 +916,17 @@ export function LessonsTab() {
                       <p className="text-xs text-foreground leading-relaxed">{viewTarget.curriculum.standards}</p>
                     </div>
                   )}
-                  {viewTarget.linkedQuizId && quizzes.find(q => q.id === viewTarget.linkedQuizId) && (
-                    <div className="pt-4 mt-4 border-t border-border">
-                      <p className="text-xs text-muted-foreground">
-                        Linked quiz: <span className="text-primary font-semibold">{quizzes.find(q => q.id === viewTarget.linkedQuizId)?.title}</span>
-                      </p>
-                    </div>
-                  )}
+                  {(() => {
+                    const quizId = (viewTarget as TeacherLesson).linkedQuizId || `builtin-${viewTarget.id}`
+                    const quiz = allQuizzesFlat.find(q => q.id === quizId)
+                    return quiz ? (
+                      <div className="pt-4 mt-4 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                          Linked quiz: <span className="text-primary font-semibold">{quiz.title}</span>
+                        </p>
+                      </div>
+                    ) : null
+                  })()}
                 </>
               ) : (
                 <>
