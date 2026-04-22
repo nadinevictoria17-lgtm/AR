@@ -273,6 +273,8 @@ export function LessonsTab() {
       await handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
     } catch (error) {
       console.error('[LessonsTab] Save error:', error)
+      const message = error instanceof Error ? error.message : 'Failed to save lesson'
+      showConfirmModal('Save Failed', `Could not save lesson: ${message}\n\nMake sure you have internet connection and Firebase is configured.`, () => {})
     }
   });
 
@@ -298,7 +300,7 @@ export function LessonsTab() {
     // Auto-generate marker image path (teacher uploads to CDN separately or uses this path)
     const markerImagePath = `/markers/Q${quarter}W${formData.week}.jpg`
 
-    await storage.saveLesson({
+    const savedSuccessfully = await storage.saveLesson({
       id:              lessonId,
       title:           formData.title.trim(),
       subject:         formData.subject,
@@ -336,9 +338,15 @@ export function LessonsTab() {
         } : {}),
       },
     })
+
+    if (!savedSuccessfully) {
+      throw new Error('Failed to save lesson to Firebase')
+    }
+
     await storage.getAll()
     // Lessons list will auto-update via Firestore subscription in useStorageData
     setShowForm(false)
+    console.log('[LessonsTab] Lesson saved successfully:', lessonId)
   };
 
   if (showSkeleton) {
