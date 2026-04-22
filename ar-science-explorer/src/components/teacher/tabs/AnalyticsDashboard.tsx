@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Cell, PieChart, Pie, AreaChart, Area, Label
+  Cell, PieChart, Pie, AreaChart, Area
 } from 'recharts'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { storage } from '../../../lib/storage'
@@ -278,7 +278,7 @@ export function AnalyticsDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <div className="bg-card border border-border rounded-2xl p-6">
           <h3 className="text-sm font-bold text-foreground mb-1">Subject Performance Average</h3>
           <p className="text-xs text-muted-foreground mb-6">Mean score by subject</p>
@@ -327,22 +327,6 @@ export function AnalyticsDashboard() {
                     paddingAngle={4}
                     dataKey="value"
                   >
-                    <Label
-                      content={({ viewBox }) => {
-                        const { cx, cy } = viewBox as { cx: number; cy: number }
-                        const total = scoreDistribution.reduce((a, b) => a + b.value, 0)
-                        return (
-                          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={cx} dy="-0.3em" className="fill-foreground font-bold" fontSize={18}>
-                              {total}
-                            </tspan>
-                            <tspan x={cx} dy="1.4em" className="fill-muted-foreground" fontSize={11}>
-                              students
-                            </tspan>
-                          </text>
-                        )
-                      }}
-                    />
                     {scoreDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
@@ -363,7 +347,7 @@ export function AnalyticsDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <div className="bg-card border border-border rounded-2xl p-6">
           <h3 className="text-sm font-bold text-foreground mb-1">Quiz Activity</h3>
           <p className="text-xs text-muted-foreground mb-6">Last 14 days of quiz attempts</p>
@@ -432,33 +416,32 @@ export function AnalyticsDashboard() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <Clock size={16} className="text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Recent Quiz Activity</h3>
-          <span className="ml-auto text-[10px] text-muted-foreground">Last 8 attempts</span>
+      <div className="bg-card border border-border rounded-2xl p-6 mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Clock size={14} className="text-primary" />
+          <h3 className="text-xs font-bold text-foreground">Recent Activity</h3>
+          <span className="ml-auto text-[9px] text-muted-foreground">Last 8</span>
         </div>
 
         {recentActivity.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">No quiz attempts recorded yet.</p>
+          <p className="text-xs text-muted-foreground text-center py-4">No quiz attempts yet.</p>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="space-y-2">
             {recentActivity.map((item) => {
               const pctColor = item.pct >= 90 ? SUCCESS_COLOR : item.pct >= 75 ? WARNING_COLOR : DANGER_COLOR
               return (
-                <div key={`${item.studentName}-${item.timestamp}`} className="flex items-center gap-4 py-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="text-[11px] font-bold text-primary">
+                <div key={`${item.studentName}-${item.timestamp}`} className="flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-[9px] font-bold text-primary">
                       {item.studentName.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{item.studentName}</p>
-                    <p className="text-[11px] text-muted-foreground">{item.displayTime}</p>
+                    <p className="text-[10px] font-semibold text-foreground truncate">{item.studentName}</p>
+                    <p className="text-[9px] text-muted-foreground">{item.displayTime}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold" style={{ color: pctColor }}>{item.pct}%</p>
-                    <p className="text-[10px] text-muted-foreground">{item.score}/{item.totalQ} correct</p>
+                    <p className="text-[10px] font-bold" style={{ color: pctColor }}>{item.pct}%</p>
                   </div>
                 </div>
               )
@@ -468,12 +451,12 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* ── Class Management (Danger Zone) ─────────────────────────────── */}
-      <div className="border border-destructive/30 rounded-2xl overflow-hidden">
-        <div className="bg-destructive/5 px-6 py-4 flex items-center gap-2 border-b border-destructive/20">
-          <AlertTriangle size={16} className="text-destructive" />
-          <h3 className="text-sm font-bold text-destructive">Class Management</h3>
+      <div className="border border-destructive/30 rounded-2xl overflow-hidden mt-4">
+        <div className="bg-destructive/5 px-5 py-3 flex items-center gap-2 border-b border-destructive/20">
+          <AlertTriangle size={14} className="text-destructive" />
+          <h3 className="text-xs font-bold text-destructive">Class Management</h3>
         </div>
-        <div className="bg-card px-6 py-5 grid sm:grid-cols-2 gap-4">
+        <div className="bg-card px-5 py-4 grid sm:grid-cols-2 gap-3">
           {/* Restart Quarter */}
           <div className="rounded-xl border border-border p-4 space-y-2">
             <div className="flex items-center gap-2">
@@ -538,17 +521,17 @@ interface StatCardProps {
 
 function StatCard({ icon: Icon, label, value, context, color, bg }: StatCardProps) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{label}</p>
-        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
-          <Icon size={15} className={color} />
+    <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between h-full">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground leading-tight">{label}</p>
+          <p className="text-2xl font-black text-foreground mt-1 leading-none">{value}</p>
+        </div>
+        <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', bg)}>
+          <Icon size={13} className={color} />
         </div>
       </div>
-      <div>
-        <p className="text-3xl font-bold text-foreground leading-none">{value}</p>
-        <p className="text-[11px] text-muted-foreground mt-1.5">{context}</p>
-      </div>
+      <p className="text-[9px] text-muted-foreground leading-tight">{context}</p>
     </div>
   )
 }

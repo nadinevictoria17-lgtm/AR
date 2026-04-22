@@ -11,7 +11,8 @@ import {
   query,
   where,
 } from 'firebase/firestore'
-import { db, auth } from './firebase'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, auth, storage as fbStorage } from './firebase'
 import type { StudentRecord, TeacherQuiz, TeacherLesson, QuizAttempt, QuizUnlockCode, SubjectKey } from '../types'
 import { generateUnlockCode } from './unlockCodeGenerator'
 
@@ -784,6 +785,34 @@ export const storage = {
       return true
     } catch (error) {
       console.error('[Storage] deleteAllUnlockCodes() failed:', error)
+      return false
+    }
+  },
+
+  // ── FILE UPLOADS ─────────────────────────────
+  async uploadLessonPdf(lessonId: string, file: File): Promise<string | null> {
+    try {
+      const fileName = `${lessonId}-${Date.now()}.pdf`
+      const filePath = `lessons/${lessonId}/${fileName}`
+      const fileRef = ref(fbStorage, filePath)
+
+      await uploadBytes(fileRef, file)
+      const downloadUrl = await getDownloadURL(fileRef)
+      return downloadUrl
+    } catch (error) {
+      console.error('[Storage] uploadLessonPdf() failed:', error)
+      return null
+    }
+  },
+
+  async deleteLessonPdf(pdfUrl: string): Promise<boolean> {
+    try {
+      if (!pdfUrl.includes('firebase')) return false
+      const fileRef = ref(fbStorage, pdfUrl)
+      await deleteObject(fileRef)
+      return true
+    } catch (error) {
+      console.error('[Storage] deleteLessonPdf() failed:', error)
       return false
     }
   },

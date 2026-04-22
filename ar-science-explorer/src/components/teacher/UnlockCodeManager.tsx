@@ -38,6 +38,7 @@ interface CodeRow {
   studentId:        string | null
   status:           'active' | 'used' | 'expired'
   createdAt:        string
+  expiresAt?:       string          // expiration date for retake codes
   usedByStudentIds: string[]        // lesson codes: who applied it
   // raw refs for delete
   _lessonCode?:  UnlockCodeData
@@ -70,6 +71,8 @@ export function UnlockCodeManager() {
   const [copiedCode,   setCopiedCode]   = useState<string | null>(null)
   const [expandedRow,  setExpandedRow]  = useState<string | null>(null)
   const [errorVisible, setErrorVisible] = useState<string | null>(null)
+  const [expirationModal, setExpirationModal] = useState<{ isOpen: boolean; selectedDate: string } | null>(null)
+  const [pendingRetakeCodeData, setPendingRetakeCodeData] = useState<{ quizId: string; studentId: string } | null>(null)
 
   useEffect(() => { loadCodes() }, [])
 
@@ -106,15 +109,21 @@ export function UnlockCodeManager() {
       return
     }
 
+    // For quiz retake, show date picker modal
+    if (codeType === 'quiz') {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      setExpirationModal({ isOpen: true, selectedDate: tomorrow.toISOString().split('T')[0] })
+      setPendingRetakeCodeData({ quizId: selectedTargetId, studentId: selectedTargetStudent })
+      return
+    }
+
     let config: any
     if (codeType === 'subject') {
       config = { subjects: [selectedSubject], lessonIds: selectedWeeks }
     } else if (codeType === 'lesson') {
       // Quiz Unlock — no student targeting
       config = { targetId: selectedTargetId }
-    } else {
-      // Quiz Retake — with optional student targeting
-      config = { targetId: selectedTargetId, ...(selectedTargetStudent ? { targetStudentId: selectedTargetStudent } : {}) }
     }
 
     const result = await createUnlockCode(normalizedCode, codeType, config)
@@ -123,6 +132,28 @@ export function UnlockCodeManager() {
       setShowForm(false); await loadCodes()
     } else {
       setErrorVisible(result.error || 'Failed to generate code.')
+    }
+  }
+
+  const handleConfirmRetakeExpiration = async () => {
+    if (!expirationModal || !pendingRetakeCodeData) return
+
+    const normalizedCode = newCode.trim().toUpperCase()
+    const expiresAtDate = new Date(expirationModal.selectedDate)
+
+    const config = {
+      targetId: pendingRetakeCodeData.quizId,
+      ...(pendingRetakeCodeData.studentId ? { targetStudentId: pendingRetakeCodeData.studentId } : {}),
+      expiresAtDate
+    }
+
+    const result = await createUnlockCode(normalizedCode, 'quiz', config)
+    if (result.success) {
+      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(LESSONS[0]?.id || '')
+      setShowForm(false); setExpirationModal(null); setPendingRetakeCodeData(null); await loadCodes()
+    } else {
+      setErrorVisible(result.error || 'Failed to generate code.')
+      setExpirationModal(null); setPendingRetakeCodeData(null)
     }
   }
 
@@ -194,13 +225,15 @@ export function UnlockCodeManager() {
     codes.filter(c => c.type === 'quiz').forEach(c => {
       const lesson  = c.targetId ? LESSONS.find(l => l.id === c.targetId) : null
       const student = c.targetStudentId ? data.students.find(s => s.id === c.targetStudentId) : null
+      const isExpired = c.expiresAt ? new Date(c.expiresAt) < new Date() : false
       rows.push({
         key: `manual-${c.code}`, kind: 'retake-manual', code: c.code,
         target: lesson?.title ?? c.targetId ?? '—',
         studentName: student?.name ?? null,
         studentId:   student?.studentId ?? null,
-        status: c.isUsed ? 'used' : 'active',
+        status: c.isUsed ? 'used' : isExpired ? 'expired' : 'active',
         createdAt: c.createdAt,
+        expiresAt: c.expiresAt,
         usedByStudentIds: c.usedByStudentIds ?? [],
         _lessonCode: c,
       })
@@ -219,6 +252,7 @@ export function UnlockCodeManager() {
         studentId:   rc.studentId,
         status: rc.isUsed ? 'used' : isExpired ? 'expired' : 'active',
         createdAt: rc.generatedAt,
+        expiresAt: rc.expiresAt,
         usedByStudentIds: [],
         _retakeCode: rc,
       })
@@ -578,6 +612,7 @@ export function UnlockCodeManager() {
                   <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Student</th>
                   <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Created</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Expires</th>
                   <th className="px-6 py-4" />
                 </tr>
               </thead>
@@ -687,6 +722,17 @@ export function UnlockCodeManager() {
                           </span>
                         </td>
 
+                        {/* Expires */}
+                        <td className="px-6 py-4">
+                          {row.expiresAt ? (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(row.expiresAt).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center gap-1">
@@ -718,7 +764,7 @@ export function UnlockCodeManager() {
                       {/* ── Expandable student-usage panel (lesson codes only) ── */}
                       {isLesson && isExpanded && (
                         <tr key={`${row.key}-expand`} className="bg-muted/10">
-                          <td colSpan={7} className="px-6 py-3">
+                          <td colSpan={8} className="px-6 py-3">
                             <AnimatePresence>
                               <motion.div
                                 initial={{ opacity: 0, height: 0 }}
@@ -771,6 +817,61 @@ export function UnlockCodeManager() {
           </div>
         </Card>
       )}
+
+      {/* ── Expiration Date Picker Modal ── */}
+      <AnimatePresence>
+        {expirationModal?.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setExpirationModal(null)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              aria-label="Close modal"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl z-10 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-foreground">Set Expiration Date</h3>
+              <p className="text-sm text-muted-foreground">
+                When should this retake code expire?
+              </p>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Expiration Date
+                </label>
+                <input
+                  type="date"
+                  value={expirationModal.selectedDate}
+                  onChange={e => setExpirationModal({ ...expirationModal, selectedDate: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-muted text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <Button
+                  onClick={handleConfirmRetakeExpiration}
+                  className="flex-1 btn-glow rounded-xl"
+                >
+                  Confirm & Create Code
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setExpirationModal(null); setPendingRetakeCodeData(null) }}
+                  className="flex-1 rounded-xl"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

@@ -11,13 +11,13 @@ export function generateRandomCode(length: number = 6): string {
   return code
 }
 
-export function generateUnlockCode(quizId: string, studentId: string): {
+export function generateUnlockCode(quizId: string, studentId: string, expiresAtDate?: Date): {
   code: string
   id: string
   expiresAt: string
 } {
   const code = generateRandomCode(6)
   const id = `unlock-${quizId}-${studentId}-${Date.now()}`
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+  const expiresAt = (expiresAtDate ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).toISOString()
   return { code, id, expiresAt }
 }

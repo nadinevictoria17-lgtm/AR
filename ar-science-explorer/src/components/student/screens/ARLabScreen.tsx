@@ -111,7 +111,7 @@ export function ARLabScreen() {
     () => mergedLessons.find(l => l.id === activeLessonId) ?? null,
     [mergedLessons, activeLessonId]
   )
-  const voiceList = VOICE_SCRIPTS[voiceLang || 'en'] || VOICE_SCRIPTS['en']
+  const voiceList = VOICE_SCRIPTS.onboarding[voiceLang as 'en' | 'Filipino' || 'en'] || VOICE_SCRIPTS.onboarding['en']
 
   useEffect(() => {
     setPhase('visual')
@@ -184,7 +184,7 @@ export function ARLabScreen() {
   if (showSkeleton) return <ContentSkeleton />
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-5xl mx-auto pb-12">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="w-full pb-12">
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={handleBack}

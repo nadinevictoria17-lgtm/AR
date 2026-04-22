@@ -9,8 +9,6 @@ import { format, parseISO } from 'date-fns'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { LESSONS } from '../../../data/lessons'
-import { QUIZ_QUESTIONS } from '../../../data/quiz'
-import { EXPERIMENTS } from '../../../data/experiments'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import type { TeacherLesson, Lesson, SubjectKey } from '../../../types'
@@ -22,26 +20,34 @@ import { useNotificationStore } from '../../../store/useNotificationStore'
 const SUBJECT_OPTIONS: { value: SubjectKey; label: string }[] = [
   { value: 'chemistry', label: 'Chemistry' },
   { value: 'biology',   label: 'Biology' },
+  { value: 'physics',   label: 'Physics' },
 ]
 
 const LessonSchema = z.object({
   title:                  z.string().min(1, 'Lesson title is required'),
   subject:                z.enum(['biology', 'chemistry', 'physics']),
-  summary:                z.string(),
-  content:                z.string(),
-  linkedQuizId:           z.string(),
-  labExperimentId:        z.string(),
+  summary:                z.string().min(10, 'Summary must be at least 10 characters'),
+  content:                z.string().min(20, 'Content must be at least 20 characters'),
+  linkedQuizId:           z.string().optional(),
+  labExperimentId:        z.string().optional(),
+  week:                   z.coerce.number().min(1, 'Week must be 1–10').max(10, 'Week must be 1–10'),
+  steps:                  z.string().min(5, 'At least one step is required'),
   arModelIndex:           z.coerce.number().min(0, 'Must be 0–8').max(8, 'Must be 0–8'),
   detectionMode:          z.enum(['marker', 'surface']),
-  anchorHint:             z.string(),
-  arSteps:                z.string(),
+  anchorHint:             z.string().optional(),
+  arTitle:                z.string().optional(),
+  arSubtitle:             z.string().optional(),
+  arDescription:          z.string().optional(),
+  arKeyIdeas:             z.string().optional(),
+  arSteps:                z.string().optional(),
   // Curriculum (Phase 2 – Study Hub)
-  standards:              z.string(),
-  performanceStandards:   z.string(),
-  learningCompetencies:   z.string(),
-  objectives:             z.string(),
-  integrationQualities:   z.string(),
-  integrationDescription: z.string(),
+  standards:              z.string().optional(),
+  performanceStandards:   z.string().optional(),
+  contentDetails:         z.string().optional(),
+  learningCompetencies:   z.string().optional(),
+  objectives:             z.string().optional(),
+  integrationQualities:   z.string().optional(),
+  integrationDescription: z.string().optional(),
 })
 
 type LessonFormValues = z.infer<typeof LessonSchema>
@@ -56,6 +62,10 @@ function isTeacherLesson(lesson: TeacherLesson | Lesson): lesson is TeacherLesso
   return 'createdAt' in lesson && 'content' in lesson
 }
 
+function getQuarterFromSubject(subject: SubjectKey): number {
+  return subject === 'chemistry' ? 1 : subject === 'biology' ? 2 : 3
+}
+
 function SubjectBadge({ subject }: { subject: SubjectKey }) {
   const s = SUBJECT_STYLES[subject]
   return (
@@ -63,15 +73,6 @@ function SubjectBadge({ subject }: { subject: SubjectKey }) {
       <span className={cn('w-1.5 h-1.5 rounded-full', s.dot)} />
       {s.label}
     </span>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 pt-2">
-      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground shrink-0">{children}</p>
-      <div className="flex-1 h-px bg-border" />
-    </div>
   )
 }
 
@@ -84,18 +85,22 @@ export function LessonsTab() {
   const [viewTarget, setViewTarget]     = useState<(TeacherLesson | Lesson) | null>(null)
   const [pdfDataUrl, setPdfDataUrl]         = useState<string | null>(null)
   const [pdfFileName, setPdfFileName]       = useState<string | null>(null)
-  const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology' | 'physics'>('all')
+  const [markerImageName, setMarkerImageName] = useState<string | null>(null)
+  const [filterSubject, setFilterSubject]   = useState<'all' | 'chemistry' | 'biology' | 'physics' >('all')
   const [searchQuery, setSearchQuery]       = useState('')
+  const [activeTab, setActiveTab]       = useState<'basic' | 'curriculum' | 'ar'>('basic')
   const pdfInputRef = useRef<HTMLInputElement>(null)
+  const markerInputRef = useRef<HTMLInputElement>(null)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
 
-  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm<LessonFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<LessonFormValues>({
     resolver: zodResolver(LessonSchema),
     defaultValues: {
       title: '', subject: 'chemistry', summary: '', content: '',
       linkedQuizId: '', labExperimentId: '',
-      arModelIndex: 0, detectionMode: 'marker', anchorHint: '', arSteps: '',
-      standards: '', performanceStandards: '',
+      week: 1, steps: '',
+      arModelIndex: 0, detectionMode: 'marker', anchorHint: '', arTitle: '', arSubtitle: '', arDescription: '', arKeyIdeas: '', arSteps: '',
+      standards: '', performanceStandards: '', contentDetails: '',
       learningCompetencies: '', objectives: '',
       integrationQualities: '', integrationDescription: '',
     },
@@ -120,8 +125,6 @@ export function LessonsTab() {
     setCurrentPage(1)
   }, [data.lessons])
 
-  const subject = watch('subject')
-
   const filteredLessons = lessons.filter(l => {
     if (filterSubject !== 'all' && l.subject !== filterSubject) return false
     if (searchQuery && !l.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
@@ -140,8 +143,9 @@ export function LessonsTab() {
     reset({
       title: '', subject: 'chemistry', summary: '', content: '',
       linkedQuizId: '', labExperimentId: '',
-      arModelIndex: 0, detectionMode: 'marker', anchorHint: '', arSteps: '',
-      standards: '', performanceStandards: '',
+      week: 1, steps: '',
+      arModelIndex: 0, detectionMode: 'marker', anchorHint: '', arTitle: '', arSubtitle: '', arDescription: '', arKeyIdeas: '', arSteps: '',
+      standards: '', performanceStandards: '', contentDetails: '',
       learningCompetencies: '', objectives: '',
       integrationQualities: '', integrationDescription: '',
     })
@@ -160,12 +164,19 @@ export function LessonsTab() {
       content:                tl?.content ?? '',
       linkedQuizId:           tl?.linkedQuizId ?? '',
       labExperimentId:        l.labExperimentId ?? '',
+      week:                   l.week ?? 1,
+      steps:                  (l.steps ?? []).join('\n'),
       arModelIndex:           l.arPayload?.modelIndex ?? 0,
       detectionMode:          l.arPayload?.detectionMode ?? 'marker',
       anchorHint:             l.arPayload?.anchorHint ?? '',
+      arTitle:                l.arPayload?.title ?? '',
+      arSubtitle:             l.arPayload?.subtitle ?? '',
+      arDescription:          l.arPayload?.description ?? '',
+      arKeyIdeas:             (l.arPayload?.keyIdeas ?? []).join('\n'),
       arSteps:                (l.arPayload?.lessonSteps ?? []).join('\n'),
       standards:              l.curriculum?.standards ?? '',
       performanceStandards:   l.curriculum?.performanceStandards ?? '',
+      contentDetails:         l.curriculum?.contentDetails ?? '',
       learningCompetencies:   (l.curriculum?.learningCompetencies ?? []).join('\n'),
       objectives:             (l.curriculum?.objectives ?? []).join('\n'),
       integrationQualities:   (l.curriculum?.integration?.qualities ?? []).join(', '),
@@ -199,19 +210,37 @@ export function LessonsTab() {
     reader.readAsDataURL(file)
   }
 
+  const handleMarkerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMarkerImageName(file.name)
+  }
+
   const handleSave = handleSubmit(async (formData) => {
     const lessonId = editTarget?.id ?? uid()
     const createdAt = editTarget && isTeacherLesson(editTarget)
       ? editTarget.createdAt
       : new Date().toISOString()
 
-    // Save PDF to localStorage
+    // Upload PDF to Firebase Storage
     let pdfUrl: string | undefined
-    if (pdfDataUrl) {
-      const lsKey = lessonId
-      localStorage.setItem(`${PDF_LS_PREFIX}${lsKey}`, pdfDataUrl)
-      pdfUrl = `local:${lsKey}`
+    if (pdfDataUrl && pdfDataUrl.startsWith('data:')) {
+      // Convert data URL to Blob
+      const response = await fetch(pdfDataUrl)
+      const blob = await response.blob()
+      const file = new File([blob], 'lesson.pdf', { type: 'application/pdf' })
+      const uploadedUrl = await storage.uploadLessonPdf(lessonId, file)
+      if (uploadedUrl) pdfUrl = uploadedUrl
+    } else if (pdfDataUrl && !pdfDataUrl.startsWith('local:')) {
+      // Already a Firebase URL from existing lesson
+      pdfUrl = pdfDataUrl
     }
+
+    // Auto-calculate quarter from subject
+    const quarter = getQuarterFromSubject(formData.subject)
+
+    // Auto-generate marker image path (teacher uploads to CDN separately or uses this path)
+    const markerImagePath = `/markers/Q${quarter}W${formData.week}.jpg`
 
     await storage.saveLesson({
       id:              lessonId,
@@ -220,24 +249,33 @@ export function LessonsTab() {
       content:         formData.content,
       summary:         formData.summary.trim(),
       createdAt:       createdAt ?? new Date().toISOString(),
+      quarter:         quarter,
+      week:            formData.week,
+      steps:           formData.steps.split('\n').map(s => s.trim()).filter(Boolean),
       ...(formData.linkedQuizId    ? { linkedQuizId: formData.linkedQuizId }       : {}),
       ...(formData.labExperimentId ? { labExperimentId: formData.labExperimentId } : {}),
       ...(pdfUrl ? { pdfUrl } : {}),
       arPayload: {
         modelIndex:    formData.arModelIndex,
         detectionMode: formData.detectionMode,
-        anchorHint:    formData.anchorHint.trim() || `Scan a ${formData.subject} marker.`,
-        lessonSteps:   formData.arSteps.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6),
+        anchorHint:    (formData.anchorHint ?? '').trim() || `Scan a ${formData.subject} marker.`,
+        title:         (formData.arTitle ?? '').trim() || undefined,
+        subtitle:      (formData.arSubtitle ?? '').trim() || undefined,
+        description:   (formData.arDescription ?? '').trim() || undefined,
+        keyIdeas:      (formData.arKeyIdeas ?? '').split('\n').map(s => s.trim()).filter(Boolean),
+        markerImage:   markerImagePath,
+        lessonSteps:   (formData.arSteps ?? '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6),
       },
       curriculum: {
-        standards:            formData.standards.trim() || undefined,
-        performanceStandards: formData.performanceStandards.trim() || undefined,
-        learningCompetencies: formData.learningCompetencies.split('\n').map(s => s.trim()).filter(Boolean),
-        objectives:           formData.objectives.split('\n').map(s => s.trim()).filter(Boolean),
+        standards:            (formData.standards ?? '').trim() || undefined,
+        performanceStandards: (formData.performanceStandards ?? '').trim() || undefined,
+        contentDetails:       (formData.contentDetails ?? '').trim() || undefined,
+        learningCompetencies: (formData.learningCompetencies ?? '').split('\n').map(s => s.trim()).filter(Boolean),
+        objectives:           (formData.objectives ?? '').split('\n').map(s => s.trim()).filter(Boolean),
         ...(formData.integrationQualities || formData.integrationDescription ? {
           integration: {
-            qualities:   formData.integrationQualities.split(',').map(s => s.trim()).filter(Boolean),
-            description: formData.integrationDescription.trim(),
+            qualities:   (formData.integrationQualities ?? '').split(',').map(s => s.trim()).filter(Boolean),
+            description: (formData.integrationDescription ?? '').trim(),
           },
         } : {}),
       },
@@ -252,7 +290,7 @@ export function LessonsTab() {
   }
 
   if (showForm) return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto w-full">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="w-full">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-foreground">{editTarget ? 'Edit Lesson' : 'New Lesson'}</h3>
         <Button variant="ghost" size="icon" onClick={() => setShowForm(false)} aria-label="Close">
@@ -260,186 +298,302 @@ export function LessonsTab() {
         </Button>
       </div>
 
-      <form onSubmit={handleSave} className="w-full space-y-4">
-        {/* ── Basic Info ── */}
-        <SectionLabel>Basic Info</SectionLabel>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Title</label>
-          <input {...register('title')} placeholder="Lesson title…"
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-          {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Subject</label>
-          <Controller control={control} name="subject" render={({ field }) => (
-            <div className="flex gap-2 flex-wrap">
-              {SUBJECT_OPTIONS.map(o => (
-                <button key={o.value} type="button" onClick={() => field.onChange(o.value)}
-                  className={cn('px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
-                    field.value === o.value ? SUBJECT_STYLES[o.value].badge + ' shadow-sm' : 'border-border text-muted-foreground hover:border-border/70')}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          )} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Summary</label>
-          <input {...register('summary')} placeholder="Short lesson summary…"
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Content</label>
-          <textarea {...register('content')} placeholder="Write your lesson content…" rows={5}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-
-        {/* ── Study Hub (Phase 2) ── */}
-        <SectionLabel>Study Hub — Phase 2</SectionLabel>
-        <p className="text-[11px] text-muted-foreground -mt-1">
-          This content is shown to students in the curriculum study phase.
-        </p>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Content Standards</label>
-          <textarea {...register('standards')} placeholder="What learners should know…" rows={3}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Performance Standards</label>
-          <textarea {...register('performanceStandards')} placeholder="What learners should do…" rows={3}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-            Learning Competencies <span className="normal-case font-normal">(one per line)</span>
-          </label>
-          <textarea {...register('learningCompetencies')} placeholder={'Recognize that scientists use models…\nDescribe the Particle Model of Matter…'} rows={4}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-            Lesson Objectives <span className="normal-case font-normal">(one per line)</span>
-          </label>
-          <textarea {...register('objectives')} placeholder={'Describe and explain different scientific models…\nRecognize that matter consists of tiny particles…'} rows={4}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-              Scientific Qualities <span className="normal-case font-normal">(comma-separated)</span>
-            </label>
-            <input {...register('integrationQualities')} placeholder="Critical Thinking, Perseverance"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Integration Description</label>
-            <input {...register('integrationDescription')} placeholder="How these qualities apply to the lesson…"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-          </div>
-        </div>
-
-        {/* ── PDF Module ── */}
-        <SectionLabel>PDF Module</SectionLabel>
-        <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
-          {pdfDataUrl && pdfFileName && (
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-              <FileText size={16} className="text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">{pdfFileName}</p>
-                <p className="text-[10px] text-muted-foreground">Stored locally in this browser</p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-destructive/40 hover:text-destructive hover:bg-destructive/10"
-                onClick={() => { setPdfDataUrl(null); setPdfFileName(null) }}
-              >
-                <X size={13} />
-              </Button>
-            </div>
-          )}
-          <input
-            ref={pdfInputRef}
-            type="file"
-            accept="application/pdf"
-            onChange={handlePdfUpload}
-            className="hidden"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full gap-2 border-dashed"
-            onClick={() => pdfInputRef.current?.click()}
+      <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
+        {(['basic', 'curriculum', 'ar'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn('px-4 py-3 text-sm font-semibold border-b-2 transition-colors capitalize whitespace-nowrap',
+              activeTab === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
           >
-            <Upload size={14} />
-            {pdfDataUrl ? 'Swap PDF' : 'Upload PDF Module'}
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleSave} className="w-full">
+        {/* ── BASIC INFO TAB ── */}
+        {activeTab === 'basic' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left column: Main fields */}
+              <div className="lg:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Title</label>
+                  <input {...register('title')} placeholder="Lesson title…"
+                    className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Summary</label>
+                  <input {...register('summary')} placeholder="Short lesson summary…"
+                    className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Content</label>
+                  <textarea {...register('content')} placeholder="Write your lesson content…" rows={4}
+                    className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+                </div>
+              </div>
+
+              {/* Right column: Schedule + Quick Setup */}
+              <div className="space-y-4">
+                <Card className="p-4">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Subject</p>
+                  <Controller control={control} name="subject" render={({ field }) => (
+                    <div className="space-y-2">
+                      {SUBJECT_OPTIONS.map(o => (
+                        <button key={o.value} type="button" onClick={() => field.onChange(o.value)}
+                          className={cn('w-full px-3 py-2 rounded-lg text-xs font-semibold border transition-all text-left',
+                            field.value === o.value ? SUBJECT_STYLES[o.value].badge + ' shadow-sm' : 'border-border text-muted-foreground hover:border-border/70')}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  )} />
+                </Card>
+
+                <Card className="p-4 space-y-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Week</p>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase">Which Week? (1-10)</label>
+                    <input type="number" {...register('week')}
+                      className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    {errors.week && <p className="text-xs text-destructive mt-1">{errors.week.message}</p>}
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Learning Steps <span className="normal-case font-normal text-[11px]">(one per line)</span>
+              </label>
+              <textarea {...register('steps')} placeholder={'Understand the concept\nExplore through AR\nPractice and review'} rows={3}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+            </div>
+          </div>
+        )}
+
+        {/* ── CURRICULUM TAB ── */}
+        {activeTab === 'curriculum' && (
+          <div className="space-y-4">
+            <p className="text-[11px] text-muted-foreground">This content is shown to students in the curriculum study phase.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Content Standards</label>
+                <textarea {...register('standards')} placeholder="What learners should know…" rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Performance Standards</label>
+                <textarea {...register('performanceStandards')} placeholder="What learners should do…" rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Content Details</label>
+              <input {...register('contentDetails')} placeholder="Summary of what the content covers…"
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Learning Competencies <span className="normal-case font-normal text-[11px]">(one per line)</span>
+                </label>
+                <textarea {...register('learningCompetencies')} placeholder={'Recognize models…\nDescribe particle model…'} rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Lesson Objectives <span className="normal-case font-normal text-[11px]">(one per line)</span>
+                </label>
+                <textarea {...register('objectives')} placeholder={'Describe and explain models…\nRecognize matter particles…'} rows={3}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Scientific Qualities <span className="normal-case font-normal text-[11px]">(comma-separated)</span>
+                </label>
+                <input {...register('integrationQualities')} placeholder="Critical Thinking, Perseverance"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Integration Description</label>
+                <input {...register('integrationDescription')} placeholder="How these qualities apply…"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── AR LAB TAB (includes PDF & Links) ── */}
+        {activeTab === 'ar' && (
+          <div className="space-y-6">
+            {/* AR Content */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">AR Lab Configuration</p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">AR Title</label>
+                <input {...register('arTitle')} placeholder="e.g. Democritus Atom"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">AR Subtitle</label>
+                <input {...register('arSubtitle')} placeholder="e.g. Ancient Greek Atomic Theory"
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">AR Description</label>
+              <textarea {...register('arDescription')} placeholder="Describe the AR model and its significance…" rows={2}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Key Ideas <span className="normal-case font-normal text-[11px]">(one per line)</span>
+              </label>
+              <textarea {...register('arKeyIdeas')} placeholder={'Concept 1\nConcept 2'} rows={2}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Marker Image (JPG)</label>
+              <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
+                {markerImageName && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <FileText size={16} className="text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">{markerImageName}</p>
+                      <p className="text-[10px] text-muted-foreground">Ready to upload</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-destructive/40 hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setMarkerImageName(null)}
+                    >
+                      <X size={13} />
+                    </Button>
+                  </div>
+                )}
+                <input
+                  ref={markerInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg"
+                  onChange={handleMarkerImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2 border-dashed"
+                  onClick={() => markerInputRef.current?.click()}
+                >
+                  <Upload size={14} />
+                  {markerImageName ? 'Change Marker Image' : 'Upload Marker Image (JPG)'}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Anchor Hint</label>
+              <input {...register('anchorHint')} placeholder="e.g. Scan the Q1W1 worksheet marker."
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Model Index (0–8)</label>
+                <input type="number" {...register('arModelIndex')}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                {errors.arModelIndex && <p className="text-xs text-destructive mt-1">{errors.arModelIndex.message}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Detection Mode</label>
+                <Controller control={control} name="detectionMode" render={({ field }) => (
+                  <select {...field} className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <option value="marker">Marker</option>
+                    <option value="surface">Surface</option>
+                  </select>
+                )} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Execution Steps <span className="normal-case font-normal text-[11px]">(one per line, max 6)</span>
+              </label>
+              <textarea {...register('arSteps')} placeholder={'Aim camera at marker\nScan AR target\nInspect 3D model'} rows={3}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+            </div>
+            </div>
+            </div>
+
+            {/* PDF & Links Section */}
+            <div className="border-t border-border pt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* PDF Module */}
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PDF Module</p>
+                <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
+                  {pdfDataUrl && pdfFileName && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <FileText size={16} className="text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{pdfFileName}</p>
+                        <p className="text-[10px] text-muted-foreground">Stored locally in this browser</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-destructive/40 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => { setPdfDataUrl(null); setPdfFileName(null) }}
+                      >
+                        <X size={13} />
+                      </Button>
+                    </div>
+                  )}
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2 border-dashed"
+                    onClick={() => pdfInputRef.current?.click()}
+                  >
+                    <Upload size={14} />
+                    {pdfDataUrl ? 'Swap PDF' : 'Upload PDF'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <Button type="submit" className="btn-glow w-full">
+            Save Lesson
           </Button>
         </div>
-
-        {/* ── AR Lab (Phase 1) ── */}
-        <SectionLabel>AR Lab — Phase 1</SectionLabel>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-            Execution Steps <span className="normal-case font-normal">(one per line, max 6)</span>
-          </label>
-          <textarea {...register('arSteps')} placeholder={'Aim camera at the marker\nScan the AR target\nInspect the 3D model'} rows={4}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Anchor Hint</label>
-          <input {...register('anchorHint')} placeholder="e.g. Scan the Q1W1 worksheet marker."
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Model Index (0–7)</label>
-            <input type="number" {...register('arModelIndex')}
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            {errors.arModelIndex && <p className="text-xs text-destructive mt-1">{errors.arModelIndex.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Detection Mode</label>
-            <Controller control={control} name="detectionMode" render={({ field }) => (
-              <select {...field} className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="marker">Marker</option>
-                <option value="surface">Surface</option>
-              </select>
-            )} />
-          </div>
-        </div>
-
-        {/* ── Links ── */}
-        <SectionLabel>Links</SectionLabel>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Linked Lab (optional)</label>
-          <select {...register('labExperimentId')}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option value="">None</option>
-            {EXPERIMENTS.filter(exp => exp.subject === subject).map(exp => (
-              <option key={exp.id} value={exp.id}>{exp.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Linked Quiz (optional)</label>
-          <select {...register('linkedQuizId')}
-            className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option value="">None</option>
-            {quizzes.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
-          </select>
-        </div>
-
-        <Button type="submit" className="btn-glow w-full">
-          Save Lesson
-        </Button>
       </form>
     </motion.div>
   )
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate">
-      <div className="flex items-center justify-between mb-6">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="w-full space-y-6">
+        <div className="flex items-center justify-between mb-0">
         <div>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <BookOpen size={20} className="text-subject-chemistry" /> Lessons
@@ -464,8 +618,8 @@ export function LessonsTab() {
             className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
           />
         </div>
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
-          {(['all', 'chemistry', 'biology'] as const).map(s => (
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border overflow-x-auto">
+          {(['all', 'chemistry', 'biology', 'physics'] as const).map(s => (
             <button key={s} onClick={() => { setFilterSubject(s); setCurrentPage(1) }}
               className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors capitalize',
                 filterSubject === s ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
@@ -495,17 +649,8 @@ export function LessonsTab() {
             <tbody className="divide-y divide-border">
               {paginatedLessons.map((l) => {
                 const isTeacher = isTeacherLesson(l)
-                // For teacher lessons use their explicit linkedQuizId;
-                // for built-in lessons derive the linked quiz from QUIZ_QUESTIONS
-                const linkedQuizTitle = (() => {
-                  if (isTeacher) {
-                    if (!l.linkedQuizId) return null
-                    return quizzes.find(q => q.id === l.linkedQuizId)?.title ?? null
-                  }
-                  const bl = l as Lesson
-                  const hasQuestions = QUIZ_QUESTIONS.some(q => q.lessonId === bl.id)
-                  return hasQuestions ? bl.title : null
-                })()
+                const linkedQuizId = isTeacher ? l.linkedQuizId : undefined
+                const linkedQuizTitle = linkedQuizId ? quizzes.find(q => q.id === linkedQuizId)?.title ?? null : null
                 const hasPdf = !!(isTeacher ? l.pdfUrl : (l as Lesson).pdfUrl)
                 return (
                   <tr

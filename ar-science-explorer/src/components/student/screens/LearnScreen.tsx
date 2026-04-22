@@ -6,10 +6,10 @@ import { useAppStore } from '../../../store/useAppStore'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
-import { QUIZ_QUESTIONS } from '../../../data/quiz'
 import { SUBJECTS } from '../../../data/subjects'
-import type { SubjectKey, Lesson } from '../../../types'
+import type { SubjectKey, Lesson, TeacherLesson } from '../../../types'
 import { useNavigate } from 'react-router-dom'
+import { useStorageData } from '../../../hooks/useStorageData'
 import { storage } from '../../../lib/storage'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
 import { db, auth } from '../../../lib/firebase'
@@ -19,10 +19,10 @@ const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 // Memoized card to prevent re-renders when parent updates
 const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
-  lesson: Lesson
+  lesson: Lesson | TeacherLesson
   idx: number
   isUnlocked: boolean
-  onLessonClick: (lesson: Lesson) => void
+  onLessonClick: (lesson: Lesson | TeacherLesson) => void
 }) => {
   const style = SUBJECT_STYLES[lesson.subject]
   return (
@@ -42,15 +42,24 @@ const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
     >
       <div className="relative z-10">
         <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="space-y-1">
-            <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
-              isUnlocked
-                ? style.badge
-                : "bg-muted text-muted-foreground border-border"
-            )}>
-              {`Week ${lesson.week || idx + 1}`}
-            </span>
-            <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors leading-tight mt-2">
+          <div className="space-y-1 flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
+                isUnlocked
+                  ? style.badge
+                  : "bg-muted text-muted-foreground border-border"
+              )}>
+                {lesson.subject.slice(0, 4)}
+              </span>
+              <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
+                isUnlocked
+                  ? "bg-muted text-muted-foreground border-border"
+                  : "bg-muted text-muted-foreground border-border"
+              )}>
+                {`Week ${lesson.week || idx + 1}`}
+              </span>
+            </div>
+            <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors leading-tight">
               {lesson.title}
             </h3>
           </div>
@@ -97,23 +106,14 @@ const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
   )
 })
 
-// Static derived values — computed once since LESSONS / QUIZ_QUESTIONS are module-level constants
+// Static derived values
 const SUBJECTS_DATA = SUBJECTS.filter(s => SUBJECT_ORDER.includes(s.id as SubjectKey))
-const LESSON_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
-  chemistry: LESSONS.filter(l => l.subject === 'chemistry').length,
-  biology:   LESSONS.filter(l => l.subject === 'biology').length,
-  physics:   LESSONS.filter(l => l.subject === 'physics').length,
-}
-const QUIZ_COUNT_BY_SUBJECT: Record<SubjectKey, number> = {
-  chemistry: QUIZ_QUESTIONS.filter(q => q.subject === 'chemistry').length,
-  biology:   QUIZ_QUESTIONS.filter(q => q.subject === 'biology').length,
-  physics:   QUIZ_QUESTIONS.filter(q => q.subject === 'physics').length,
-}
 
 export function LearnScreen() {
   const { setScreen, setActiveLesson, currentStudentId } = useAppStore(
     useShallow(s => ({ setScreen: s.setScreen, setActiveLesson: s.setActiveLesson, currentStudentId: s.currentStudentId }))
   )
+  const { data: storageData } = useStorageData()
   const navigate = useNavigate()
 
   const [activeSubject, setActiveSubject] = useState<SubjectKey>('chemistry')
@@ -149,8 +149,8 @@ export function LearnScreen() {
     return () => unsub()
   }, [currentStudentId])
 
-  const handleLessonClick = useCallback((lesson: Lesson) => {
-    const isUnlocked = lesson.isUnlockedByDefault || (unlockedLessons && unlockedLessons.has(lesson.id))
+  const handleLessonClick = useCallback((lesson: Lesson | TeacherLesson) => {
+    const isUnlocked = ('isUnlockedByDefault' in lesson && lesson.isUnlockedByDefault) || (unlockedLessons && unlockedLessons.has(lesson.id))
     if (isUnlocked) {
       setActiveLesson(lesson.id)
       setScreen('arlab')
@@ -172,9 +172,21 @@ export function LearnScreen() {
     setUnlockModal(m => ({ ...m, isOpen: false }))
   }, [currentStudentId])
 
+  // Merge built-in lessons with teacher-created lessons
+  const allLessons = useMemo(() => {
+    const merged: (Lesson | TeacherLesson)[] = [...LESSONS]
+    // Add teacher-created lessons that don't override built-in ones
+    for (const teacherLesson of storageData.lessons) {
+      if (!merged.some(l => l.id === teacherLesson.id)) {
+        merged.push(teacherLesson as TeacherLesson & Lesson)
+      }
+    }
+    return merged
+  }, [storageData.lessons])
+
   const filteredLessons = useMemo(
-    () => LESSONS.filter(l => l.subject === activeSubject),
-    [activeSubject]
+    () => allLessons.filter(l => l.subject === activeSubject),
+    [allLessons, activeSubject]
   )
 
   return (
@@ -233,9 +245,7 @@ export function LearnScreen() {
                 Quarter {SUBJECT_ORDER.indexOf(activeSubject) + 1}: {activeSubject}
               </h2>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs font-medium text-muted-foreground">{LESSON_COUNT_BY_SUBJECT[activeSubject]} Lessons</span>
-                <span className="text-xs text-muted-foreground opacity-30">•</span>
-                <span className="text-xs font-medium text-muted-foreground">{QUIZ_COUNT_BY_SUBJECT[activeSubject]} Assessments</span>
+                <span className="text-xs font-medium text-muted-foreground">{filteredLessons.length} Lessons</span>
               </div>
             </div>
           </div>
@@ -244,7 +254,7 @@ export function LearnScreen() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           <AnimatePresence mode="wait">
             {filteredLessons.map((lesson, idx) => {
-              const isUnlocked = lesson.isUnlockedByDefault || unlockedLessons.has(lesson.id)
+              const isUnlocked = ('isUnlockedByDefault' in lesson && lesson.isUnlockedByDefault) || unlockedLessons.has(lesson.id)
               return (
                 <LessonCard
                   key={lesson.id}

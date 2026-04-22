@@ -58,3 +58,11 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
     label:  'Physics',
   },
 }
+
+// ── Responsive layout tokens ─────────────────────────────────────────────────
+
+export const LAYOUT = {
+  maxWidth: 'max-w-[1440px]',
+  padding: 'px-4 sm:px-6 md:px-8',
+  spacing: 'py-6 sm:py-10',
+} as const

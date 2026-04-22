@@ -6,7 +6,7 @@ import { useStorageData } from '../../../hooks/useStorageData'
 import { cn } from '../../../lib/utils'
 import { pageVariants } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
-import { Trophy, KeyRound, ArrowRight, CheckCircle2, Star, Zap, GraduationCap } from 'lucide-react'
+import { Trophy, KeyRound, ArrowRight, CheckCircle2, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
@@ -25,7 +25,6 @@ export function HomeScreen() {
   )
   const navigate = useNavigate()
   const [accessCode, setAccessCode] = useState('')
-  const [unlockMessage, setUnlockMessage] = useState<string | null>(null)
   const [isApplyingCode, setIsApplyingCode] = useState(false)
 
   const { data } = useStorageData(true)
@@ -104,8 +103,8 @@ export function HomeScreen() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Main Focus: Next Lesson */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main left content */}
         <div className="lg:col-span-8 space-y-6">
           <div className="relative group cursor-pointer overflow-hidden rounded-[2.5rem] bg-foreground p-8 md:p-10 text-background shadow-2xl transition-all duration-500 hover:shadow-primary/20" onClick={handleStartNext}>
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-primary/30 rounded-full blur-[80px] group-hover:scale-110 transition-transform duration-700" />
@@ -116,49 +115,39 @@ export function HomeScreen() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-background/80">Recommended for you</span>
                 </div>
                 <h2 className="text-3xl font-black leading-tight">Next Up: <span className="text-primary">{nextLesson.title}</span></h2>
-                <p className="text-background/60 text-sm max-w-md line-clamp-2">
-                  {nextLesson.summary}
-                </p>
+                <p className="text-background/60 text-sm max-w-md line-clamp-2">{nextLesson.summary}</p>
                 <div className="pt-2">
                   <Button className="rounded-2xl px-8 h-12 font-black text-sm gap-2 btn-glow bg-primary text-primary-foreground border-none">
                     Start Lesson <ArrowRight size={18} />
                   </Button>
                 </div>
               </div>
-              <div className="w-40 h-40 md:w-56 md:h-56 shrink-0 bg-background/5 rounded-[2rem] border border-background/10 flex items-center justify-center p-8 backdrop-blur-md">
-                <GraduationCap size={80} className="text-background/10" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                   <div className="w-24 h-24 rounded-full border-4 border-primary border-t-transparent animate-spin-slow opacity-20" />
-                </div>
-              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-subject-biology/10 flex items-center justify-center text-subject-biology">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <Zap size={20} className="text-muted-foreground/20 group-hover:text-primary transition-colors" />
+            <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-subject-biology/10 flex items-center justify-center text-subject-biology">
+                  <CheckCircle2 size={24} />
                 </div>
-                <p className="text-2xl font-black text-foreground">{stats.completed}</p>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Lessons Done</p>
-             </Card>
-             <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-subject-chemistry/10 flex items-center justify-center text-subject-chemistry">
-                    <Star size={24} />
-                  </div>
-                  <Zap size={20} className="text-muted-foreground/20 group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-2xl font-black text-foreground">{stats.completed}</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Lessons Done</p>
+            </Card>
+            <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-subject-chemistry/10 flex items-center justify-center text-subject-chemistry">
+                  <Star size={24} />
                 </div>
-                <p className="text-2xl font-black text-foreground">{student?.completedQuizIds.length || 0}</p>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Quizzes Passed</p>
-             </Card>
+              </div>
+              <p className="text-2xl font-black text-foreground">{student?.completedQuizIds.length || 0}</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Quizzes Passed</p>
+            </Card>
           </div>
         </div>
 
-        {/* Sidebar: Recent Activity & Access Codes */}
+        {/* Sidebar */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="p-6 rounded-[2rem] border-border bg-card">
             <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
@@ -188,20 +177,19 @@ export function HomeScreen() {
 
           <Card className="p-6 rounded-[2rem] border-border bg-card">
             <div className="flex items-center gap-3 mb-4">
-               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                 <KeyRound size={20} />
-               </div>
-               <div>
-                 <h3 className="font-bold text-foreground leading-tight">Unlock Content</h3>
-                 <p className="text-[10px] text-muted-foreground">Enter code from teacher</p>
-               </div>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <KeyRound size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground leading-tight">Unlock Content</h3>
+                <p className="text-[10px] text-muted-foreground">Enter code from teacher</p>
+              </div>
             </div>
             <div className="space-y-3">
               <Input
                 value={accessCode}
                 onChange={(e) => {
                   setAccessCode(e.target.value.toUpperCase())
-                  setUnlockMessage(null)
                 }}
                 placeholder="e.g. UNLOCK-Q1W1"
                 className="font-mono tracking-widest"
@@ -211,16 +199,9 @@ export function HomeScreen() {
                   if (!accessCode) return
                   try {
                     setIsApplyingCode(true)
-                    const result = await applyAccessCode(accessCode)
-                    if (result.invalid) {
-                      setUnlockMessage('Invalid code. Try again.')
-                    } else {
-                      setUnlockMessage(result.targetName ? `Unlocked: ${result.targetName}!` : 'Content unlocked successfully!')
-                    }
+                    await applyAccessCode(accessCode)
                     setAccessCode('')
                   } catch (error) {
-                    const message = error instanceof Error ? error.message : 'Failed to apply access code'
-                    setUnlockMessage(`Error: ${message}`)
                     console.error('[HomeScreen] Apply access code failed:', error)
                   } finally {
                     setIsApplyingCode(false)
@@ -231,13 +212,6 @@ export function HomeScreen() {
               >
                 {isApplyingCode ? 'Applying...' : 'Apply Code'}
               </Button>
-              {unlockMessage && (
-                <p className={cn('text-center text-[10px] font-bold uppercase tracking-wider',
-                  unlockMessage.toLowerCase().includes('unlocked') ? 'text-success' : 'text-destructive'
-                )}>
-                  {unlockMessage}
-                </p>
-              )}
             </div>
           </Card>
         </div>

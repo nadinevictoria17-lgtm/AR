@@ -133,7 +133,7 @@ export interface TeacherLesson {
   labExperimentId?: string;
   arPayload?: ARPayload;
   isPredefined?: boolean;
-  quarter?: string;
+  quarter?: number;
   week?: number;
   pdfUrl?: string;
   learningObjectives?: string[];

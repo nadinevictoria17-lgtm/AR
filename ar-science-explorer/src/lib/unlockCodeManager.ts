@@ -10,6 +10,7 @@ export interface UnlockCodeData {
   targetId?: string;             // If type is 'lesson' or 'quiz'
   targetStudentId?: string;      // Optional: restrict code to specific student (quiz retake only)
   createdAt: string;
+  expiresAt?: string;            // Optional expiration date (quiz retake codes)
   isUsed?: boolean;              // True once a quiz-retake code has been applied
   usedByStudentIds?: string[];   // Students who have applied a lesson unlock code
   isArchived?: boolean;          // Archived codes don't appear in the UI
@@ -34,6 +35,7 @@ export async function getUnlockCodeData(code: string): Promise<UnlockCodeData | 
         targetId:           data.targetId,
         targetStudentId:    data.targetStudentId,
         createdAt:          data.createdAt,
+        expiresAt:          data.expiresAt,
         isUsed:             data.isUsed ?? false,
         usedByStudentIds:   data.usedByStudentIds ?? [],
       } as UnlockCodeData
@@ -61,6 +63,7 @@ export async function getAllUnlockCodes(): Promise<UnlockCodeData[]> {
         targetId:         data.targetId,
         targetStudentId:  data.targetStudentId,
         createdAt:        data.createdAt || new Date().toISOString(),
+        expiresAt:        data.expiresAt,
         isUsed:           data.isUsed ?? false,
         usedByStudentIds: data.usedByStudentIds ?? [],
       } as UnlockCodeData
@@ -99,16 +102,18 @@ export async function trackCodeUsage(
 export async function createUnlockCode(
   code: string,
   type: 'subject' | 'lesson' | 'quiz',
-  config: { subjects?: SubjectKey[]; lessonIds?: string[]; targetId?: string; targetStudentId?: string }
+  config: { subjects?: SubjectKey[]; lessonIds?: string[]; targetId?: string; targetStudentId?: string; expiresAtDate?: Date }
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const { expiresAtDate, ...restConfig } = config
     // Strip undefined values — Firestore rejects them outright.
     const cleanConfig = Object.fromEntries(
-      Object.entries(config).filter(([, v]) => v !== undefined)
+      Object.entries(restConfig).filter(([, v]) => v !== undefined)
     )
     await setDoc(doc(db, 'unlockCodes', code.trim().toUpperCase()), {
       type,
       ...cleanConfig,
+      ...(expiresAtDate ? { expiresAt: expiresAtDate.toISOString() } : {}),
       createdAt: new Date().toISOString(),
     })
     return { success: true }

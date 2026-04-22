@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 import { TeacherSidebar } from '../components/layout/TeacherSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
 import { cn } from '../lib/utils'
+import { LAYOUT } from '../lib/variants'
 import { useAppStore } from '../store/useAppStore'
 import { firebaseSignOut } from '../lib/firebaseAuth'
 
@@ -46,7 +47,7 @@ export function TeacherPage() {
           </button>
         </div>
 
-        <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-10">
+        <div className={cn('w-full mx-auto', LAYOUT.maxWidth, LAYOUT.padding, LAYOUT.spacing)}>
           <Outlet />
         </div>
       </main>

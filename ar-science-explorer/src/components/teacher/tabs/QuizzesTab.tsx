@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, Plus, Trash2, Edit3, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCircle2, Search } from 'lucide-react'
+import { Brain, Plus, Trash2, Edit3, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCircle2, Search, AlertCircle } from 'lucide-react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,7 +14,7 @@ import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { FormInput } from '../../form/FormInput'
 import { FormTextarea } from '../../form/FormTextarea'
-import type { TeacherQuiz, SubjectKey } from '../../../types'
+import type { TeacherQuiz, SubjectKey, TeacherLesson, Lesson } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { TableSkeleton } from '../../ui/skeleton'
@@ -59,10 +59,12 @@ function SubjectBadge({ subject }: { subject: SubjectKey }) {
   )
 }
 
-function QuizBuilder({ initial, onSave, onCancel }: {
+function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: {
   initial?: TeacherQuiz
   onSave: (q: TeacherQuiz) => void
   onCancel: () => void
+  teacherLessons: (TeacherLesson | Lesson)[]
+  allQuizzes: TeacherQuiz[]
 }) {
   const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuizFormValues>({
     resolver: zodResolver(QuizSchema),
@@ -77,8 +79,30 @@ function QuizBuilder({ initial, onSave, onCancel }: {
 
   const subject = watch('subject')
   const topicId = watch('topicId')
-  const subjectLessons = LESSONS.filter((l) => l.subject === subject)
+  const subjectLessons = useMemo(() => {
+    const builtIn = LESSONS.filter((l) => l.subject === subject)
+    const teacherOwn = teacherLessons.filter((l) => l.subject === subject)
+    const merged = [...builtIn]
+    for (const tl of teacherOwn) {
+      if (!merged.some(l => l.id === tl.id)) merged.push(tl as Lesson)
+    }
+    return merged
+  }, [subject, teacherLessons])
   const [expanded, setExpanded] = useState<number | null>(0)
+
+  const duplicateWarning = useMemo(() => {
+    if (!topicId || initial) return null
+    const selectedLesson = subjectLessons.find(l => l.id === topicId)
+    if (!selectedLesson) return null
+    const existingQuiz = allQuizzes.find(q => q.topicId === topicId)
+    if (existingQuiz) {
+      return {
+        lessonTitle: selectedLesson.title,
+        quizId: existingQuiz.id,
+      }
+    }
+    return null
+  }, [topicId, subjectLessons, allQuizzes, initial])
 
   useEffect(() => {
     if (!subjectLessons.some((l) => l.id === topicId)) {
@@ -149,6 +173,15 @@ function QuizBuilder({ initial, onSave, onCancel }: {
         <div className="w-full space-y-4">
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Module</label>
+            {duplicateWarning && (
+              <div className="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-3">
+                <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Quiz already assigned</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">This lesson already has a quiz. Edit it instead of creating a new one.</p>
+                </div>
+              </div>
+            )}
             <Controller
               control={control}
               name="topicId"
@@ -338,6 +371,16 @@ export function QuizzesTab() {
         showErrorModal('Save Failed', 'Failed to save quiz. Check your connection and try again.')
         return
       }
+
+      // Update the lesson to link this quiz
+      const lesson = data.lessons.find(l => l.id === q.topicId)
+      if (lesson && !lesson.isPredefined) {
+        await storage.saveLesson({
+          ...lesson,
+          linkedQuizId: q.id,
+        })
+      }
+
       await storage.getAll()
       // Quiz list will auto-update via Firestore subscription in useStorageData
       setBuilding(false)
@@ -349,7 +392,7 @@ export function QuizzesTab() {
   }
 
   if (building || editing) {
-    return <QuizBuilder initial={editing ?? undefined} onSave={handleSave} onCancel={() => { setBuilding(false); setEditing(null) }} />
+    return <QuizBuilder initial={editing ?? undefined} onSave={handleSave} onCancel={() => { setBuilding(false); setEditing(null) }} teacherLessons={data.lessons} allQuizzes={quizzes} />
   }
 
   if (showSkeleton) {

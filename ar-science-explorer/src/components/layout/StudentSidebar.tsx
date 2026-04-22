@@ -31,10 +31,12 @@ function SidebarContent({
   collapsed,
   isMobile = false,
   onMobileClose,
+  onToggleCollapse,
 }: {
   collapsed: boolean;
   isMobile?: boolean;
   onMobileClose?: () => void;
+  onToggleCollapse?: () => void;
 }) {
   const { theme, toggleTheme, unlocked, currentStudentId } = useAppStore(
     useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme, unlocked: s.unlocked, currentStudentId: s.currentStudentId }))
@@ -236,6 +238,18 @@ function SidebarContent({
             )}
           </AnimatePresence>
         </button>
+
+        {!isMobile && (
+          <button
+            onClick={onToggleCollapse}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all'
+            )}
+          >
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            {!collapsed && <span>Collapse</span>}
+          </button>
+        )}
       </div>
 
       {/* Quiz Exit Confirmation Modal */}
@@ -306,17 +320,7 @@ export function StudentSidebar({ mobileOpen, onMobileClose }: StudentSidebarProp
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] as const }}
         className="hidden md:flex relative flex-shrink-0 h-dvh sticky top-0 flex-col bg-background border-r border-border overflow-hidden"
       >
-        <SidebarContent collapsed={collapsed} />
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-background border border-border flex items-center justify-center shadow-sm hover:bg-muted transition-colors z-10"
-          aria-label="Toggle sidebar width"
-        >
-          {collapsed
-            ? <ChevronRight size={12} className="text-muted-foreground" />
-            : <ChevronLeft size={12} className="text-muted-foreground" />
-          }
-        </button>
+        <SidebarContent collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)} />
       </motion.aside>
 
       <AnimatePresence>
