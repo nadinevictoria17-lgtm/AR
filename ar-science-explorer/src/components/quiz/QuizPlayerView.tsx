@@ -42,6 +42,11 @@ export function QuizPlayerView({
 }: QuizPlayerViewProps) {
   const isCorrect = selectedAnswer === question.correctIndex
   const hasHintsLeft = hintsUsedCount < 3
+  const isTrueFalse = question.type === 'tf'
+  // True/False questions use only the first two option slots (True=0, False=1).
+  const visibleOptions = isTrueFalse ? question.options.slice(0, 2) : question.options
+  // Label for an option: A/B/C/D for MC, the option text (True/False) for T/F.
+  const optionLabel = (idx: number) => (isTrueFalse ? visibleOptions[idx] : String.fromCharCode(65 + idx))
 
   return (
     <motion.div
@@ -81,7 +86,7 @@ export function QuizPlayerView({
 
         {/* Options */}
         <div className="space-y-3 mb-8">
-          {question.options.map((option, idx) => (
+          {visibleOptions.map((option, idx) => (
             <motion.button
               key={idx}
               onClick={() => !showResult && onSelectAnswer(idx)}
@@ -98,15 +103,17 @@ export function QuizPlayerView({
               )}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    'w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm',
-                    selectedAnswer === idx ? 'border-primary' : 'border-muted-foreground'
-                  )}
-                >
-                  {String.fromCharCode(65 + idx)}
-                </div>
-                <span className="flex-1">{option}</span>
+                {!isTrueFalse && (
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm',
+                      selectedAnswer === idx ? 'border-primary' : 'border-muted-foreground'
+                    )}
+                  >
+                    {optionLabel(idx)}
+                  </div>
+                )}
+                <span className="flex-1 font-semibold">{option}</span>
                 {showResult && idx === question.correctIndex && (
                   <CheckCircle2 size={20} className="text-success flex-shrink-0" />
                 )}
@@ -165,7 +172,7 @@ export function QuizPlayerView({
             </p>
             {!isCorrect && (
               <p className="text-sm text-warning/80">
-                The correct answer is {String.fromCharCode(65 + question.correctIndex)}.
+                The correct answer is {optionLabel(question.correctIndex)}.
               </p>
             )}
           </motion.div>

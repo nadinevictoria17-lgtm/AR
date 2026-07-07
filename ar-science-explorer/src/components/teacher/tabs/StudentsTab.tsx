@@ -75,6 +75,7 @@ export function StudentsTab() {
   const [showPassword, setShowPassword] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [successName, setSuccessName] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormValues>({
     resolver: zodResolver(StudentSchema),
@@ -82,40 +83,46 @@ export function StudentsTab() {
   })
 
   const handleAdd = handleSubmit(async (formData) => {
+    if (isSaving) return
+    setIsSaving(true)
     setFormError(null)
-    const cleanId = formData.studentId.trim()
+    try {
+      const cleanId = formData.studentId.trim()
 
-    // 1. Create the Firebase Auth account so the student can log in
-    const firebaseUser = await firebaseCreateStudentAccount(cleanId, formData.password)
-    if (!firebaseUser) {
-      setFormError(
-        'Could not create login account. The Student ID may already be registered, ' +
-        'or there was a network error. Please try a different ID.'
-      )
-      return
+      // 1. Create the Firebase Auth account so the student can log in
+      const firebaseUser = await firebaseCreateStudentAccount(cleanId, formData.password)
+      if (!firebaseUser) {
+        setFormError(
+          'Could not create login account. The Student ID may already be registered, ' +
+          'or there was a network error. Please try a different ID.'
+        )
+        return
+      }
+
+      // 2. Save the Firestore student record (also seeds Zustand via useStorageData)
+      await storage.saveStudent({
+        id:  uid(),
+        name:      formData.name.trim(),
+        studentId: cleanId,
+        grade:     '7',
+        section:   formData.section.trim(),
+        scores:    { biology: null, chemistry: null, physics: null },
+        completedLessonIds:       [],
+        completedLabExperimentIds:[],
+        completedQuizIds:         [],
+        unlockedLessonIds:        [],
+        unlockedQuizIds:          [],
+        quizAttempts:             [],
+      })
+
+      reset()
+      setShowPassword(false)
+      setShowForm(false)
+      setSuccessName(formData.name.trim())
+      setTimeout(() => setSuccessName(null), 4000)
+    } finally {
+      setIsSaving(false)
     }
-
-    // 2. Save the Firestore student record (also seeds Zustand via useStorageData)
-    await storage.saveStudent({
-      id:  uid(),
-      name:      formData.name.trim(),
-      studentId: cleanId,
-      grade:     '7',
-      section:   formData.section.trim(),
-      scores:    { biology: null, chemistry: null, physics: null },
-      completedLessonIds:       [],
-      completedLabExperimentIds:[],
-      completedQuizIds:         [],
-      unlockedLessonIds:        [],
-      unlockedQuizIds:          [],
-      quizAttempts:             [],
-    })
-
-    reset()
-    setShowPassword(false)
-    setShowForm(false)
-    setSuccessName(formData.name.trim())
-    setTimeout(() => setSuccessName(null), 4000)
   })
 
   const handleExportCSV = () => {
@@ -129,7 +136,7 @@ export function StudentsTab() {
       physics_score: s.scores.physics ?? '',
       completed_lessons:  (s.completedLessonIds ?? []).length,
       completed_labs:     (s.completedLabExperimentIds ?? []).length,
-      completed_quizzes:  (s.completedQuizIds ?? []).length,
+      completed_tests:  (s.completedQuizIds ?? []).length,
     }))
     const csv  = Papa.unparse(rows)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -163,7 +170,7 @@ export function StudentsTab() {
   const handleNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1))
 
   if (showSkeleton) {
-    return <TableSkeleton columns={['Student', 'Section', 'Last Quiz', 'Joined', '']} rows={8} />
+    return <TableSkeleton columns={['Student', 'Section', 'Last Test', 'Joined', '']} rows={8} />
   }
 
   return (
@@ -281,8 +288,8 @@ export function StudentsTab() {
                 {formError}
               </div>
             )}
-            <Button type="submit" className="w-full rounded-xl btn-glow mt-2">
-              Save Student Record
+            <Button type="submit" className="w-full rounded-xl btn-glow mt-2" disabled={isSaving} isLoading={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Student Record'}
             </Button>
           </form>
         </Card>
@@ -315,7 +322,7 @@ export function StudentsTab() {
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Bio</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Chem</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Phys</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Last Quiz</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Last Test</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
@@ -369,8 +376,8 @@ export function StudentsTab() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label="View quizzes"
-                        title="View Quizzes"
+                        aria-label="View tests"
+                        title="View Tests"
                         onClick={(e) => { e.stopPropagation(); setViewStudent(s) }}
                       >
                         <Book size={14} />
@@ -471,7 +478,7 @@ export function StudentsTab() {
           >
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Quizzes</h3>
+                <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Tests</h3>
                 <p className="text-sm text-muted-foreground">
                   {viewStudent.quizAttempts?.length ?? 0} attempted
                 </p>

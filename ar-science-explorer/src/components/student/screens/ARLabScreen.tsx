@@ -5,8 +5,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
 import { cn } from '../../../lib/utils'
-import { QUIZ_QUESTIONS } from '../../../data/quiz'
+import { POST_TEST_QUESTIONS } from '../../../data/curriculum'
 import { LESSONS } from '../../../data/lessons'
+import { builtinQuizId } from '../../../lib/quizId'
 import type { Lesson, SubjectKey, TeacherLesson } from '../../../types'
 import { useVoiceOver } from '../../../hooks/useVoiceOver'
 import { useStorageData } from '../../../hooks/useStorageData'
@@ -77,30 +78,32 @@ export function ARLabScreen() {
   const {
     currentStudentId,
     activeLessonId,
-    setScreen,
     voiceLang,
     setVoiceLang,
   } = useAppStore(useShallow((s) => ({
     currentStudentId:       s.currentStudentId,
     activeLessonId:         s.activeLessonId,
-    setScreen:              s.setScreen,
     voiceLang:              s.voiceLang,
     setVoiceLang:           s.setVoiceLang,
   })))
 
-  const { setActiveQuizSubject, initQuiz } = useQuizStore(
-    useShallow((s) => ({ setActiveQuizSubject: s.setActiveQuizSubject, initQuiz: s.initQuiz }))
+  const { setActiveQuizSubject, initQuiz, setRunningQuizId } = useQuizStore(
+    useShallow((s) => ({ setActiveQuizSubject: s.setActiveQuizSubject, initQuiz: s.initQuiz, setRunningQuizId: s.setRunningQuizId }))
   )
 
   const [phase, setPhase] = useState<'visual' | 'curriculum' | 'reflection'>('visual')
   const [activeStep, setActiveStep] = useState(0)
   const [arMarked, setArMarked] = useState(false)
   const [isQuizUnlocked, setIsQuizUnlocked] = useState(false)
+  const [isCheckingUnlock, setIsCheckingUnlock] = useState(true)
   const [showUnlockModal, setShowUnlockModal] = useState(false)
   const [showARCamera, setShowARCamera] = useState(false)
 
   const { data, isLoading } = useStorageData()
-  const showSkeleton = useDeferredLoading(isLoading)
+  // Gate the skeleton on both the shared data load AND the quiz-unlock check,
+  // so the Start/Unlock Post-Test button never flashes its default (locked)
+  // state before flipping to the real eligibility once it resolves.
+  const showSkeleton = useDeferredLoading(isLoading || isCheckingUnlock)
   const navigate = useNavigate()
 
   const mergedLessons = useMemo<Lesson[]>(
@@ -118,16 +121,22 @@ export function ARLabScreen() {
     setActiveStep(0)
     setArMarked(false)
 
-    if (!currentStudentId || !activeLessonId) return
+    if (!currentStudentId || !activeLessonId) {
+      setIsCheckingUnlock(false)
+      return
+    }
 
+    setIsCheckingUnlock(true)
     const checkQuizUnlock = async () => {
       try {
-        const quizId = `builtin-${activeLessonId}`
+        const quizId = builtinQuizId(activeLessonId, 'post')
         const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
         setIsQuizUnlocked(eligibility.canTake)
       } catch (error) {
         console.error('[ARLabScreen] Quiz unlock check failed:', error)
         setIsQuizUnlocked(false)
+      } finally {
+        setIsCheckingUnlock(false)
       }
     }
 
@@ -150,19 +159,20 @@ export function ARLabScreen() {
   const startQuiz = useCallback(async () => {
     if (!currentStudentId || !activeLessonId || !activeLesson) return
     try {
-      const quizQuestions = QUIZ_QUESTIONS.filter(q => q.lessonId === activeLesson.id)
+      const quizQuestions = POST_TEST_QUESTIONS.filter(q => q.lessonId === activeLesson.id)
       setActiveQuizSubject(activeLesson.subject)
       initQuiz(quizQuestions)
-      setScreen('quiz')
+      // The AR lab leads into the POST-test (taken after the lesson).
+      setRunningQuizId(builtinQuizId(activeLesson.id, 'post'))
       navigate('/app/quiz')
     } catch (error) {
       console.error('[ARLabScreen] Start quiz failed:', error)
     }
-  }, [currentStudentId, activeLessonId, activeLesson, setActiveQuizSubject, initQuiz, setScreen, navigate])
+  }, [currentStudentId, activeLessonId, activeLesson, setActiveQuizSubject, initQuiz, setRunningQuizId, navigate])
 
   const handleStartQuizClick = useCallback(async () => {
     if (!currentStudentId || !activeLessonId) return
-    const quizId = `builtin-${activeLessonId}`
+    const quizId = builtinQuizId(activeLessonId, 'post')
     try {
       const eligibility = await storage.validateQuizEligibility(currentStudentId, quizId)
       if (!eligibility.canTake) {
@@ -177,14 +187,13 @@ export function ARLabScreen() {
   }, [currentStudentId, activeLessonId, startQuiz])
 
   const handleBack = useCallback(() => {
-    setScreen('learn')
     navigate('/app/learn')
-  }, [setScreen, navigate])
+  }, [navigate])
 
   if (showSkeleton) return <ContentSkeleton />
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="w-full pb-12">
+    <div className="w-full pb-12">
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={handleBack}
@@ -302,7 +311,7 @@ export function ARLabScreen() {
                  <div>
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Scientific Quality</p>
                     <p className="text-sm font-bold flex items-center gap-2 mt-1">
-                       <Zap size={16} className="text-primary" /> {activeLesson?.curriculum?.integration?.qualities.join(' & ')}
+                       <Zap size={16} className="text-primary" /> {activeLesson?.curriculum?.integration?.qualities?.join(' & ')}
                     </p>
                  </div>
                   <Button 
@@ -538,18 +547,15 @@ export function ARLabScreen() {
                   className="rounded-2xl font-bold gap-2 btn-glow"
                 >
                   {isQuizUnlocked ? (
-                    <>Start Quiz <ChevronRight size={18} /></>
+                    <>Start Post-Test <ChevronRight size={18} /></>
                   ) : (
-                    <><Lock size={16} /> Unlock Quiz</>
+                    <><Lock size={16} /> Unlock Post-Test</>
                   )}
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => {
-                    setScreen('progress')
-                    navigate('/app/progress')
-                  }}
+                  onClick={() => navigate('/app/progress')}
                   className="rounded-2xl font-bold"
                 >
                   View My Progress
@@ -576,12 +582,12 @@ export function ARLabScreen() {
         onClose={() => setShowUnlockModal(false)}
         targetId={activeLessonId || ''}
         type="quiz"
-        title={`${activeLesson?.title || ''} Quiz`}
+        title={`${activeLesson?.title || ''} Post-Test`}
         onSuccess={() => {
           setIsQuizUnlocked(true)
           void startQuiz()
         }}
       />
-    </motion.div>
+    </div>
   )
 }

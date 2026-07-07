@@ -49,7 +49,7 @@ export function QuizUnlockGenerator({ student, quiz, onClose }: QuizUnlockGenera
       suppressHydrationWarning
     >
       <div className="bg-card rounded-2xl border border-border p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()} suppressHydrationWarning>
-        <h3 className="font-bold text-foreground text-lg mb-1">Unlock Quiz for Retake</h3>
+        <h3 className="font-bold text-foreground text-lg mb-1">Unlock Test for Retake</h3>
         <p className="text-xs text-muted-foreground mb-4">
           Generate a code to allow {student.name} ({student.studentId}) to retake {quiz.title}
         </p>

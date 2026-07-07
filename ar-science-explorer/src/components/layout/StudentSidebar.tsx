@@ -274,9 +274,9 @@ function SidebarContent({
                 <div className="flex items-start gap-3 mb-4">
                   <AlertCircle className="text-destructive shrink-0 mt-0.5" size={20} />
                   <div>
-                    <h3 className="font-bold text-foreground">Exit Quiz?</h3>
+                    <h3 className="font-bold text-foreground">Exit Test?</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Going back will submit your quiz with your current answers.
+                      Going back will submit your test with your current answers.
                     </p>
                   </div>
                 </div>
@@ -287,7 +287,7 @@ function SidebarContent({
                     onClick={handleCancelNavigation}
                     className="text-foreground"
                   >
-                    Continue Quiz
+                    Continue Test
                   </Button>
                   <Button
                     variant="destructive"

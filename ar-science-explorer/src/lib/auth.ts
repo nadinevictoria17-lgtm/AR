@@ -17,6 +17,10 @@ export function validateIdentifier(
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email'
+  // A student email ({digits}@arscience.school) is not a teacher account.
+  if (/^\d+@arscience\.school$/i.test(value.trim())) {
+    return 'This is a student account. Use the Student tab to log in.'
+  }
   return ''
 }
 

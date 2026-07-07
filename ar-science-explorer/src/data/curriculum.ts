@@ -4,8 +4,20 @@
  */
 import type { Lesson, BuiltInQuestion } from '../types'
 
+// `id` is optional here: pre/post-test items omit it and get a generated,
+// phase-scoped id in stampQuestions(); legacy `questions` keep their explicit ids.
+type EmbeddedQuestion = Omit<BuiltInQuestion, 'subject' | 'lessonId' | 'topicId' | 'id'> & { id?: string }
+
 interface LessonWithQuiz extends Lesson {
-  questions: Omit<BuiltInQuestion, 'subject' | 'lessonId' | 'topicId'>[]
+  /**
+   * Legacy per-lesson quiz. Kept as the POST-TEST source when `postTest` is absent,
+   * so every existing lesson automatically becomes its own post-test with no data loss.
+   */
+  questions: EmbeddedQuestion[]
+  /** Optional diagnostic test shown BEFORE the lesson (ungated). */
+  preTest?: EmbeddedQuestion[]
+  /** Optional test shown AFTER the lesson. Falls back to `questions` when absent. */
+  postTest?: EmbeddedQuestion[]
 }
 
 const CURRICULUM: LessonWithQuiz[] = [
@@ -56,6 +68,28 @@ const CURRICULUM: LessonWithQuiz[] = [
       { id: 'q1w1-q4', question: 'What property distinguishes solids, liquids, and gases in the particle model?', options: ['Color', 'Particle arrangement and motion', 'Weight alone', 'Temperature alone'], correctIndex: 1, hint: 'Think about how closely packed particles are' },
       { id: 'q1w1-q5', question: 'What happens to particle arrangement during a change of state?', options: ['Particles disappear', 'Particle arrangement and energy change', 'New particles are created', 'Nothing changes'], correctIndex: 1, hint: 'Think about melting or boiling' },
     ],
+    // ── Pre-Test (before the lesson): True/False — Scientific Models & Particles ──
+    preTest: [
+      { question: 'Scientists use models to explain things that cannot be easily seen.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Models represent the very small or very large.' },
+      { question: 'All matter is made up of tiny particles.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'This is the Particle Model of Matter.' },
+      { question: 'Solids, liquids, and gases have the same particle arrangement.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Their arrangements differ.' },
+      { question: 'Scientific models help scientists understand and predict phenomena.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Prediction is a key use of models.' },
+      { question: 'A globe is an example of a scientific model.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'It represents the Earth.' },
+      { question: 'Particles in solids move freely from place to place.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Solid particles only vibrate in place.' },
+      { question: 'As temperature increases, particles move faster.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Heat adds energy to particles.' },
+      { question: 'Particles in gases have more space between them than particles in solids.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Gas particles are far apart.' },
+    ],
+    // ── Post-Test (after the lesson): True/False ──
+    postTest: [
+      { question: 'Scientists use scientific models because some objects are too small, too large, or too complex to observe directly.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Think about atoms and planets.' },
+      { question: 'Matter is composed of tiny particles called atoms or molecules.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'The particle model.' },
+      { question: 'Particles in liquids move more freely than particles in solids.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Liquids flow.' },
+      { question: 'Increasing temperature causes particles to move more slowly.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'It is the opposite.' },
+      { question: 'Scientific models can be used to make predictions.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'A key purpose of models.' },
+      { question: 'During melting, particles gain energy and move more freely.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Solid to liquid.' },
+      { question: 'Scientists use only one type of scientific model.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'There are many kinds.' },
+      { question: 'Scientific models have limitations and may not perfectly represent reality.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Models are simplifications.' },
+    ],
   },
 
   {
@@ -96,6 +130,32 @@ const CURRICULUM: LessonWithQuiz[] = [
       { id: 'q1w2-q3', question: 'How does an increase in temperature affect particle motion?', options: ['Particles slow down', 'Particles stop', 'Particles move faster', 'Particles change shape'], correctIndex: 2, hint: 'More heat = more energy' },
       { id: 'q1w2-q4', question: 'What is the difference between an element and a compound?', options: ['No difference', 'Elements have one type of atom; compounds have two or more', 'Compounds are always liquid', 'Elements are always gas'], correctIndex: 1, hint: 'Think about the number of different atoms' },
       { id: 'q1w2-q5', question: 'Which of the following best describes particles in the Kinetic Molecular Theory?', options: ['Particles are stationary', 'Particles have no spaces between them', 'Particles attract each other', 'Particles repel all the time'], correctIndex: 2, hint: 'Particles do interact with each other' },
+    ],
+    // ── Pre-Test: True/False — Pure Substances & KMT ──
+    preTest: [
+      { question: 'Matter is made up of tiny particles.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'The particle model.' },
+      { question: 'Elements are composed of only one kind of atom.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'That is the definition of an element.' },
+      { question: 'Compounds are made of only one type of atom.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Compounds combine different elements.' },
+      { question: 'Gas particles move slower than solid particles.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Gas particles move fastest.' },
+      { question: 'Water is an example of a compound.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'H₂O combines hydrogen and oxygen.' },
+      { question: 'Aluminum is an element.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Find it on the periodic table.' },
+      { question: 'The Kinetic Molecular Theory states that particles are always in motion.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: '"Kinetic" means motion.' },
+      { question: 'Particles in solids are completely still.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'They vibrate in place.' },
+      { question: 'There are spaces between particles of matter.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Even solids have tiny spaces.' },
+      { question: 'As temperature increases, particles move faster.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Heat adds energy.' },
+    ],
+    // ── Post-Test: Multiple Choice — Pure Substances & KMT ──
+    postTest: [
+      { question: 'Which statement best describes a compound?', options: ['It is made of only one type of atom.', 'It is a mixture of two or more substances.', 'It is formed when two or more different elements chemically combine.', 'It can be separated by physical means.'], correctIndex: 2, hint: 'Chemical combination of elements.' },
+      { question: 'How are the particles in gases arranged?', options: ['They are tightly packed together.', 'They have large spaces between them.', 'They are fixed in one position.', 'They cannot move.'], correctIndex: 1, hint: 'Gases spread to fill their container.' },
+      { question: 'What happens to particles when the temperature increases?', options: ['They move more slowly.', 'They stop moving.', 'They move faster.', 'They become solids.'], correctIndex: 2, hint: 'More heat, more energy.' },
+      { question: 'Which statement correctly describes the particles in solids?', options: ['They are far apart and move freely.', 'They are closely packed together.', 'They are spread out randomly.', 'They have no definite arrangement.'], correctIndex: 1, hint: 'Solids hold their shape.' },
+      { question: 'Which of the following are forms of the same element, carbon?', options: ['Water and oxygen', 'Iron and steel', 'Graphite and diamond', 'Salt and sugar'], correctIndex: 2, hint: 'Both are pure carbon.' },
+      { question: 'What does the Kinetic Molecular Theory (KMT) explain?', options: ['How plants grow', 'How electricity flows', 'How particles move and behave', 'How rocks are formed'], correctIndex: 2, hint: '"Kinetic" means motion.' },
+      { question: 'Why does diffusion occur?', options: ['Because particles are constantly moving.', 'Because particles stop moving.', 'Because particles become heavier.', 'Because particles disappear.'], correctIndex: 0, hint: 'Moving particles spread out.' },
+      { question: 'Compared with particles in liquids and solids, gas particles:', options: ['Move more slowly.', 'Do not move.', 'Move faster.', 'Stay fixed in one place.'], correctIndex: 2, hint: 'Gases have the most energy.' },
+      { question: 'Which of the following is considered a pure substance?', options: ['Elements and compounds', 'Mixtures only', 'Solutions only', 'Colloids only'], correctIndex: 0, hint: 'Pure = one kind of particle throughout.' },
+      { question: 'Which statement about particle motion is correct?', options: ['Particle motion stops completely at ordinary temperatures.', 'Particles move only in solids.', 'Particles are always moving unless they reach absolute zero.', 'Particles in gases do not move.'], correctIndex: 2, hint: 'Motion only stops at absolute zero.' },
     ],
   },
 
@@ -139,6 +199,22 @@ const CURRICULUM: LessonWithQuiz[] = [
       { id: 'q1w3-q4', question: 'What happens to particle spacing when a liquid becomes a gas?', options: ['Particles get closer', 'Spacing stays the same', 'Spacing increases greatly', 'Particles merge'], correctIndex: 2, hint: 'Gases expand to fill their container' },
       { id: 'q1w3-q5', question: 'Which state of matter has both a definite volume but no definite shape?', options: ['Solid', 'Liquid', 'Gas', 'Plasma'], correctIndex: 1, hint: 'Think about water in a cup' },
     ],
+    // ── Pre-Test: Multiple Choice — States of Matter ──
+    preTest: [
+      { question: 'Which state of matter has particles that are packed most closely together?', options: ['Solid', 'Liquid', 'Gas', 'Plasma'], correctIndex: 0, hint: 'The state that holds its shape.' },
+      { question: 'In which state of matter do particles move most freely?', options: ['Solid', 'Liquid', 'Gas', 'Ice'], correctIndex: 2, hint: 'It fills any container.' },
+      { question: 'What is the process of changing a solid into a liquid?', options: ['Freezing', 'Melting', 'Evaporation', 'Condensation'], correctIndex: 1, hint: 'Think of ice becoming water.' },
+      { question: 'What happens to particles when the temperature increases?', options: ['They stop moving.', 'They move slower.', 'They move faster.', 'They disappear.'], correctIndex: 2, hint: 'Heat adds energy.' },
+      { question: 'Which of the following is the correct order of the three common states of matter?', options: ['Gas → Solid → Liquid', 'Solid → Liquid → Gas', 'Liquid → Gas → Solid', 'Solid → Gas → Liquid'], correctIndex: 1, hint: 'Order by increasing particle energy.' },
+    ],
+    // ── Post-Test: Multiple Choice — States of Matter ──
+    postTest: [
+      { question: 'During melting, what happens to the particles of a solid?', options: ['They lose energy and slow down.', 'They gain energy and move faster.', 'They stop moving completely.', 'They become smaller.'], correctIndex: 1, hint: 'Melting adds energy.' },
+      { question: 'What is the process in which a liquid changes into a gas at its surface?', options: ['Melting', 'Freezing', 'Evaporation', 'Condensation'], correctIndex: 2, hint: 'Think of a puddle drying up.' },
+      { question: 'What happens to gas particles during condensation?', options: ['They gain energy and spread apart.', 'They lose energy and move closer together.', 'They stop moving completely.', 'They disappear.'], correctIndex: 1, hint: 'Gas to liquid.' },
+      { question: 'Which change of state happens when a liquid is cooled?', options: ['Melting', 'Evaporation', 'Freezing', 'Boiling'], correctIndex: 2, hint: 'Water becoming ice.' },
+      { question: 'Which statement best describes gas particles?', options: ['They are tightly packed and vibrate in place.', 'They are close together and slide past one another.', 'They are far apart and move freely.', 'They cannot move.'], correctIndex: 2, hint: 'Gases spread out.' },
+    ],
   },
 
   {
@@ -174,6 +250,22 @@ const CURRICULUM: LessonWithQuiz[] = [
       { id: 'q1w4-q4', question: 'Why is it important to record results accurately?', options: ['It is not important', 'For analysis, conclusions, and peer review', 'Only to fill in the report', 'To make the experiment look better'], correctIndex: 1, hint: 'Science relies on accurate data' },
       { id: 'q1w4-q5', question: 'What should a scientific conclusion include?', options: ['A new hypothesis only', 'Whether the hypothesis was supported and key findings', 'Only raw data', 'A list of materials used'], correctIndex: 1, hint: 'Link back to your original prediction' },
     ],
+    // ── Pre-Test: True/False — Scientific Investigation ──
+    preTest: [
+      { question: 'The aim or problem is the question that the investigation seeks to answer.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'It states what you want to find out.' },
+      { question: 'Materials and equipment are not important in conducting an experiment.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'You need them to carry out the method.' },
+      { question: 'A scientific investigation follows a step-by-step procedure.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'The method is a clear sequence.' },
+      { question: 'Results are based only on opinions and not on collected data.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Results come from evidence.' },
+      { question: 'A conclusion explains the findings of the investigation.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'It summarizes what was found.' },
+    ],
+    // ── Post-Test: True/False — Scientific Investigation ──
+    postTest: [
+      { question: 'The method or procedure should be clear enough for others to follow.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Experiments must be repeatable.' },
+      { question: 'Data collected during an investigation can be presented using tables, charts, or graphs.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Visuals help present data.' },
+      { question: 'Controlled variables are changed throughout the experiment.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 1, hint: 'Controlled variables are kept constant.' },
+      { question: 'A conclusion should be based on the evidence gathered during the investigation.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Base conclusions on data.' },
+      { question: 'Scientists conduct investigations to answer questions using evidence.', type: 'tf', options: ['True', 'False', '-', '-'], correctIndex: 0, hint: 'Evidence-based inquiry.' },
+    ],
   },
 
   {
@@ -201,6 +293,22 @@ const CURRICULUM: LessonWithQuiz[] = [
       { id: 'q1w5-q3', question: 'What is a controlled variable?', options: ['The variable that changes', 'The variable that is measured', 'A variable kept constant throughout the experiment', 'The final result'], correctIndex: 2, hint: 'Kept the same to ensure a fair test' },
       { id: 'q1w5-q4', question: 'Why must variables be identified before starting an experiment?', options: ['It is not necessary', 'To ensure the experiment is fair and results are valid', 'Only to fill in the form', 'To make the test harder'], correctIndex: 1, hint: 'A fair test controls all other variables' },
       { id: 'q1w5-q5', question: 'What does it mean if experimental results do NOT support the hypothesis?', options: ['The experiment failed completely', 'The hypothesis was wrong and should be revised', 'Results must be changed', 'The hypothesis was never needed'], correctIndex: 1, hint: 'Science advances even from disproving ideas' },
+    ],
+    // ── Pre-Test: Multiple Choice — Scientific Method & Variables ──
+    preTest: [
+      { question: 'What is the first step in the scientific method?', options: ['Draw a conclusion', 'Identify the problem', 'Record data', 'Test the hypothesis'], correctIndex: 1, hint: 'Start by asking a question.' },
+      { question: 'Which variable is purposely changed by the researcher?', options: ['Controlled variable', 'Dependent variable', 'Independent variable', 'Constant'], correctIndex: 2, hint: 'The one you choose to change.' },
+      { question: 'Which variable is measured or observed during an experiment?', options: ['Independent variable', 'Dependent variable', 'Controlled variable', 'Constant'], correctIndex: 1, hint: 'It depends on the independent variable.' },
+      { question: 'What is a hypothesis?', options: ['A proven fact', 'An educated guess that can be tested', 'The final answer', 'A conclusion'], correctIndex: 1, hint: 'A testable prediction.' },
+      { question: 'Which statement is the best example of a hypothesis?', options: ['Plants are green.', 'If plants receive more sunlight, then they will grow taller.', 'Plants need water.', 'Sunlight is important.'], correctIndex: 1, hint: 'An "if… then…" testable statement.' },
+    ],
+    // ── Post-Test: Multiple Choice — Scientific Method & Variables ──
+    postTest: [
+      { question: 'Which variable is kept the same throughout an experiment?', options: ['Independent variable', 'Dependent variable', 'Controlled variable', 'Experimental variable'], correctIndex: 2, hint: 'Kept constant for a fair test.' },
+      { question: 'Why is it important to collect data during an investigation?', options: ['To make the experiment longer', 'To support the conclusion with evidence', 'To change the hypothesis', 'To make predictions only'], correctIndex: 1, hint: 'Conclusions need evidence.' },
+      { question: 'Which part of the scientific method comes after testing the hypothesis?', options: ['Identify the problem', 'Gather materials', 'Record and analyze data', 'Make a new hypothesis'], correctIndex: 2, hint: 'You analyze what the test produced.' },
+      { question: 'Which of the following is an example of an independent variable?', options: ['Height of the plant', 'Amount of fertilizer used', 'Growth of the plant', 'Number of leaves'], correctIndex: 1, hint: 'The factor the researcher changes.' },
+      { question: 'What is the purpose of writing a conclusion?', options: ['To describe the materials', 'To summarize the results and answer the problem', 'To create another experiment', 'To list the variables'], correctIndex: 1, hint: 'It answers the original question.' },
     ],
   },
 
@@ -1502,13 +1610,45 @@ const CURRICULUM: LessonWithQuiz[] = [
 
 // ─── Derived exports (same shape as before — all imports remain unchanged) ────
 
-export const LESSONS: Lesson[] = CURRICULUM.map(({ questions: _q, ...lesson }) => lesson as Lesson)
+export const LESSONS: Lesson[] = CURRICULUM.map((entry) => {
+  // Strip the embedded quiz arrays; a Lesson is everything else.
+  const lesson = { ...entry } as Partial<LessonWithQuiz>
+  delete lesson.questions
+  delete lesson.preTest
+  delete lesson.postTest
+  return lesson as Lesson
+})
 
-export const QUIZ_QUESTIONS: BuiltInQuestion[] = CURRICULUM.flatMap(lesson =>
-  lesson.questions.map(q => ({
+/** Stamp an embedded question with lesson-derived fields and a phase-scoped id. */
+function stampQuestions(
+  lesson: LessonWithQuiz,
+  questions: EmbeddedQuestion[],
+  phase: 'pre' | 'post'
+): BuiltInQuestion[] {
+  return questions.map((q, i) => ({
     ...q,
+    id: q.id || `${lesson.id}-${phase}-${i + 1}`,
     subject: lesson.subject,
     lessonId: lesson.id,
     topicId: lesson.topicId,
   }))
+}
+
+/** Diagnostic questions taken BEFORE each lesson (only lessons that define `preTest`). */
+export const PRE_TEST_QUESTIONS: BuiltInQuestion[] = CURRICULUM.flatMap(lesson =>
+  lesson.preTest && lesson.preTest.length > 0
+    ? stampQuestions(lesson, lesson.preTest, 'pre')
+    : []
 )
+
+/** Questions taken AFTER each lesson. Falls back to the legacy `questions` array. */
+export const POST_TEST_QUESTIONS: BuiltInQuestion[] = CURRICULUM.flatMap(lesson =>
+  stampQuestions(lesson, lesson.postTest ?? lesson.questions, 'post')
+)
+
+/**
+ * Back-compat alias: the historical single-quiz export is the post-test.
+ * Keep this so the ~4 legacy importers (quiz.ts, ARLabScreen, QuizScreen, QuizzesTab)
+ * continue to resolve the post-test without change.
+ */
+export const QUIZ_QUESTIONS: BuiltInQuestion[] = POST_TEST_QUESTIONS

@@ -61,13 +61,13 @@ export function QuizUnlockDialog({
             <Lock size={20} className="text-amber-600" />
           </div>
           <div>
-            <h3 className="font-bold text-foreground">Unlock Quiz</h3>
+            <h3 className="font-bold text-foreground">Unlock Test</h3>
             <p className="text-xs text-muted-foreground">{quizTitle}</p>
           </div>
         </div>
 
         <p className="text-sm text-muted-foreground mb-4">
-          This quiz is locked. Enter the unlock code provided by your teacher to retake it.
+          This test is locked. Enter the access code provided by your teacher to take it.
         </p>
 
         <div className="space-y-3">

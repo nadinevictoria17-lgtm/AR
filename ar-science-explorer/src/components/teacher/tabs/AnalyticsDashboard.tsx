@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, AreaChart, Area
 } from 'recharts'
+import { useShallow } from 'zustand/react/shallow'
 import { useStorageData } from '../../../hooks/useStorageData'
 import { storage } from '../../../lib/storage'
 import { useNotificationStore } from '../../../store/useNotificationStore'
@@ -53,7 +54,9 @@ export function AnalyticsDashboard() {
   const showSkeleton = false
   const students = data.students
   const lessons = data.lessons
-  const { showConfirmModal, showToast } = useNotificationStore()
+  const { showConfirmModal, showToast } = useNotificationStore(
+    useShallow((s) => ({ showConfirmModal: s.showConfirmModal, showToast: s.showToast }))
+  )
   const [resetting, setResetting] = useState(false)
   const [deleting,  setDeleting]  = useState(false)
 
@@ -87,7 +90,7 @@ export function AnalyticsDashboard() {
   const handleDeleteAllStudents = () => {
     showConfirmModal(
       'Delete All Students',
-      'This will permanently remove all student Firestore records (except Student 000000) and their quiz data. Student login accounts in Firebase Auth are NOT deleted — only the Firestore data. This cannot be undone.',
+      'This will permanently remove all student Firestore records (except Student 000000) and their test data. Student login accounts in Firebase Auth are NOT deleted — only the Firestore data. This cannot be undone.',
       async () => {
         setDeleting(true)
         try {
@@ -270,9 +273,9 @@ export function AnalyticsDashboard() {
         />
         <StatCard
           icon={ClipboardCheck}
-          label="Quiz Participation"
+          label="Test Participation"
           value={`${quizParticipation}%`}
-          context="attempted at least 1 quiz"
+          context="attempted at least 1 test"
           color="text-success"
           bg="bg-success/10"
         />
@@ -349,13 +352,13 @@ export function AnalyticsDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <div className="bg-card border border-border rounded-2xl p-6">
-          <h3 className="text-sm font-bold text-foreground mb-1">Quiz Activity</h3>
-          <p className="text-xs text-muted-foreground mb-6">Last 14 days of quiz attempts</p>
+          <h3 className="text-sm font-bold text-foreground mb-1">Test Activity</h3>
+          <p className="text-xs text-muted-foreground mb-6">Last 14 days of test attempts</p>
           <div className="h-64 w-full">
             {quizActivity.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
                 <Activity size={24} className="opacity-40" />
-                <p className="text-sm">No quiz attempts yet</p>
+                <p className="text-sm">No test attempts yet</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -424,7 +427,7 @@ export function AnalyticsDashboard() {
         </div>
 
         {recentActivity.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-4">No quiz attempts yet.</p>
+          <p className="text-xs text-muted-foreground text-center py-4">No test attempts yet.</p>
         ) : (
           <div className="space-y-2">
             {recentActivity.map((item) => {

@@ -14,9 +14,19 @@ import { useNotificationStore } from '../../store/useNotificationStore'
 import type { QuizUnlockCode, SubjectKey } from '../../types'
 import { SUBJECTS } from '../../data/subjects'
 import { LESSONS } from '../../data/lessons'
+import { PRE_TEST_QUESTIONS, POST_TEST_QUESTIONS } from '../../data/curriculum'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
+
+/** Lesson ids that actually have a test defined (built-in or teacher-created). */
+function lessonIdsWithTests(teacherQuizzes: { topicId?: string }[]): Set<string> {
+  const ids = new Set<string>()
+  for (const q of PRE_TEST_QUESTIONS) if (q.lessonId) ids.add(q.lessonId)
+  for (const q of POST_TEST_QUESTIONS) if (q.lessonId) ids.add(q.lessonId)
+  for (const q of teacherQuizzes) if (q.topicId) ids.add(q.topicId)
+  return ids
+}
 
 const WEEKS_BY_SUBJECT: Record<SubjectKey, { id: string; title: string; week: number }[]> = {
   chemistry: LESSONS.filter(l => l.subject === 'chemistry' && l.week != null).map(l => ({ id: l.id, title: l.title, week: l.week! })),
@@ -47,7 +57,7 @@ interface CodeRow {
 
 export function UnlockCodeManager() {
   const { data } = useStorageData(true)
-  const { showConfirmModal } = useNotificationStore()
+  const showConfirmModal = useNotificationStore((s) => s.showConfirmModal)
   const [codes, setCodes]           = useState<UnlockCodeData[]>([])
   const [retakeCodes, setRetakeCodes] = useState<QuizUnlockCode[]>([])
   const [loading, setLoading]       = useState(true)
@@ -76,6 +86,48 @@ export function UnlockCodeManager() {
   const [expirationModal, setExpirationModal] = useState<{ isOpen: boolean; selectedDate: string } | null>(null)
   const [pendingRetakeCodeData, setPendingRetakeCodeData] = useState<{ quizId: string; studentId: string } | null>(null)
 
+  // Built-in lessons + teacher-created lessons, so custom lessons show up in the
+  // "Test" picker too. A lesson only appears here if a test (built-in or
+  // teacher-created) actually exists for it.
+  const testableLessons = useMemo(() => {
+    const withTests = lessonIdsWithTests(data.quizzes)
+    const merged = [...LESSONS]
+    for (const tl of data.lessons) {
+      if (!merged.some(l => l.id === tl.id)) merged.push(tl as typeof LESSONS[number])
+    }
+    return merged.filter(l => withTests.has(l.id))
+  }, [data.lessons, data.quizzes])
+
+  // Which phases (Pre/Post) exist for a given lesson id, so the picker can show
+  // exactly what a "Test Unlock" code for that lesson will actually gate.
+  const phasesForLesson = useMemo(() => {
+    const map = new Map<string, { pre: boolean; post: boolean }>()
+    const mark = (lessonId: string | undefined, phase: 'pre' | 'post') => {
+      if (!lessonId) return
+      const entry = map.get(lessonId) ?? { pre: false, post: false }
+      entry[phase] = true
+      map.set(lessonId, entry)
+    }
+    for (const q of PRE_TEST_QUESTIONS) mark(q.lessonId, 'pre')
+    for (const q of POST_TEST_QUESTIONS) mark(q.lessonId, 'post')
+    for (const q of data.quizzes) mark(q.topicId, (q.phase ?? 'post'))
+    return map
+  }, [data.quizzes])
+
+  // Keep the selected test valid: if it points at a lesson with no test (e.g.
+  // the initial default, or after switching code type), snap to the first
+  // lesson that actually has one.
+  useEffect(() => {
+    if (codeType !== 'lesson' && codeType !== 'quiz') return
+    const pool = codeType === 'quiz'
+      ? testableLessons.filter(l => phasesForLesson.get(l.id)?.post)
+      : testableLessons
+    if (!pool.some(l => l.id === selectedTargetId)) {
+      setSelectedTargetId(pool[0]?.id ?? '')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeType, testableLessons, phasesForLesson])
+
   useEffect(() => { loadCodes() }, [])
 
   const loadCodes = async () => {
@@ -98,7 +150,7 @@ export function UnlockCodeManager() {
       return
     }
     if ((codeType === 'lesson' || codeType === 'quiz') && !selectedTargetId) {
-      setErrorVisible('Select a quiz.')
+      setErrorVisible('Select a test.')
       return
     }
     setErrorVisible(null)
@@ -130,7 +182,7 @@ export function UnlockCodeManager() {
 
     const result = await createUnlockCode(normalizedCode, codeType, config)
     if (result.success) {
-      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(LESSONS[0]?.id || '')
+      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(testableLessons[0]?.id || '')
       setShowForm(false); await loadCodes()
     } else {
       setErrorVisible(result.error || 'Failed to generate code.')
@@ -151,7 +203,7 @@ export function UnlockCodeManager() {
 
     const result = await createUnlockCode(normalizedCode, 'quiz', config)
     if (result.success) {
-      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(LESSONS[0]?.id || '')
+      setNewCode(''); setSelectedWeeks([]); setSelectedTargetStudent(''); setSelectedTargetId(testableLessons[0]?.id || '')
       setShowForm(false); setExpirationModal(null); setPendingRetakeCodeData(null); await loadCodes()
     } else {
       setErrorVisible(result.error || 'Failed to generate code.')
@@ -332,9 +384,9 @@ export function UnlockCodeManager() {
               {/* Type selector */}
               <div className="grid grid-cols-3 gap-3 max-w-sm">
                 {([
-                  { id: 'subject', label: 'Lesson Unlock', icon: BookOpen },
-                  { id: 'lesson',  label: 'Quiz Unlock',   icon: GraduationCap },
-                  { id: 'quiz',    label: 'Quiz Retake',   icon: GraduationCap },
+                  { id: 'subject', label: 'Lesson Unlock',      icon: BookOpen },
+                  { id: 'lesson',  label: 'Post-Test Unlock',   icon: GraduationCap },
+                  { id: 'quiz',    label: 'Post-Test Retake',   icon: GraduationCap },
                 ] as const).map(t => (
                   <button key={t.id} onClick={() => setCodeType(t.id)}
                     className={cn(
@@ -364,8 +416,8 @@ export function UnlockCodeManager() {
                     {codeType === 'subject'
                       ? 'Unlocks selected weeks for any student who enters this.'
                       : codeType === 'lesson'
-                      ? 'Unlocks a quiz for first-time access. Any student can use it.'
-                      : 'Allows a student to retake the selected quiz once.'}
+                      ? 'Unlocks the Post-Test for first-time access. Pre-Tests are always free and never need a code. Any student can use it.'
+                      : 'Allows a student to retake the Post-Test once, after failing or completing it. Pre-Tests are always retakeable and never need a code.'}
                   </p>
                 </div>
 
@@ -421,62 +473,77 @@ export function UnlockCodeManager() {
                       </div>
                     </>
                   ) : codeType === 'lesson' ? (
-                    // Quiz Unlock: Quiz only
+                    // Post-Test Unlock: lesson picker, restricted to lessons with a Post-Test.
+                    // (Pre-Tests are always free/ungated, so a code is never generated for them.)
                     <div onBlur={() => setTimeout(() => setShowQuizPicker(false), 200)} tabIndex={-1}>
-                      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
+                      <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Post-Test</label>
                       <button onClick={() => setShowQuizPicker(p => !p)}
                         className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
-                        <span className="truncate">{selectedTargetId ? LESSONS.find(l => l.id === selectedTargetId)?.title : 'Select quiz…'}</span>
+                        <span className="truncate">{selectedTargetId ? testableLessons.find(l => l.id === selectedTargetId)?.title : 'Select a Post-Test…'}</span>
                         {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
+                      {selectedTargetId && (() => {
+                        const p = phasesForLesson.get(selectedTargetId)
+                        if (!p?.post) return null
+                        return (
+                          <p className="text-[11px] text-muted-foreground mt-1.5">
+                            This code will unlock the Post-Test for this lesson.
+                          </p>
+                        )
+                      })()}
                       {showQuizPicker && (
                         <div className="mt-1.5 rounded-xl border border-border bg-muted/30">
                           <input
                             type="text"
-                            placeholder="Search quizzes..."
+                            placeholder="Search Post-Tests..."
                             value={quizSearchInput}
                             onChange={(e) => setQuizSearchInput(e.target.value)}
                             className="w-full px-2.5 py-2 text-xs bg-muted/50 border-b border-border rounded-t-lg focus:outline-none focus:ring-1 focus:ring-primary/50"
                           />
                           <div className="space-y-1 max-h-44 overflow-y-auto p-2">
-                            {LESSONS.filter(l => l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase())).map(l => (
-                              <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false); setQuizSearchInput('') }}
-                                className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
-                                  selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
-                                <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
-                                  selectedTargetId === l.id ? 'bg-primary border-primary' : 'border-border')}>
-                                  {selectedTargetId === l.id && <Check size={9} className="text-primary-foreground" />}
-                                </div>
-                                <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase">{l.id}</span>
-                                <span className="text-xs truncate">{l.title}</span>
-                              </button>
-                            ))}
+                            {testableLessons.filter(l => phasesForLesson.get(l.id)?.post).length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-2">No Post-Tests exist yet. Create one in the Tests tab first.</p>
+                            )}
+                            {testableLessons.filter(l => phasesForLesson.get(l.id)?.post && (l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase()))).map(l => {
+                              return (
+                                <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false); setQuizSearchInput('') }}
+                                  className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
+                                    selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
+                                  <div className={cn('w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0',
+                                    selectedTargetId === l.id ? 'bg-primary border-primary' : 'border-border')}>
+                                    {selectedTargetId === l.id && <Check size={9} className="text-primary-foreground" />}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase">{l.id}</span>
+                                  <span className="text-xs truncate flex-1">{l.title}</span>
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
                     </div>
                   ) : codeType === 'quiz' ? (
-                    // Quiz Retake: Quiz + Student
+                    // Post-Test Retake: only lessons with a Post-Test (Pre-Tests are always retakeable already) + Student
                     <>
-                      {/* Quiz picker */}
+                      {/* Post-Test picker */}
                       <div onBlur={() => setTimeout(() => setShowQuizPicker(false), 200)} tabIndex={-1}>
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quiz</label>
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Post-Test</label>
                         <button onClick={() => setShowQuizPicker(p => !p)}
                           className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs font-semibold text-foreground hover:bg-muted transition-all">
-                          <span className="truncate">{selectedTargetId ? LESSONS.find(l => l.id === selectedTargetId)?.title : 'Select quiz…'}</span>
+                          <span className="truncate">{selectedTargetId ? testableLessons.find(l => l.id === selectedTargetId)?.title : 'Select a Post-Test…'}</span>
                           {showQuizPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                         {showQuizPicker && (
                           <div className="mt-1.5 rounded-xl border border-border bg-muted/30">
                             <input
                               type="text"
-                              placeholder="Search quizzes..."
+                              placeholder="Search Post-Tests..."
                               value={quizSearchInput}
                               onChange={(e) => setQuizSearchInput(e.target.value)}
                               className="w-full px-2.5 py-2 text-xs bg-muted/50 border-b border-border rounded-t-lg focus:outline-none focus:ring-1 focus:ring-primary/50"
                             />
                             <div className="space-y-1 max-h-44 overflow-y-auto p-2">
-                              {LESSONS.filter(l => l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase())).map(l => (
+                              {testableLessons.filter(l => (phasesForLesson.get(l.id)?.post) && (l.title.toLowerCase().includes(quizSearchInput.toLowerCase()) || l.id.toLowerCase().includes(quizSearchInput.toLowerCase()))).map(l => (
                                 <button key={l.id} onClick={() => { setSelectedTargetId(l.id); setShowQuizPicker(false); setQuizSearchInput('') }}
                                   className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all',
                                     selectedTargetId === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground')}>
@@ -567,15 +634,15 @@ export function UnlockCodeManager() {
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value) }}
-            placeholder="Search code, quiz, student…"
+            placeholder="Search code, test, student…"
             className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-52" />
         </div>
         <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
           {([
             { id: 'all', label: 'All' },
             { id: 'subject', label: 'Subject Unlock' },
-            { id: 'lesson', label: 'Quiz Unlock' },
-            { id: 'quiz', label: 'Quiz Retake' }
+            { id: 'lesson', label: 'Post-Test Unlock' },
+            { id: 'quiz', label: 'Post-Test Retake' }
           ] as const).map(f => (
             <button key={f.id} onClick={() => { setFilterType(f.id); setFilterStatus('all') }}
               className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors',
@@ -620,7 +687,7 @@ export function UnlockCodeManager() {
           </p>
           <p className="text-sm text-muted-foreground mt-1">
             {totalCount === 0
-              ? 'Generate a code to unlock lessons or allow quiz retakes.'
+              ? 'Generate a code to unlock lessons or allow test retakes.'
               : 'Try adjusting your filters.'}
           </p>
           {totalCount === 0 && (
@@ -684,8 +751,8 @@ export function UnlockCodeManager() {
                             row._lessonCode?.type === 'lesson' ? 'bg-primary/10 text-primary' :
                             'bg-success/10 text-success'
                           )}>
-                            {row._lessonCode?.type === 'subject' ? <><BookOpen size={10} /> Subject</> : 
-                             row._lessonCode?.type === 'lesson' ? <><GraduationCap size={10} /> Quiz</> :
+                            {row._lessonCode?.type === 'subject' ? <><BookOpen size={10} /> Subject</> :
+                             row._lessonCode?.type === 'lesson' ? <><GraduationCap size={10} /> Post-Test</> :
                              <><RefreshCw size={10} /> Retake</>}
                           </span>
                         </td>

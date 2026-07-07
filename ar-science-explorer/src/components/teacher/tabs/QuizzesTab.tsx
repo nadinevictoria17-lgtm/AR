@@ -7,9 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { storage } from '../../../lib/storage'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { SUBJECTS } from '../../../data/subjects'
 import { LESSONS } from '../../../data/lessons'
-import { QUIZ_QUESTIONS } from '../../../data/quiz'
+import { PRE_TEST_QUESTIONS, POST_TEST_QUESTIONS } from '../../../data/curriculum'
+import { builtinQuizId } from '../../../lib/quizId'
 import { cn } from '../../../lib/utils'
 import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { FormInput } from '../../form/FormInput'
@@ -28,6 +28,7 @@ const SUBJECT_OPTIONS: { value: SubjectKey; label: string }[] = [
 
 const QuizQuestionSchema = z.object({
   question: z.string().min(1, 'Question text is required'),
+  type: z.enum(['mc', 'tf']).optional(),
   options: z.tuple([
     z.string().min(1,'Option A required'),
     z.string().min(1,'Option B required'),
@@ -36,12 +37,28 @@ const QuizQuestionSchema = z.object({
   ]),
   correctIndex: z.number().min(0).max(3),
   hint: z.string(),
+}).superRefine((q, ctx) => {
+  // True/False only needs the first two option slots filled.
+  if (q.type === 'tf') {
+    if (!q.options[0] || !q.options[1]) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'True/False options required', path: ['options'] })
+    }
+    if (q.correctIndex > 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Pick True or False', path: ['correctIndex'] })
+    }
+  } else {
+    // Multiple choice: all four options required.
+    q.options.forEach((opt, i) => {
+      if (!opt) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Option ${['A','B','C','D'][i]} required`, path: ['options', i] })
+    })
+  }
 })
 
 const QuizSchema = z.object({
-  title:     z.string().min(1, 'Quiz title is required'),
+  title:     z.string().min(1, 'Test title is required'),
   subject:   z.enum(['biology','chemistry','physics']),
   topicId:   z.string().min(1, 'Please select a topic'),
+  phase:     z.enum(['pre', 'post']),
   questions: z.array(QuizQuestionSchema).min(1, 'At least one question is required'),
 })
 
@@ -61,24 +78,27 @@ function SubjectBadge({ subject }: { subject: SubjectKey }) {
 
 function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: {
   initial?: TeacherQuiz
-  onSave: (q: TeacherQuiz) => void
+  onSave: (q: TeacherQuiz) => void | Promise<void>
   onCancel: () => void
   teacherLessons: (TeacherLesson | Lesson)[]
   allQuizzes: TeacherQuiz[]
 }) {
+  const [isSaving, setIsSaving] = useState(false)
   const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuizFormValues>({
     resolver: zodResolver(QuizSchema),
     defaultValues: {
       title:     initial?.title ?? '',
       subject:   initial?.subject ?? 'chemistry',
       topicId:   initial?.topicId ?? '',
-      questions: initial?.questions ?? [{ question:'', options:['','','',''], correctIndex:0, hint:'' }],
+      phase:     initial?.phase ?? 'post',
+      questions: initial?.questions ?? [{ question:'', type:'mc', options:['','','',''], correctIndex:0, hint:'' }],
     },
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'questions' })
 
   const subject = watch('subject')
   const topicId = watch('topicId')
+  const phase = watch('phase')
   const subjectLessons = useMemo(() => {
     const builtIn = LESSONS.filter((l) => l.subject === subject)
     const teacherOwn = teacherLessons.filter((l) => l.subject === subject)
@@ -94,40 +114,56 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
     if (!topicId || initial) return null
     const selectedLesson = subjectLessons.find(l => l.id === topicId)
     if (!selectedLesson) return null
-    const existingQuiz = allQuizzes.find(q => q.topicId === topicId)
+    // A lesson may have one Pre-Test AND one Post-Test — only warn on a same-phase dupe.
+    const existingQuiz = allQuizzes.find(q => q.topicId === topicId && (q.phase ?? 'post') === phase)
     if (existingQuiz) {
       return {
         lessonTitle: selectedLesson.title,
         quizId: existingQuiz.id,
+        phase,
       }
     }
     return null
-  }, [topicId, subjectLessons, allQuizzes, initial])
+  }, [topicId, subjectLessons, allQuizzes, initial, phase])
 
   useEffect(() => {
     if (!subjectLessons.some((l) => l.id === topicId)) {
       setValue('topicId', subjectLessons[0]?.id ?? '')
     }
+  // Also run on mount (not just when `subject` changes) so a brand-new test's
+  // empty default topicId gets resolved to a real lesson before the user saves.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject])
+  }, [subject, subjectLessons])
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
+    if (isSaving) return
     const resolvedTopicId = data.topicId || subjectLessons[0]?.id
     if (!resolvedTopicId) return
-    onSave({
-      id: initial?.id ?? uid(),
-      title: data.title.trim(),
-      subject: data.subject,
-      topicId: resolvedTopicId,
-      questions: data.questions,
-      createdAt: initial?.createdAt ?? new Date().toISOString(),
-    })
+    // Normalize each question: T/F rows serialize to ['True','False','-','-'] so the
+    // stored data always satisfies the 4-option tuple shape used elsewhere.
+    const questions = data.questions.map((q) => q.type === 'tf'
+      ? { ...q, options: ['True', 'False', '-', '-'] as [string, string, string, string], correctIndex: q.correctIndex > 1 ? 0 : q.correctIndex }
+      : { ...q, type: 'mc' as const })
+    setIsSaving(true)
+    try {
+      await onSave({
+        id: initial?.id ?? uid(),
+        title: data.title.trim(),
+        subject: data.subject,
+        topicId: resolvedTopicId,
+        phase: data.phase,
+        questions,
+        createdAt: initial?.createdAt ?? new Date().toISOString(),
+      })
+    } finally {
+      setIsSaving(false)
+    }
   })
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto w-full">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-foreground">{initial ? 'Edit Quiz' : 'New Quiz'}</h3>
+        <h3 className="text-lg font-bold text-foreground">{initial ? 'Edit Test' : 'New Test'}</h3>
         <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Close">
           <X size={16} />
         </Button>
@@ -137,8 +173,8 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
         <div className="w-full space-y-4">
           <FormInput
             {...register('title')}
-            label="Quiz Title"
-            placeholder="e.g. Motion & Forces Quiz"
+            label="Test Title"
+            placeholder="e.g. Motion & Forces Pre-Test"
             error={errors.title?.message}
             required
           />
@@ -172,13 +208,43 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
 
         <div className="w-full space-y-4">
           <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Test Type</label>
+            <Controller
+              control={control}
+              name="phase"
+              render={({ field }) => (
+                <div className="flex gap-2">
+                  {([['pre', 'Pre-Test'], ['post', 'Post-Test']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => field.onChange(val)}
+                      className={cn(
+                        'px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
+                        field.value === val
+                          ? 'bg-primary/10 text-primary border-primary/40 shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-border/70'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Pre-Tests are taken before the lesson (ungated). Post-Tests are taken after and complete the lesson.
+            </p>
+          </div>
+
+          <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Module</label>
             {duplicateWarning && (
               <div className="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-3">
                 <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Quiz already assigned</p>
-                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">This lesson already has a quiz. Edit it instead of creating a new one.</p>
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Test already assigned</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">This lesson already has a {phase === 'pre' ? 'Pre-Test' : 'Post-Test'}. Edit it instead of creating a new one.</p>
                 </div>
               </div>
             )}
@@ -236,37 +302,100 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                     error={errors.questions?.[qi]?.question?.message}
                     required
                   />
-                  <div className="space-y-2">
-                    {[0, 1, 2, 3].map((oi) => (
-                      <div key={oi} className="flex items-center gap-3">
-                        <Controller
-                          control={control}
-                          name={`questions.${qi}.correctIndex`}
-                          render={({ field }) => (
-                            <input
-                              type="radio"
-                              name={`correct-${qi}`}
-                              checked={field.value === oi}
-                              onChange={() => field.onChange(oi)}
-                              className="accent-primary w-4 h-4 shrink-0"
-                            />
-                          )}
-                        />
-                        <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
-                        <Controller
-                          control={control}
-                          name={`questions.${qi}.options.${oi as 0 | 1 | 2 | 3}`}
-                          render={({ field }) => (
-                            <input
-                              {...field}
-                              placeholder={`Option ${['A', 'B', 'C', 'D'][oi]}…`}
-                              className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            />
-                          )}
-                        />
-                      </div>
-                    ))}
-                  </div>
+
+                  {/* Question type toggle: Multiple Choice vs True/False */}
+                  <Controller
+                    control={control}
+                    name={`questions.${qi}.type`}
+                    render={({ field }) => {
+                      const qType = field.value ?? 'mc'
+                      return (
+                        <div className="flex gap-2">
+                          {([['mc', 'Multiple Choice'], ['tf', 'True / False']] as const).map(([val, label]) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => {
+                                field.onChange(val)
+                                if (val === 'tf') {
+                                  // Seed the True/False labels and clamp the answer to 0/1.
+                                  setValue(`questions.${qi}.options`, ['True', 'False', '-', '-'])
+                                  const ci = watch(`questions.${qi}.correctIndex`)
+                                  if (ci > 1) setValue(`questions.${qi}.correctIndex`, 0)
+                                } else {
+                                  setValue(`questions.${qi}.options`, ['', '', '', ''])
+                                }
+                              }}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all',
+                                qType === val
+                                  ? 'bg-primary/10 text-primary border-primary/40'
+                                  : 'border-border text-muted-foreground hover:border-border/70'
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    }}
+                  />
+
+                  {(watch(`questions.${qi}.type`) ?? 'mc') === 'tf' ? (
+                    <div className="space-y-2">
+                      {[0, 1].map((oi) => (
+                        <div key={oi} className="flex items-center gap-3">
+                          <Controller
+                            control={control}
+                            name={`questions.${qi}.correctIndex`}
+                            render={({ field }) => (
+                              <input
+                                type="radio"
+                                name={`correct-${qi}`}
+                                checked={field.value === oi}
+                                onChange={() => field.onChange(oi)}
+                                className="accent-primary w-4 h-4 shrink-0"
+                              />
+                            )}
+                          />
+                          <span className="text-sm font-semibold text-foreground">{['True', 'False'][oi]}</span>
+                        </div>
+                      ))}
+                      <p className="text-[11px] text-muted-foreground">Select the correct answer.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {[0, 1, 2, 3].map((oi) => (
+                        <div key={oi} className="flex items-center gap-3">
+                          <Controller
+                            control={control}
+                            name={`questions.${qi}.correctIndex`}
+                            render={({ field }) => (
+                              <input
+                                type="radio"
+                                name={`correct-${qi}`}
+                                checked={field.value === oi}
+                                onChange={() => field.onChange(oi)}
+                                className="accent-primary w-4 h-4 shrink-0"
+                              />
+                            )}
+                          />
+                          <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
+                          <Controller
+                            control={control}
+                            name={`questions.${qi}.options.${oi as 0 | 1 | 2 | 3}`}
+                            render={({ field }) => (
+                              <input
+                                {...field}
+                                placeholder={`Option ${['A', 'B', 'C', 'D'][oi]}…`}
+                                className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              />
+                            )}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <FormInput
                     {...register(`questions.${qi}.hint`)}
                     label="Hint (optional)"
@@ -280,7 +409,7 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
           <Button
             type="button"
             variant="outline"
-            onClick={() => append({ question: '', options: ['', '', '', ''], correctIndex: 0, hint: '' })}
+            onClick={() => append({ question: '', type: 'mc', options: ['', '', '', ''], correctIndex: 0, hint: '' })}
             className="w-full border-dashed border-primary/40 text-primary hover:bg-primary/5 gap-2"
           >
             <Plus size={14} /> Add Question
@@ -288,8 +417,8 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
         </div>
 
         <div className="w-full">
-          <Button type="submit" className="btn-glow">
-            Save Quiz
+          <Button type="submit" className="btn-glow" disabled={isSaving} isLoading={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Test'}
           </Button>
         </div>
       </form>
@@ -313,19 +442,28 @@ function hideBuiltIn(id: string) {
 function buildQuizList(teacherQuizzes: TeacherQuiz[]): TeacherQuiz[] {
   const hidden = getHiddenIds()
   const allQuizzes: TeacherQuiz[] = [...teacherQuizzes]
-  for (const lesson of LESSONS) {
-    const builtInId = `builtin-${lesson.id}`
-    if (allQuizzes.some(q => q.id === builtInId)) continue
-    if (hidden.has(builtInId)) continue
-    const lessonQuestions = QUIZ_QUESTIONS.filter(q => q.lessonId === lesson.id)
+
+  const pushBuiltin = (lesson: Lesson, phase: 'pre' | 'post', questions: TeacherQuiz['questions']) => {
+    if (questions.length === 0) return
+    const builtInId = builtinQuizId(lesson.id, phase)
+    // Skip if a teacher quiz already exists for this lesson+phase, or it was hidden.
+    if (allQuizzes.some(q => q.id === builtInId)) return
+    if (allQuizzes.some(q => q.topicId === lesson.id && (q.phase ?? 'post') === phase && !q.id.startsWith('builtin-'))) return
+    if (hidden.has(builtInId)) return
     allQuizzes.push({
       id: builtInId,
-      title: lesson.title,
+      title: `${lesson.title} — ${phase === 'pre' ? 'Pre-Test' : 'Post-Test'}`,
       subject: lesson.subject,
       topicId: lesson.id,
-      questions: lessonQuestions,
+      phase,
+      questions,
       createdAt: new Date(0).toISOString(),
     })
+  }
+
+  for (const lesson of LESSONS) {
+    pushBuiltin(lesson, 'pre', PRE_TEST_QUESTIONS.filter(q => q.lessonId === lesson.id))
+    pushBuiltin(lesson, 'post', POST_TEST_QUESTIONS.filter(q => q.lessonId === lesson.id))
   }
   return allQuizzes
 }
@@ -368,7 +506,7 @@ export function QuizzesTab() {
     try {
       const saved = await storage.saveQuiz(q)
       if (!saved) {
-        showErrorModal('Save Failed', 'Failed to save quiz. Check your connection and try again.')
+        showErrorModal('Save Failed', 'Failed to save test. Check your connection and try again.')
         return
       }
 
@@ -387,7 +525,7 @@ export function QuizzesTab() {
       setEditing(null)
     } catch (error) {
       console.error('[QuizzesTab] Error saving quiz:', error)
-      showErrorModal('Save Failed', error instanceof Error ? error.message : 'An error occurred saving the quiz.')
+      showErrorModal('Save Failed', error instanceof Error ? error.message : 'An error occurred saving the test.')
     }
   }
 
@@ -396,7 +534,7 @@ export function QuizzesTab() {
   }
 
   if (showSkeleton) {
-    return <TableSkeleton columns={['Quiz', 'Module', 'Questions', '']} rows={8} />
+    return <TableSkeleton columns={['Test', 'Module', 'Questions', '']} rows={8} />
   }
 
   return (
@@ -404,14 +542,14 @@ export function QuizzesTab() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Brain size={20} className="text-subject-biology" /> Quizzes
+            <Brain size={20} className="text-subject-biology" /> Tests
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {filteredQuizzes.length} of {quizzes.length} quiz{quizzes.length !== 1 ? 'zes' : ''}
+            {filteredQuizzes.length} of {quizzes.length} test{quizzes.length !== 1 ? 's' : ''}
           </p>
         </div>
         <Button onClick={() => setBuilding(true)} className="gap-2 btn-glow">
-          <Plus size={14} /> New Quiz
+          <Plus size={14} /> New Test
         </Button>
       </div>
 
@@ -422,7 +560,7 @@ export function QuizzesTab() {
           <input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-            placeholder="Search quizzes…"
+            placeholder="Search tests…"
             className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
           />
         </div>
@@ -448,7 +586,7 @@ export function QuizzesTab() {
           <table className="w-full text-left">
             <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Quiz</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Test</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Module</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Questions</th>
                 <th className="px-6 py-4" />
@@ -460,9 +598,10 @@ export function QuizzesTab() {
                 // Built-in that was edited by the teacher and saved to Firestore
                 const isModified = isBuiltIn && data.quizzes.some((dq) => dq.id === q.id)
                 const isCustom = !isBuiltIn
-                const moduleName = isBuiltIn
-                  ? LESSONS.find((l) => l.id === q.topicId)?.title ?? (q.topicId ?? '').toUpperCase()
-                  : SUBJECTS.find((s) => s.id === q.subject)?.topics.find((t) => t.id === q.topicId)?.name ?? '—'
+                // q.topicId is always a lesson id (built-in or teacher-created), never a subject topic id.
+                const moduleName = LESSONS.find((l) => l.id === q.topicId)?.title
+                  ?? data.lessons.find((l) => l.id === q.topicId)?.title
+                  ?? (q.topicId ? q.topicId.toUpperCase() : '—')
                 return (
                   <tr
                     key={q.id}
@@ -481,16 +620,16 @@ export function QuizzesTab() {
                     </td>
                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setEditing(q)} aria-label="Edit quiz">
+                        <Button variant="ghost" size="icon" onClick={() => setEditing(q)} aria-label="Edit test">
                           <Edit3 size={14} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="Delete quiz"
+                          aria-label="Delete test"
                           className="text-destructive/40 hover:text-destructive hover:bg-destructive/10"
                           onClick={() => showConfirmModal(
-                            isModified ? 'Reset Quiz' : 'Delete Quiz',
+                            isModified ? 'Reset Test' : 'Delete Test',
                             isModified
                               ? `Reset "${q.title}" back to the original built-in version? Your edits will be lost.`
                               : `Delete "${q.title}"? This cannot be undone.`,
@@ -520,8 +659,8 @@ export function QuizzesTab() {
                       <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
                         <Brain size={20} className="text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">No quizzes yet</p>
-                      <p className="text-xs text-muted-foreground">Create a quiz to assign to your students.</p>
+                      <p className="text-sm font-semibold text-foreground">No tests yet</p>
+                      <p className="text-xs text-muted-foreground">Create a test to assign to your students.</p>
                       <Button onClick={() => setBuilding(true)} className="gap-2 btn-glow mt-1">
                         <Plus size={14} /> Create First Quiz
                       </Button>
@@ -535,7 +674,7 @@ export function QuizzesTab() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10">
             <div className="text-xs text-muted-foreground">
-              Showing {startIndex + 1}–{Math.min(endIndex, filteredQuizzes.length)} of {filteredQuizzes.length} quizzes
+              Showing {startIndex + 1}–{Math.min(endIndex, filteredQuizzes.length)} of {filteredQuizzes.length} tests
             </div>
             <div className="flex items-center gap-2">
               <button

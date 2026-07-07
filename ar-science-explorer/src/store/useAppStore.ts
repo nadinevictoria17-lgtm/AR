@@ -4,20 +4,7 @@ import type { ARPayload, SubjectKey } from '../types'
 import { LESSONS } from '../data/lessons'
 import { getUnlockCodeData, trackCodeUsage } from '../lib/unlockCodeManager'
 import { storage } from '../lib/storage'
-
-type Screen =
-  | 'getstarted'
-  | 'unlock'
-  | 'home'
-  | 'learn'
-  | 'arlab'
-  | 'progress'
-  | 'topics'
-  | 'lessons'
-  | 'ar'
-  | 'quiz'
-  | 'lab'
-  | 'topicDetail'
+import { builtinQuizId } from '../lib/quizId'
 
 export interface AppStore {
   // Persisted state
@@ -27,7 +14,6 @@ export interface AppStore {
 
   // Session state (not persisted)
   currentStudentId: string | null
-  screen: Screen
   activeSubject: SubjectKey | null
   activeTopic: string | null
   activeLessonId: string | null
@@ -38,7 +24,6 @@ export interface AppStore {
   arSourceVisible: boolean
 
   // Actions
-  setScreen: (s: Screen) => void
   setCurrentStudentId: (id: string | null) => void
   setActiveSubject: (s: SubjectKey | null) => void
   setActiveTopic: (t: string | null) => void
@@ -64,7 +49,6 @@ export const useAppStore = create<AppStore>()(
 
       // Session state
       currentStudentId: null as string | null,
-      screen: 'getstarted',
       activeSubject: null as SubjectKey | null,
       activeTopic: null as string | null,
       activeLessonId: null as string | null,
@@ -75,7 +59,6 @@ export const useAppStore = create<AppStore>()(
       arSourceVisible: true,
 
       // Actions
-      setScreen: (s) => set({ screen: s }),
       setCurrentStudentId: (id) => set({ currentStudentId: id }),
       setActiveSubject: (s) => set({ activeSubject: s }),
       setActiveTopic: (t) => set({ activeTopic: t }),
@@ -146,7 +129,7 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
-        // Handle specific lesson unlock (type='lesson') - which is the "Quiz Unlock"
+        // Handle specific lesson unlock (type='lesson') - which is the "Test Unlock"
         if (data.type === 'lesson' && data.targetId && currentStudentId) {
           const success = await storage.unlockContent(currentStudentId, data.targetId, 'lesson')
           if (success) {
@@ -158,18 +141,18 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
-        // Handle quiz retake codes (type='quiz')
+        // Handle test retake codes (type='quiz') — always targets the post-test.
         if (data.type === 'quiz' && data.targetId && currentStudentId) {
-          const builtInQuizId = `builtin-${data.targetId}`
+          const builtInQuizId = builtinQuizId(data.targetId, 'post')
           await storage.markQuizAsRetakeable(currentStudentId, builtInQuizId)
-          
+
           // Track usage - retake codes are always 1-time-use per student
           await trackCodeUsage(normalized, currentStudentId, true)
 
           const lesson = LESSONS.find(l => l.id === data.targetId)
           return {
             unlocked: [],
-            targetName: lesson?.title ? `${lesson.title} – Quiz Retake` : 'Quiz Retake',
+            targetName: lesson?.title ? `${lesson.title} – Test Retake` : 'Test Retake',
             invalid: false,
           }
         }

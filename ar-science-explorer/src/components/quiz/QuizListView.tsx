@@ -48,10 +48,10 @@ export function QuizListView({
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-black mb-2 text-foreground">
-          Quizzes
+          Tests
         </h1>
         <p className="text-muted-foreground">
-          Complete quizzes to test your understanding and unlock new content.
+          Take the Pre-Test before a lesson and the Post-Test after to check your understanding.
         </p>
       </div>
 

@@ -13,8 +13,8 @@ import { Button } from '../components/ui/button'
 type Role = 'student' | 'teacher'
 
 export default function LoginPage() {
-  const { theme, toggleTheme, setCurrentStudentId, setScreen } = useAppStore(
-    useShallow(s => ({ theme: s.theme, toggleTheme: s.toggleTheme, setCurrentStudentId: s.setCurrentStudentId, setScreen: s.setScreen }))
+  const { theme, toggleTheme, setCurrentStudentId } = useAppStore(
+    useShallow(s => ({ theme: s.theme, toggleTheme: s.toggleTheme, setCurrentStudentId: s.setCurrentStudentId }))
   )
 
   const [role, setRole] = useState<Role>('student')
@@ -66,7 +66,6 @@ export default function LoginPage() {
           await storage.ensureStudentRecord(cleanId)
           // Seed Zustand so screens that read currentStudentId work immediately.
           setCurrentStudentId(cleanId)
-          setScreen('unlock')
           // No manual navigate — PublicOnlyRoute detects the new Firebase auth
           // state and redirects to /app automatically, avoiding a double-
           // navigation that causes the two-blink flash.
@@ -75,6 +74,13 @@ export default function LoginPage() {
 
         setPassError('Invalid credentials. Check your internet connection and try again.')
       } else {
+        // Guard: a student-format email is never a teacher, even if it
+        // authenticates in Firebase. Reject before signing in.
+        if (/^\d+@arscience\.school$/i.test(id.trim())) {
+          setIdError('This is a student account. Use the Student tab to log in.')
+          setIsLoading(false)
+          return
+        }
         const firebaseUser = await firebaseTeacherLogin(id, password)
         if (firebaseUser) {
           // Same reasoning: let PublicOnlyRoute drive the redirect so

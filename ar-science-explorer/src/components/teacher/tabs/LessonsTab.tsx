@@ -115,6 +115,7 @@ export function LessonsTab() {
   const [activeTab, setActiveTab]       = useState<'basic' | 'curriculum' | 'ar'>('basic')
   const [quizSearchOpen, setQuizSearchOpen] = useState(false)
   const [quizSearchInput, setQuizSearchInput] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const pdfInputRef = useRef<HTMLInputElement>(null)
   const markerInputRef = useRef<HTMLInputElement>(null)
   const showConfirmModal = useNotificationStore(s => s.showConfirmModal)
@@ -249,6 +250,8 @@ export function LessonsTab() {
   }
 
   const handleSave = handleSubmit(async (formData) => {
+    if (isSaving) return
+    setIsSaving(true)
     try {
       const lessonId = editTarget?.id ?? uid()
       const createdAt = (editTarget && isTeacherLesson(editTarget) && editTarget.createdAt)
@@ -265,16 +268,25 @@ export function LessonsTab() {
         showConfirmModal(
           'Duplicate Week',
           `A lesson already exists for ${formData.subject} Week ${formData.week}: "${duplicateLesson.title}". Continue anyway?`,
-          () => handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
+          async () => {
+            try {
+              await handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
+            } finally {
+              setIsSaving(false)
+            }
+          },
+          () => setIsSaving(false) // user cancelled the duplicate-week confirmation
         )
         return
       }
 
       await handleSaveAfterValidation(lessonId, createdAt, formData, pdfDataUrl ?? null)
+      setIsSaving(false)
     } catch (error) {
       console.error('[LessonsTab] Save error:', error)
       const message = error instanceof Error ? error.message : 'Failed to save lesson'
       showConfirmModal('Save Failed', `Could not save lesson: ${message}\n\nMake sure you have internet connection and Firebase is configured.`, () => {})
+      setIsSaving(false)
     }
   });
 
@@ -317,23 +329,23 @@ export function LessonsTab() {
         modelIndex:    formData.arModelIndex,
         detectionMode: formData.detectionMode,
         anchorHint:    (formData.anchorHint ?? '').trim() || `Scan a ${formData.subject} marker.`,
-        title:         (formData.arTitle ?? '').trim() || undefined,
-        subtitle:      (formData.arSubtitle ?? '').trim() || undefined,
-        description:   (formData.arDescription ?? '').trim() || undefined,
-        keyIdeas:      (formData.arKeyIdeas ?? '').split('\n').map(s => s.trim()).filter(Boolean),
+        ...(formData.arTitle?.trim() ? { title: formData.arTitle.trim() } : {}),
+        ...(formData.arSubtitle?.trim() ? { subtitle: formData.arSubtitle.trim() } : {}),
+        ...(formData.arDescription?.trim() ? { description: formData.arDescription.trim() } : {}),
+        ...(formData.arKeyIdeas?.trim() ? { keyIdeas: formData.arKeyIdeas.split('\n').map(s => s.trim()).filter(Boolean) } : { keyIdeas: [] }),
         markerImage:   markerImagePath,
-        lessonSteps:   (formData.arSteps ?? '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6),
+        ...(formData.arSteps?.trim() ? { lessonSteps: formData.arSteps.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6) } : { lessonSteps: [] }),
       },
       curriculum: {
-        standards:            (formData.standards ?? '').trim() || undefined,
-        performanceStandards: (formData.performanceStandards ?? '').trim() || undefined,
-        contentDetails:       (formData.contentDetails ?? '').trim() || undefined,
-        learningCompetencies: (formData.learningCompetencies ?? '').split('\n').map(s => s.trim()).filter(Boolean),
-        objectives:           (formData.objectives ?? '').split('\n').map(s => s.trim()).filter(Boolean),
-        ...(formData.integrationQualities || formData.integrationDescription ? {
+        ...(formData.standards?.trim() ? { standards: formData.standards.trim() } : {}),
+        ...(formData.performanceStandards?.trim() ? { performanceStandards: formData.performanceStandards.trim() } : {}),
+        ...(formData.contentDetails?.trim() ? { contentDetails: formData.contentDetails.trim() } : {}),
+        ...(formData.learningCompetencies?.trim() ? { learningCompetencies: formData.learningCompetencies.split('\n').map(s => s.trim()).filter(Boolean) } : {}),
+        ...(formData.objectives?.trim() ? { objectives: formData.objectives.split('\n').map(s => s.trim()).filter(Boolean) } : {}),
+        ...(formData.integrationQualities?.trim() || formData.integrationDescription?.trim() ? {
           integration: {
-            qualities:   (formData.integrationQualities ?? '').split(',').map(s => s.trim()).filter(Boolean),
-            description: (formData.integrationDescription ?? '').trim(),
+            ...(formData.integrationQualities?.trim() ? { qualities: formData.integrationQualities.split(',').map(s => s.trim()).filter(Boolean) } : {}),
+            ...(formData.integrationDescription?.trim() ? { description: formData.integrationDescription.trim() } : {}),
           },
         } : {}),
       },
@@ -350,7 +362,7 @@ export function LessonsTab() {
   };
 
   if (showSkeleton) {
-    return <TableSkeleton columns={['Lesson', 'Linked Quiz', 'Created', '']} rows={8} />
+    return <TableSkeleton columns={['Lesson', 'Linked Test', 'Created', '']} rows={8} />
   }
 
   if (showForm) return (
@@ -433,16 +445,16 @@ export function LessonsTab() {
                 </Card>
 
                 <Card className="p-4 space-y-3">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Linked Quiz</p>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Linked Test</p>
                   <Controller
                     control={control}
                     name="linkedQuizId"
                     render={({ field }) => (
                       <div className="relative" onBlur={() => setTimeout(() => setQuizSearchOpen(false), 200)}>
-                        <label className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase">Search & Select Quiz (Optional)</label>
+                        <label className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase">Search & Select Test (Optional)</label>
                         <input
                           type="text"
-                          placeholder="Type to search quizzes..."
+                          placeholder="Type to search tests..."
                           value={quizSearchInput}
                           onChange={(e) => {
                             setQuizSearchInput(e.target.value)
@@ -487,7 +499,7 @@ export function LessonsTab() {
                             )}
                             {quizzesByType.created.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length > 0 && (
                               <>
-                                <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase bg-muted/30 sticky top-0 border-b border-border/50">Your Quizzes</div>
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase bg-muted/30 sticky top-0 border-b border-border/50">Your Tests</div>
                                 {quizzesByType.created
                                   .filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase()))
                                   .map(q => (
@@ -508,7 +520,7 @@ export function LessonsTab() {
                             )}
                             {quizzesByType.builtin.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length === 0 &&
                              quizzesByType.created.filter(q => q.title.toLowerCase().includes(quizSearchInput.toLowerCase())).length === 0 && (
-                              <div className="px-3 py-3 text-center text-xs text-muted-foreground">No quizzes found</div>
+                              <div className="px-3 py-3 text-center text-xs text-muted-foreground">No tests found</div>
                             )}
                           </div>
                         )}
@@ -736,8 +748,8 @@ export function LessonsTab() {
         )}
 
         <div className="mt-6">
-          <Button type="submit" className="btn-glow w-full">
-            Save Lesson
+          <Button type="submit" className="btn-glow w-full" disabled={isSaving} isLoading={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Lesson'}
           </Button>
         </div>
       </form>
@@ -794,7 +806,7 @@ export function LessonsTab() {
             <thead className="bg-muted/30 border-b border-border">
               <tr>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Lesson</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Linked Quiz</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Linked Test</th>
                 <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Created</th>
                 <th className="px-6 py-4" />
               </tr>
@@ -865,7 +877,7 @@ export function LessonsTab() {
                         <BookOpen size={20} className="text-muted-foreground" />
                       </div>
                       <p className="text-sm font-semibold text-foreground">No lessons yet</p>
-                      <p className="text-xs text-muted-foreground">Create lessons and link them to quizzes.</p>
+                      <p className="text-xs text-muted-foreground">Create lessons and link them to tests.</p>
                       <Button onClick={openNew} className="gap-2 btn-glow mt-1">
                         <Plus size={14} /> Create First Lesson
                       </Button>

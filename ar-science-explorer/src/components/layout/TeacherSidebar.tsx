@@ -21,7 +21,7 @@ const SIDEBAR_TRANSITION = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as const } a
 const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [
   { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/teacher/lessons',   icon: BookOpen,        label: 'Lessons' },
-  { path: '/teacher/quizzes',   icon: Brain,           label: 'Quizzes' },
+  { path: '/teacher/quizzes',   icon: Brain,           label: 'Tests' },
   { path: '/teacher/students',  icon: Users,           label: 'Students' },
   { path: '/teacher/codes',     icon: Lock,            label: 'Access Codes' },
 ]

@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils'
 import { getUnlockCodeData, trackCodeUsage } from '../../lib/unlockCodeManager'
 import { storage } from '../../lib/storage'
 import { useAppStore } from '../../store/useAppStore'
+import { builtinQuizId } from '../../lib/quizId'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
@@ -38,14 +39,14 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
 
       // ── 1. Try quiz retake codes (auto-generated, stored in quizUnlockCodes) ──
       if (type === 'quiz') {
-        const quizId = `builtin-${targetId}`
+        const quizId = builtinQuizId(targetId, 'post')
         const applied = await storage.applyQuizUnlockCode(currentStudentId, quizId, normalized)
         if (applied) {
           await storage.markQuizAsRetakeable(currentStudentId, quizId)
           // Add quiz to unlockedQuizIds so it shows as unlocked in the UI
           await storage.unlockContent(currentStudentId, quizId, 'quiz')
           setStatus('success')
-          setMessage('Quiz unlocked successfully!')
+          setMessage('Test unlocked successfully!')
           setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
           return
         }
@@ -100,19 +101,19 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         return
       }
 
-      // ── Quiz Unlock code (type === 'lesson' for first-time quiz access) ──
+      // ── Test Unlock code (type === 'lesson' for first-time test access) ──
       if (data.type === 'lesson' && type === 'quiz') {
         if (data.targetId && data.targetId !== targetId) {
           setStatus('error')
-          setMessage('This code is not valid for this quiz.')
+          setMessage('This code is not valid for this test.')
           return
         }
-        const quizId = `builtin-${targetId}`
+        const quizId = builtinQuizId(targetId, 'post')
         const success = await storage.unlockContent(currentStudentId, quizId, 'quiz')
         if (success) {
           await trackCodeUsage(normalized, currentStudentId)
           setStatus('success')
-          setMessage('Quiz unlocked successfully!')
+          setMessage('Test unlocked successfully!')
           setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
         } else {
           throw new Error('Storage update failed')
@@ -120,7 +121,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         return
       }
 
-      // ── Manually-created quiz retake code (stored as type 'quiz' in unlockCodes) ──
+      // ── Manually-created test retake code (stored as type 'quiz' in unlockCodes) ──
       if (data.type === 'quiz' && type === 'quiz') {
         // Enforce one-time use
         if (data.isUsed) {
@@ -130,16 +131,18 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         }
         if (data.targetId && data.targetId !== targetId) {
           setStatus('error')
-          setMessage('This code is not valid for this quiz.')
+          setMessage('This code is not valid for this test.')
           return
         }
 
-        // Validate: quiz must be completed before allowing retake
+        // Validate: the post-test must be completed before allowing a retake.
+        // Accept the legacy unsuffixed id too, for records saved before the pre/post split.
         const student = (await storage.getAll()).students.find(s => s.studentId === currentStudentId)
-        const quizId = `builtin-${targetId}`
-        if (!student?.completedQuizIds.includes(quizId)) {
+        const quizId = builtinQuizId(targetId, 'post')
+        const legacyId = `builtin-${targetId}`
+        if (!student?.completedQuizIds.includes(quizId) && !student?.completedQuizIds.includes(legacyId)) {
           setStatus('error')
-          setMessage('You must complete the quiz first before using a retake code.')
+          setMessage('You must complete the test first before using a retake code.')
           return
         }
 
@@ -148,7 +151,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         await storage.unlockContent(currentStudentId, quizId, 'quiz')
         await trackCodeUsage(normalized, currentStudentId, true) // markAsUsed=true (1-time use)
         setStatus('success')
-        setMessage('Quiz unlocked for retake!')
+        setMessage('Test unlocked for retake!')
         setTimeout(() => { onSuccess(); onClose(); setCode(''); setStatus('idle') }, 1500)
         return
       }
@@ -173,7 +176,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       }
 
       setStatus('error')
-      setMessage(`This code is not for this ${type}.`)
+      setMessage(`This code is not for this ${type === 'quiz' ? 'test' : type}.`)
     } catch (err) {
       console.error('Unlock error:', err)
       setStatus('error')

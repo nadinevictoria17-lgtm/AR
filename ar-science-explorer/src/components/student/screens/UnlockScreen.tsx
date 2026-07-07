@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { cn } from '../../../lib/utils'
-import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
+import { SUBJECT_STYLES } from '../../../lib/variants'
 import { KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react'
 import type { SubjectKey } from '../../../types'
 import { Button } from '../../ui/button'
@@ -19,7 +20,10 @@ function BackNav({ onClick, label = 'Back' }: { onClick: () => void; label?: str
 }
 
 export function UnlockScreen() {
-  const { unlocked, applyAccessCode, setScreen } = useAppStore()
+  const { unlocked, applyAccessCode } = useAppStore(
+    useShallow(s => ({ unlocked: s.unlocked, applyAccessCode: s.applyAccessCode }))
+  )
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
@@ -28,8 +32,8 @@ export function UnlockScreen() {
     .map(([k]) => k)
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6">
-      <BackNav onClick={() => setScreen('home')} label="Back to Home" />
+    <div className="space-y-6">
+      <BackNav onClick={() => navigate('/app/home')} label="Back to Home" />
       <div>
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           <KeyRound size={18} className="text-primary" /> Unlock Subjects
@@ -85,10 +89,10 @@ export function UnlockScreen() {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{locked.length > 0 ? `${locked.length} subjects still locked` : 'All subjects unlocked'}</p>
-        <Button variant="outline" onClick={() => setScreen('home')}>
+        <Button variant="outline" onClick={() => navigate('/app/home')}>
           Continue to Dashboard
         </Button>
       </div>
-    </motion.div>
+    </div>
   )
 }

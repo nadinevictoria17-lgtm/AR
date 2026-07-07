@@ -7,8 +7,8 @@ export interface CurriculumContent {
   objectives?: string[];
   contentDetails?: string;
   integration?: {
-    qualities: string[];
-    description: string;
+    qualities?: string[];
+    description?: string;
   }
 }
 
@@ -103,12 +103,25 @@ export interface StudentRecord {
   isArchived?: boolean;
 }
 
+/**
+ * Question format. Absent/undefined is treated as 'mc' everywhere for
+ * back-compat with all existing multiple-choice data.
+ * For 'tf', the convention is: True = index 0, False = index 1, and the
+ * options tuple is stored as ['True', 'False', '-', '-'] so the existing
+ * `correctIndex === optionIndex` scoring keeps working unchanged.
+ */
+export type QuestionType = 'mc' | 'tf';
+
 export interface TeacherQuizQuestion {
   question: string;
   options: [string, string, string, string];
   correctIndex: number;
   hint: string;
+  type?: QuestionType;
 }
+
+/** Which test a quiz belongs to: taken before the lesson vs after. */
+export type QuizPhase = 'pre' | 'post';
 
 export interface TeacherQuiz {
   id: string;
@@ -119,6 +132,8 @@ export interface TeacherQuiz {
   topicId?: string;
   questions: TeacherQuizQuestion[];
   createdAt: string;
+  // Which test this quiz is. Absent ⇒ treated as 'post' for legacy quizzes.
+  phase?: QuizPhase;
 }
 
 export interface TeacherLesson {
@@ -154,6 +169,7 @@ export interface BuiltInQuestion {
   options: [string, string, string, string];
   correctIndex: number;
   hint: string;
+  type?: QuestionType;
 }
 
 export interface Experiment {

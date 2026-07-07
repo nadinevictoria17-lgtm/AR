@@ -23,11 +23,11 @@ export function QuizResultsView({
   passed,
   onHome,
   isLastQuiz = false,
-  quizTitle = 'Quiz',
+  quizTitle = 'Test',
 }: QuizResultsViewProps) {
   const [isRedirecting, setIsRedirecting] = useState(false)
   const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0
-  const passThreshold = 70
+  const passThreshold = 50
 
   // Auto-redirect to Home after 4 seconds; clear both timers on unmount
   useEffect(() => {
@@ -79,7 +79,7 @@ export function QuizResultsView({
           {passed ? 'Excellent!' : 'Keep Trying!'}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {quizTitle} — {passed ? 'You passed this quiz!' : 'Review and try again.'}
+          {quizTitle} — {passed ? 'You passed this test!' : 'Review and try again.'}
         </p>
       </div>
 

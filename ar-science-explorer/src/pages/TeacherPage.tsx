@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { Menu } from 'lucide-react'
 import { TeacherSidebar } from '../components/layout/TeacherSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
+import { ContentSkeleton } from '../components/ui/skeleton'
 import { cn } from '../lib/utils'
 import { LAYOUT } from '../lib/variants'
 import { useAppStore } from '../store/useAppStore'
@@ -48,7 +49,9 @@ export function TeacherPage() {
         </div>
 
         <div className={cn('w-full mx-auto', LAYOUT.maxWidth, LAYOUT.padding, LAYOUT.spacing)}>
-          <Outlet />
+          <Suspense fallback={<ContentSkeleton />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

@@ -15,6 +15,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, auth, storage as fbStorage } from './firebase'
 import type { StudentRecord, TeacherQuiz, TeacherLesson, QuizAttempt, QuizUnlockCode, SubjectKey } from '../types'
 import { generateUnlockCode } from './unlockCodeGenerator'
+import { parseBuiltinId } from './quizId'
 
 /**
  * Firestore-based storage layer
@@ -280,22 +281,34 @@ export const storage = {
 
       console.log(`[Storage] Processing completeQuiz for ${studentId}, quiz: ${attempt.quizId}, subject: ${subject}`)
 
+      const parsed = parseBuiltinId(attempt.quizId)
+      const isPreTest = parsed.phase === 'pre'
+
       // 1. Prepare updates for main student document
       const updates: any = {
         completedQuizIds: arrayUnion(attempt.quizId),
-        unlockedQuizIds: arrayRemove(attempt.quizId), // FORGET the unlock code after use
       }
-      
+
+      // Pre-tests are free and always retakeable — no unlock to consume.
+      // Post-tests consume the access code on use (a new code is needed to retake).
+      if (!isPreTest) {
+        updates.unlockedQuizIds = arrayRemove(attempt.quizId)
+      }
+
       // Safety: Also include the attempt in the main doc array
       updates.quizAttempts = arrayUnion(attempt);
 
-      if (subject) {
+      // Only the POST-test contributes to the student's headline subject score
+      // (shown in the teacher's Students table & Analytics). A diagnostic pre-test
+      // score must not overwrite it — the pre-test is still saved in quizAttempts.
+      if (subject && !isPreTest) {
         updates[`scores.${subject}`] = attempt.score;
       }
 
-      if (attempt.quizId.startsWith('builtin-')) {
-        const lessonId = attempt.quizId.replace('builtin-', '')
-        updates.completedLessonIds = arrayUnion(lessonId)
+      // Only the POST-test completes the lesson. A pre-test must never mark the
+      // lesson complete (legacy unsuffixed builtin ids parse as 'post').
+      if (parsed.isBuiltin && parsed.lessonId && parsed.phase === 'post') {
+        updates.completedLessonIds = arrayUnion(parsed.lessonId)
       }
 
       // 2. Save main document FIRST
@@ -483,13 +496,19 @@ export const storage = {
 
       if (codesSnap.empty) return false
 
+      // A post-test code also accepts the legacy unsuffixed id for the same lesson.
+      const parsedForMatch = parseBuiltinId(quizId)
+      const acceptableIds = parsedForMatch.isBuiltin && parsedForMatch.lessonId
+        ? new Set([quizId, `builtin-${parsedForMatch.lessonId}`, `builtin-${parsedForMatch.lessonId}-post`])
+        : new Set([quizId])
+
       // Find a doc that matches this student + quiz (a code may be scoped to one student)
       const unlockCodeDoc =
         codesSnap.docs.find((d) => {
           const data = d.data() as QuizUnlockCode
           // Accept codes that match exactly OR codes with no studentId restriction
           const studentMatch = !data.studentId || data.studentId === studentId
-          const quizMatch = data.quizId === quizId
+          const quizMatch = acceptableIds.has(data.quizId)
           return studentMatch && quizMatch && !data.isUsed
         }) ?? null
 
@@ -515,16 +534,20 @@ export const storage = {
       if (studentSnap.exists()) {
         const studentData = studentSnap.data() as StudentRecord
         const attempts: QuizAttempt[] = studentData.quizAttempts ?? []
+
+        // Unlock the latest locked attempt for this quiz so the student can retake.
         const sorted = [...attempts]
           .filter((a) => a.quizId === quizId)
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         const latest = sorted[0]
-        if (latest?.locked) {
-          const updated = attempts.map((a) =>
-            a.id === latest.id ? { ...a, locked: false } : a
-          )
-          await updateDoc(studentRef, { quizAttempts: updated })
-        }
+        const updatedAttempts = latest?.locked
+          ? attempts.map((a) => (a.id === latest.id ? { ...a, locked: false } : a))
+          : attempts
+
+        await updateDoc(studentRef, {
+          quizAttempts: updatedAttempts,
+          unlockedQuizIds: arrayUnion(quizId),
+        })
       }
 
       return true
@@ -625,8 +648,28 @@ export const storage = {
         return { canTake: false, isLocked: true, reason: 'Student record not found', attemptCount: 0 }
       }
 
+      // Pre-tests are available immediately — no access code, always retakeable.
+      if (parseBuiltinId(quizId).phase === 'pre') {
+        const preAttempts = (docSnap.data() as StudentRecord).quizAttempts?.filter(a => a.quizId === quizId) ?? []
+        return { canTake: true, isLocked: false, attemptCount: preAttempts.length }
+      }
+
+      // Post-tests behave exactly like the old quiz: gated by an access code
+      // (for first access and for retakes after a fail).
       const student = docSnap.data() as StudentRecord
-      const unlockedQuizIds = new Set(student.unlockedQuizIds ?? [])
+      const rawUnlockedQuizIds = new Set(student.unlockedQuizIds ?? [])
+      // AccessCodeModal unlocks the legacy unsuffixed id (`builtin-${lessonId}`);
+      // accept that as equivalent to the `-post` id it's gating here.
+      const parsedForUnlock = parseBuiltinId(quizId)
+      const unlockedQuizIds = {
+        has: (id: string) => {
+          if (rawUnlockedQuizIds.has(id)) return true
+          if (id === quizId && parsedForUnlock.isBuiltin && parsedForUnlock.lessonId) {
+            return rawUnlockedQuizIds.has(`builtin-${parsedForUnlock.lessonId}`)
+          }
+          return false
+        },
+      }
 
       // Check quiz attempts on the parent document first
       let quizAttempts = (student.quizAttempts || []).filter((a) => a.quizId === quizId)
@@ -650,7 +693,7 @@ export const storage = {
           return {
             canTake: false,
             isLocked: true,
-            reason: 'Quiz is locked. Enter an unlock code to take it.',
+            reason: 'Test is locked. Enter an access code to take it.',
             attemptCount: 0,
           }
         }
@@ -669,7 +712,7 @@ export const storage = {
         return {
           canTake: false,
           isLocked: true,
-          reason: 'Quiz locked after attempt. Enter an unlock code to retake.',
+          reason: 'Test locked after attempt. Enter an access code to retake.',
           attemptCount: quizAttempts.length,
         }
       }
@@ -679,7 +722,7 @@ export const storage = {
          return {
           canTake: false,
           isLocked: true,
-          reason: 'Quiz requires an unlock code.',
+          reason: 'Test requires an access code.',
           attemptCount: 0,
         }
       }

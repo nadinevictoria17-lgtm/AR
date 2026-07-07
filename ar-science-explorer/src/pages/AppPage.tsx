@@ -1,12 +1,14 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useCallback, useEffect, Suspense } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../store/useAppStore'
 import { useFirebaseAuth } from '../lib/firebaseAuthContext'
 import { StudentSidebar } from '../components/layout/StudentSidebar'
 import { Toaster, ErrorModal, ConfirmModal } from '../components/ui/Notifications'
+import { ContentSkeleton } from '../components/ui/skeleton'
 import { cn } from '../lib/utils'
-import { LAYOUT } from '../lib/variants'
+import { LAYOUT, pageVariants } from '../lib/variants'
 import { Menu } from 'lucide-react'
 
 export default function AppPage() {
@@ -14,6 +16,7 @@ export default function AppPage() {
     useShallow(s => ({ theme: s.theme, setCurrentStudentId: s.setCurrentStudentId }))
   )
   const { studentId } = useFirebaseAuth()
+  const location = useLocation()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const handleMobileClose = useCallback(() => setMobileSidebarOpen(false), [])
 
@@ -44,7 +47,22 @@ export default function AppPage() {
           </button>
         </div>
         <div className={cn('w-full mx-auto', LAYOUT.maxWidth, LAYOUT.padding, LAYOUT.spacing)}>
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {/* Catches each lazy screen chunk here, INSIDE the persistent
+                  layout/AnimatePresence — so loading a not-yet-fetched screen
+                  never unmounts the sidebar or interrupts the page transition. */}
+              <Suspense fallback={<ContentSkeleton />}>
+                <Outlet />
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
     </div>

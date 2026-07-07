@@ -6,7 +6,7 @@ import type { SubjectKey, TeacherQuizQuestion } from '../types'
  * QuizQuestion is the minimal shape the quiz engine needs at runtime.
  * Both BuiltInQuestion and TeacherQuizQuestion satisfy this contract.
  */
-export type QuizQuestion = Pick<TeacherQuizQuestion, 'question' | 'options' | 'correctIndex' | 'hint'>
+export type QuizQuestion = Pick<TeacherQuizQuestion, 'question' | 'options' | 'correctIndex' | 'hint' | 'type'>
 
 export interface QuizStore {
   activeQuizSubject: SubjectKey | null

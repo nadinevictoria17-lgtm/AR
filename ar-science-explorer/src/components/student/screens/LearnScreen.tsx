@@ -1,29 +1,37 @@
-import { useEffect, useState, useCallback, useMemo, memo } from 'react'
+import { useState, useCallback, useMemo, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { GraduationCap, Lock, ChevronRight, FileText, Layout, Info } from 'lucide-react'
+import { GraduationCap, Lock, ChevronRight, FileText, Layout, Info, ClipboardCheck } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
+import { useQuizStore } from '../../../store/useQuizStore'
 import { cn } from '../../../lib/utils'
-import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
+import { SUBJECT_STYLES } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
+import { PRE_TEST_QUESTIONS } from '../../../data/curriculum'
 import { SUBJECTS } from '../../../data/subjects'
+import { builtinQuizId } from '../../../lib/quizId'
 import type { SubjectKey, Lesson, TeacherLesson } from '../../../types'
 import { useNavigate } from 'react-router-dom'
 import { useStorageData } from '../../../hooks/useStorageData'
-import { storage } from '../../../lib/storage'
+import { useStudentRecord } from '../../../hooks/useStudentRecord'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
+import { ContentSkeleton } from '../../ui/skeleton'
 import { AccessCodeModal } from '../../shared/AccessCodeModal'
-import { db, auth } from '../../../lib/firebase'
-import { doc, onSnapshot } from 'firebase/firestore'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
+// Lessons that define a pre-test (diagnostic taken before the lesson).
+const LESSONS_WITH_PRETEST = new Set(PRE_TEST_QUESTIONS.map(q => q.lessonId).filter(Boolean) as string[])
+
 // Memoized card to prevent re-renders when parent updates
-const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
+const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick, onPreTest }: {
   lesson: Lesson | TeacherLesson
   idx: number
   isUnlocked: boolean
   onLessonClick: (lesson: Lesson | TeacherLesson) => void
+  onPreTest: (lesson: Lesson | TeacherLesson) => void
 }) => {
+  const hasPreTest = LESSONS_WITH_PRETEST.has(lesson.id)
   const style = SUBJECT_STYLES[lesson.subject]
   return (
     <motion.div
@@ -84,7 +92,15 @@ const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider">
                 <GraduationCap size={14} /> Ready to Explore
               </div>
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex gap-2 items-center">
+                {hasPreTest && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPreTest(lesson) }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black uppercase tracking-wider hover:bg-primary/20 transition-colors"
+                  >
+                    <ClipboardCheck size={13} /> Pre-Test
+                  </button>
+                )}
                 {lesson.pdfUrl && (
                   <a href={lesson.pdfUrl} download className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
                     <FileText size={14} />
@@ -110,67 +126,54 @@ const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick }: {
 const SUBJECTS_DATA = SUBJECTS.filter(s => SUBJECT_ORDER.includes(s.id as SubjectKey))
 
 export function LearnScreen() {
-  const { setScreen, setActiveLesson, currentStudentId } = useAppStore(
-    useShallow(s => ({ setScreen: s.setScreen, setActiveLesson: s.setActiveLesson, currentStudentId: s.currentStudentId }))
+  const { setActiveLesson, currentStudentId } = useAppStore(
+    useShallow(s => ({ setActiveLesson: s.setActiveLesson, currentStudentId: s.currentStudentId }))
   )
-  const { data: storageData } = useStorageData()
+  const { initQuiz, setActiveQuizSubject, setRunningQuizId } = useQuizStore(
+    useShallow(s => ({ initQuiz: s.initQuiz, setActiveQuizSubject: s.setActiveQuizSubject, setRunningQuizId: s.setRunningQuizId }))
+  )
+  const { data: storageData, isLoading: quizzesLoading } = useStorageData()
+  const { student, isLoading: studentLoading } = useStudentRecord(currentStudentId)
+  const showSkeleton = useDeferredLoading(quizzesLoading || studentLoading)
   const navigate = useNavigate()
 
   const [activeSubject, setActiveSubject] = useState<SubjectKey>('chemistry')
-  const [unlockedLessons, setUnlockedLessons] = useState<Set<string>>(new Set())
   const [unlockModal, setUnlockModal] = useState<{ isOpen: boolean; lessonId: string; title: string }>({
     isOpen: false,
     lessonId: '',
     title: '',
   })
 
-  useEffect(() => {
-    console.log('[Auth Status] Logged in as UID:', auth.currentUser?.uid || 'NOT LOGGED IN')
-    console.log('[Auth Status] Student ID from Store:', currentStudentId)
-    
-    if (!currentStudentId) return
-
-    // Subscribe to student document for real-time updates
-    const unsub = onSnapshot(
-      doc(db, 'students', currentStudentId),
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data()
-          setUnlockedLessons(new Set(data.unlockedLessonIds ?? []))
-        }
-      },
-      (err) => {
-        console.error('[LearnScreen] Student data subscription error:', err)
-        // On error, set empty sets
-        setUnlockedLessons(new Set())
-      }
-    )
-
-    return () => unsub()
-  }, [currentStudentId])
+  const unlockedLessons = useMemo(() => new Set(student?.unlockedLessonIds ?? []), [student?.unlockedLessonIds])
 
   const handleLessonClick = useCallback((lesson: Lesson | TeacherLesson) => {
     const isUnlocked = ('isUnlockedByDefault' in lesson && lesson.isUnlockedByDefault) || (unlockedLessons && unlockedLessons.has(lesson.id))
     if (isUnlocked) {
       setActiveLesson(lesson.id)
-      setScreen('arlab')
       navigate('/app/arlab')
     } else {
       setUnlockModal({ isOpen: true, lessonId: lesson.id, title: lesson.title })
     }
-  }, [unlockedLessons, setActiveLesson, setScreen, navigate])
+  }, [unlockedLessons, setActiveLesson, navigate])
+
+  // Pre-test is available immediately (no access code) — start it right away.
+  const handlePreTest = useCallback((lesson: Lesson | TeacherLesson) => {
+    const preQs = PRE_TEST_QUESTIONS.filter(q => q.lessonId === lesson.id)
+    if (preQs.length === 0) return
+    setActiveQuizSubject(lesson.subject)
+    initQuiz(preQs)
+    setRunningQuizId(builtinQuizId(lesson.id, 'pre'))
+    navigate('/app/quiz')
+  }, [initQuiz, setActiveQuizSubject, setRunningQuizId, navigate])
 
   const handleModalClose = useCallback(() =>
     setUnlockModal(m => ({ ...m, isOpen: false })), [])
 
-  const handleModalSuccess = useCallback(async () => {
-    // Reload unlock status after successful unlock
-    if (currentStudentId) {
-      const ids = await storage.getUnlockedLessons(currentStudentId)
-      setUnlockedLessons(new Set(ids))
-    }
+  // The shared student-record listener picks up the new unlockedLessonIds
+  // automatically once the write lands — no manual re-fetch needed.
+  const handleModalSuccess = useCallback(() => {
     setUnlockModal(m => ({ ...m, isOpen: false }))
-  }, [currentStudentId])
+  }, [])
 
   // Merge built-in lessons with teacher-created lessons
   const allLessons = useMemo(() => {
@@ -189,8 +192,10 @@ export function LearnScreen() {
     [allLessons, activeSubject]
   )
 
+  if (showSkeleton) return <ContentSkeleton />
+
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12">
       <div className="relative overflow-hidden rounded-[2.5rem] bg-foreground p-8 sm:p-12 text-background shadow-2xl">
         <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px]" />
         <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-subject-biology/20 rounded-full blur-[100px]" />
@@ -262,6 +267,7 @@ export function LearnScreen() {
                   idx={idx}
                   isUnlocked={isUnlocked}
                   onLessonClick={handleLessonClick}
+                  onPreTest={handlePreTest}
                 />
               )
             })}
@@ -277,6 +283,6 @@ export function LearnScreen() {
         title={unlockModal.title}
         onSuccess={handleModalSuccess}
       />
-    </motion.div>
+    </div>
   )
 }

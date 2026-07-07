@@ -1,21 +1,21 @@
-import { useMemo, useCallback, useEffect, useState } from 'react'
+import { useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useStudentRecord } from '../../../hooks/useStudentRecord'
 import { ContentSkeleton } from '../../ui/skeleton'
 import { cn } from '../../../lib/utils'
-import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
+import { SUBJECT_STYLES } from '../../../lib/variants'
 import { Trophy, ArrowLeft, BookOpen, ChevronRight, Brain, CheckCircle2, XCircle, RotateCcw, Clock, Lock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
-import type { QuizAttempt, SubjectKey, TeacherQuiz, StudentRecord } from '../../../types'
+import type { QuizAttempt, SubjectKey, TeacherQuiz } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { LESSONS } from '../../../data/lessons'
-import { QUIZ_QUESTIONS } from '../../../data/quiz'
-import { db } from '../../../lib/firebase'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { PRE_TEST_QUESTIONS, POST_TEST_QUESTIONS } from '../../../data/curriculum'
+import { parseBuiltinId } from '../../../lib/quizId'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 const SCORE_BAR_TRANSITION = { duration: 0.7, ease: 'easeOut' } as const
@@ -36,12 +36,14 @@ function resolveQuiz(quizId: string, teacherQuizzes: TeacherQuiz[]): { title: st
   const tq = teacherQuizzes.find(q => q.id === quizId)
   if (tq) return { title: tq.title, subject: tq.subject }
 
-  const lessonId = quizId.startsWith('builtin-') ? quizId.replace('builtin-', '') : quizId
-  const lesson = LESSONS.find(l => l.id === lessonId)
-  if (lesson) return { title: lesson.title, subject: lesson.subject }
+  const { lessonId, phase } = parseBuiltinId(quizId)
+  const lesson = lessonId ? LESSONS.find(l => l.id === lessonId) : null
+  const suffix = phase === 'pre' ? 'Pre-Test' : 'Post-Test'
+  if (lesson) return { title: `${lesson.title} — ${suffix}`, subject: lesson.subject }
 
-  const firstQ = QUIZ_QUESTIONS.find(q => q.lessonId === lessonId)
-  return { title: `${lessonId.toUpperCase()} Quiz`, subject: firstQ?.subject ?? 'chemistry' }
+  const phaseQuestions = phase === 'pre' ? PRE_TEST_QUESTIONS : POST_TEST_QUESTIONS
+  const firstQ = phaseQuestions.find(q => q.lessonId === lessonId)
+  return { title: `${(lessonId ?? quizId).toUpperCase()} ${suffix}`, subject: firstQ?.subject ?? 'chemistry' }
 }
 
 /** Get the ordered list of correct answer indices for a quiz */
@@ -49,8 +51,9 @@ function getCorrectAnswers(quizId: string, teacherQuizzes: TeacherQuiz[]): numbe
   const tq = teacherQuizzes.find(q => q.id === quizId)
   if (tq) return tq.questions.map(q => q.correctIndex)
 
-  const lessonId = quizId.startsWith('builtin-') ? quizId.replace('builtin-', '') : quizId
-  const qs = QUIZ_QUESTIONS.filter(q => q.lessonId === lessonId)
+  const { lessonId, phase } = parseBuiltinId(quizId)
+  const phaseQuestions = phase === 'pre' ? PRE_TEST_QUESTIONS : POST_TEST_QUESTIONS
+  const qs = phaseQuestions.filter(q => q.lessonId === lessonId)
   if (qs.length) return qs.map(q => q.correctIndex)
 
   return null
@@ -83,36 +86,15 @@ function BackNav({ onClick, label = 'Back' }: { onClick: () => void; label?: str
 }
 
 export function ProgressScreen() {
-  const { unlocked, currentStudentId, setScreen } = useAppStore(
-    useShallow(s => ({ unlocked: s.unlocked, currentStudentId: s.currentStudentId, setScreen: s.setScreen }))
+  const { unlocked, currentStudentId } = useAppStore(
+    useShallow(s => ({ unlocked: s.unlocked, currentStudentId: s.currentStudentId }))
   )
   // Subscribe to quizzes/lessons only (not the full students collection)
   const { data: all, isLoading: sharedLoading } = useStorageData(false)
 
-  // Subscribe directly to the current student's document for real-time score updates
-  const [student, setStudent] = useState<StudentRecord | null>(null)
-  const [studentLoading, setStudentLoading] = useState(true)
-
-  useEffect(() => {
-    if (!currentStudentId) {
-      setStudentLoading(false)
-      return
-    }
-    setStudentLoading(true)
-    const unsub = onSnapshot(
-      doc(db, 'students', currentStudentId),
-      (snap) => {
-        if (snap.exists()) {
-          setStudent({ ...(snap.data() as Omit<StudentRecord, 'id'>), id: snap.id } as StudentRecord)
-        } else {
-          setStudent(null)
-        }
-        setStudentLoading(false)
-      },
-      () => setStudentLoading(false)
-    )
-    return () => unsub()
-  }, [currentStudentId])
+  // Subscribe to the current student's document via the shared listener
+  // (de-duplicated across QuizScreen/LearnScreen/ProgressScreen).
+  const { student, isLoading: studentLoading } = useStudentRecord(currentStudentId)
 
   const isLoading = sharedLoading || studentLoading
   const navigate = useNavigate()
@@ -163,20 +145,20 @@ export function ProgressScreen() {
     : null
   const completedLessons = Array.isArray(student?.completedLessonIds) ? student!.completedLessonIds.length : 0
 
-  const handleBack             = useCallback(() => { setScreen('home');  navigate('/app/home')  }, [setScreen, navigate])
-  const handleContinueLearning = useCallback(() => { setScreen('learn'); navigate('/app/learn') }, [setScreen, navigate])
+  const handleBack             = useCallback(() => navigate('/app/home'),  [navigate])
+  const handleContinueLearning = useCallback(() => navigate('/app/learn'), [navigate])
 
   if (isLoading) return <ContentSkeleton />
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10">
       <BackNav onClick={handleBack} label="Back to Home" />
 
       <div className="space-y-1">
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           <Trophy size={20} className="text-primary" /> Progress Report
         </h2>
-        <p className="text-sm text-muted-foreground">Your scores across all lessons and quizzes.</p>
+        <p className="text-sm text-muted-foreground">Your scores across all lessons and tests.</p>
       </div>
 
       {!student ? (
@@ -196,7 +178,7 @@ export function ProgressScreen() {
             <StatCard icon={BookOpen} iconColor="bg-subject-biology/10 text-subject-biology"
               label="Lessons Completed" value={completedLessons} sub="interactive sessions" />
             <StatCard icon={Brain} iconColor="bg-primary/10 text-primary"
-              label="Quizzes Taken" value={totalQuizzes} sub="unique quizzes attempted" />
+              label="Tests Taken" value={totalQuizzes} sub="unique tests attempted" />
             <StatCard
               icon={Trophy}
               iconColor={
@@ -205,7 +187,7 @@ export function ProgressScreen() {
                 avgScore >= 50               ? 'bg-warning/10 text-warning'     :
                                                'bg-destructive/10 text-destructive'
               }
-              label="Average Best Score" value={avgScore == null ? '—' : `${avgScore}%`} sub="across all quizzes" />
+              label="Average Best Score" value={avgScore == null ? '—' : `${avgScore}%`} sub="across all tests" />
             </div>
           </div>
 
@@ -264,7 +246,7 @@ export function ProgressScreen() {
 
                         <div className="pt-2 border-t border-border/50 ml-0">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Quiz Status:</span>
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Test Status:</span>
                             <div className="flex items-center gap-2">
                               {!isQuizUnlocked && !hasQuizAttempt && (
                                 <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
@@ -306,8 +288,8 @@ export function ProgressScreen() {
                 <Brain size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Quiz Attempts & Scores</h3>
-                <p className="text-xs text-muted-foreground">Your quiz performance by subject</p>
+                <h3 className="text-lg font-bold text-foreground">Test Attempts & Scores</h3>
+                <p className="text-xs text-muted-foreground">Your test performance by subject</p>
               </div>
             </div>
           </div>
@@ -318,8 +300,8 @@ export function ProgressScreen() {
               <div className="w-14 h-14 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-3">
                 <Brain size={24} className="text-muted-foreground" />
               </div>
-              <p className="text-sm font-semibold text-foreground">No quiz attempts yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Complete a lesson to unlock your first quiz.</p>
+              <p className="text-sm font-semibold text-foreground">No test attempts yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Take a Pre-Test or complete a lesson to unlock your first Post-Test.</p>
             </Card>
           ) : (
             SUBJECT_ORDER.map(subject => {
@@ -337,7 +319,7 @@ export function ProgressScreen() {
                       <span className={cn('text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full border', ss.badge)}>
                         {ss.label}
                       </span>
-                      <span className="text-xs text-muted-foreground">{groups.length} quiz{groups.length !== 1 ? 'zes' : ''}</span>
+                      <span className="text-xs text-muted-foreground">{groups.length} test{groups.length !== 1 ? 's' : ''}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {!unlocked[subject] && (
@@ -461,6 +443,6 @@ export function ProgressScreen() {
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   )
 }

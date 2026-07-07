@@ -54,7 +54,7 @@ const UnlockCodesTab = lazy(() =>
 )
 
 export default function App() {
-  const { theme } = useAppStore()
+  const theme = useAppStore((s) => s.theme)
 
   useEffect(() => {
     document.documentElement.className = theme
@@ -64,42 +64,54 @@ export default function App() {
     <ErrorBoundary>
       <FirebaseAuthProvider>
         <BrowserRouter>
-          <Suspense fallback={<PageSkeleton />}>
-            <Routes>
-              {/* Public — redirect away if already authenticated */}
-              <Route element={<PublicOnlyRoute />}>
-                <Route path="/login" element={<LoginPage />} />
-              </Route>
+          <Routes>
+            {/* Public — redirect away if already authenticated. Top-level pages
+                (not yet inside a persistent layout) still suspend individually. */}
+            <Route element={<PublicOnlyRoute />}>
+              <Route path="/login" element={<Suspense fallback={<PageSkeleton />}><LoginPage /></Suspense>} />
+            </Route>
 
-              {/* Student Routes — require Firebase student session */}
-              <Route element={<StudentRoute />}>
-                <Route path="/app" element={<AppPage />}>
-                  <Route index element={<Navigate to="/app/home" replace />} />
-                  <Route path="home"       element={<HomeScreen />} />
-                  <Route path="unlock"     element={<UnlockScreen />} />
-                  <Route path="learn"      element={<LearnScreen />} />
-                  <Route path="arlab"      element={<ARLabScreen />} />
-                  <Route path="quiz"       element={<QuizScreen />} />
-                  <Route path="progress"   element={<ProgressScreen />} />
-                  <Route path="getstarted" element={<GetStartedScreen />} />
-                </Route>
+            {/* Student Routes — require Firebase student session.
+                AppPage itself loads once behind this outer Suspense; the inner
+                per-screen Suspense (around <Outlet/> inside AppPage.tsx) is what
+                actually catches each lazy screen chunk, so switching between
+                student screens never unmounts the sidebar/layout or interrupts
+                the page-transition animation with a fallback flash. */}
+            <Route element={<StudentRoute />}>
+              <Route path="/app" element={
+                <Suspense fallback={<PageSkeleton />}>
+                  <AppPage />
+                </Suspense>
+              }>
+                <Route index element={<Navigate to="/app/home" replace />} />
+                <Route path="home"       element={<HomeScreen />} />
+                <Route path="unlock"     element={<UnlockScreen />} />
+                <Route path="learn"      element={<LearnScreen />} />
+                <Route path="arlab"      element={<ARLabScreen />} />
+                <Route path="quiz"       element={<QuizScreen />} />
+                <Route path="progress"   element={<ProgressScreen />} />
+                <Route path="getstarted" element={<GetStartedScreen />} />
               </Route>
+            </Route>
 
-              {/* Teacher Routes — require Firebase teacher session */}
-              <Route element={<TeacherRoute />}>
-                <Route path="/teacher" element={<TeacherPage />}>
-                  <Route index element={<Navigate to="/teacher/dashboard" replace />} />
-                  <Route path="dashboard" element={<AnalyticsDashboard />} />
-                  <Route path="quizzes"   element={<QuizzesTab />} />
-                  <Route path="lessons"   element={<LessonsTab />} />
-                  <Route path="students"  element={<StudentsTab />} />
-                  <Route path="codes"     element={<UnlockCodesTab />} />
-                </Route>
+            {/* Teacher Routes — require Firebase teacher session */}
+            <Route element={<TeacherRoute />}>
+              <Route path="/teacher" element={
+                <Suspense fallback={<PageSkeleton />}>
+                  <TeacherPage />
+                </Suspense>
+              }>
+                <Route index element={<Navigate to="/teacher/dashboard" replace />} />
+                <Route path="dashboard" element={<AnalyticsDashboard />} />
+                <Route path="quizzes"   element={<QuizzesTab />} />
+                <Route path="lessons"   element={<LessonsTab />} />
+                <Route path="students"  element={<StudentsTab />} />
+                <Route path="codes"     element={<UnlockCodesTab />} />
               </Route>
+            </Route>
 
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </Suspense>
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
         </BrowserRouter>
       </FirebaseAuthProvider>
     </ErrorBoundary>

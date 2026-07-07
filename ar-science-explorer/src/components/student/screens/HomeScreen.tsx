@@ -1,10 +1,9 @@
 import { useState, useMemo, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useStorageData } from '../../../hooks/useStorageData'
+import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { cn } from '../../../lib/utils'
-import { pageVariants } from '../../../lib/variants'
 import { LESSONS } from '../../../data/lessons'
 import { Trophy, KeyRound, ArrowRight, CheckCircle2, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -15,9 +14,8 @@ import { Input } from '../../ui/input'
 import { ContentSkeleton } from '../../ui/skeleton'
 
 export function HomeScreen() {
-  const { setScreen, currentStudentId, applyAccessCode, setActiveLesson } = useAppStore(
+  const { currentStudentId, applyAccessCode, setActiveLesson } = useAppStore(
     useShallow(s => ({
-      setScreen:      s.setScreen,
       currentStudentId: s.currentStudentId,
       applyAccessCode: s.applyAccessCode,
       setActiveLesson: s.setActiveLesson,
@@ -27,8 +25,8 @@ export function HomeScreen() {
   const [accessCode, setAccessCode] = useState('')
   const [isApplyingCode, setIsApplyingCode] = useState(false)
 
-  const { data } = useStorageData(true)
-  const showSkeleton = false
+  const { data, isLoading } = useStorageData(true)
+  const showSkeleton = useDeferredLoading(isLoading)
   const student = useMemo(() =>
     currentStudentId ? data.students.find(s => s.studentId === currentStudentId) : null
   , [data.students, currentStudentId])
@@ -61,23 +59,16 @@ export function HomeScreen() {
     const next = LESSONS.find(l => !student?.completedLessonIds.includes(l.id))
     if (next) {
       setActiveLesson(next.id)
-      setScreen('arlab')
       navigate(`/app/arlab?lessonId=${next.id}`)
     } else {
-      setScreen('learn')
       navigate('/app/learn')
     }
-  }, [student, setActiveLesson, setScreen, navigate])
+  }, [student, setActiveLesson, navigate])
 
   if (showSkeleton) return <ContentSkeleton />
 
   return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      className="space-y-8 pb-10"
-    >
+    <div className="space-y-8 pb-10">
       {/* Top Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -142,7 +133,7 @@ export function HomeScreen() {
                 </div>
               </div>
               <p className="text-2xl font-black text-foreground">{student?.completedQuizIds.length || 0}</p>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Quizzes Passed</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Tests Taken</p>
             </Card>
           </div>
         </div>
@@ -160,7 +151,7 @@ export function HomeScreen() {
                 recentAttempts.map((attempt, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/50">
                     <div>
-                      <p className="text-xs font-bold text-foreground">Quiz Result</p>
+                      <p className="text-xs font-bold text-foreground">Test Result</p>
                       <p className="text-[10px] text-muted-foreground italic">{new Date(attempt.timestamp).toLocaleDateString()}</p>
                     </div>
                     <span className={cn(
@@ -216,6 +207,6 @@ export function HomeScreen() {
           </Card>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
