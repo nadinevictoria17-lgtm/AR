@@ -20,6 +20,7 @@ interface QuizPlayerViewProps {
   selectedAnswer: number | null
   showResult: boolean
   hintsUsedCount: number
+  isCurrentHinted: boolean
   onSelectAnswer: (optionIndex: number) => void
   onShowResult: () => void
   onNextQuestion: () => void
@@ -34,6 +35,7 @@ export function QuizPlayerView({
   selectedAnswer,
   showResult,
   hintsUsedCount,
+  isCurrentHinted,
   onSelectAnswer,
   onShowResult,
   onNextQuestion,
@@ -41,7 +43,7 @@ export function QuizPlayerView({
   onBack,
 }: QuizPlayerViewProps) {
   const isCorrect = selectedAnswer === question.correctIndex
-  const hasHintsLeft = hintsUsedCount < 3
+  const hasHintsLeft = hintsUsedCount < 3 && !isCurrentHinted
   const isTrueFalse = question.type === 'tf'
   // True/False questions use only the first two option slots (True=0, False=1).
   const visibleOptions = isTrueFalse ? question.options.slice(0, 2) : question.options
@@ -140,7 +142,7 @@ export function QuizPlayerView({
         )}
 
         {/* Hint Display */}
-        {question.hint && hintsUsedCount > 0 && !showResult && (
+        {question.hint && isCurrentHinted && !showResult && (
           <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg mb-6">
             <p className="text-sm text-warning-foreground">
               <strong>Hint:</strong> {question.hint}

@@ -15,6 +15,7 @@ export interface QuizStore {
   quizScore: number
   quizAnswers: (number | null)[]
   quizHintsUsed: number
+  quizHintedQuestions: number[]
   runningQuizId: string | null
 
   setActiveQuizSubject: (s: SubjectKey | null) => void
@@ -35,6 +36,7 @@ export const useQuizStore = create<QuizStore>()(
       quizScore:        0,
       quizAnswers:      [],
       quizHintsUsed:    0,
+      quizHintedQuestions: [],
       runningQuizId:    null,
 
       setActiveQuizSubject: (s) => set({ activeQuizSubject: s }),
@@ -46,6 +48,7 @@ export const useQuizStore = create<QuizStore>()(
           quizScore:     0,
           quizAnswers:   Array(questions.length).fill(null),
           quizHintsUsed: 0,
+          quizHintedQuestions: [],
         }),
 
       submitAnswer: (optionIndex) =>
@@ -63,8 +66,15 @@ export const useQuizStore = create<QuizStore>()(
         set((state) => ({ quizIndex: state.quizIndex + 1 })),
 
       useHint: () =>
-        set((state) => ({ quizHintsUsed: Math.min(state.quizHintsUsed + 1, 1) })),
-      
+        set((state) => {
+          if (state.quizHintedQuestions.includes(state.quizIndex)) return state
+          if (state.quizHintsUsed >= 3) return state
+          return {
+            quizHintsUsed: state.quizHintsUsed + 1,
+            quizHintedQuestions: [...state.quizHintedQuestions, state.quizIndex],
+          }
+        }),
+
       setRunningQuizId: (id) => set({ runningQuizId: id }),
 
       resetQuiz: () =>
@@ -74,6 +84,7 @@ export const useQuizStore = create<QuizStore>()(
           quizScore:        0,
           quizAnswers:      [],
           quizHintsUsed:    0,
+          quizHintedQuestions: [],
           activeQuizSubject: null,
           runningQuizId:     null,
         }),

@@ -44,6 +44,7 @@ export function QuizScreen() {
     quizScore,
     useHint,
     quizHintsUsed,
+    quizHintedQuestions,
     resetQuiz,
     runningQuizId,
     setRunningQuizId,
@@ -59,6 +60,7 @@ export function QuizScreen() {
     quizScore:         s.quizScore,
     useHint:           s.useHint,
     quizHintsUsed:     s.quizHintsUsed,
+    quizHintedQuestions: s.quizHintedQuestions,
     resetQuiz:         s.resetQuiz,
     runningQuizId:     s.runningQuizId,
     setRunningQuizId:  s.setRunningQuizId,
@@ -429,6 +431,7 @@ export function QuizScreen() {
           selectedAnswer={selected}
           showResult={false}
           hintsUsedCount={quizHintsUsed}
+          isCurrentHinted={quizHintedQuestions.includes(quizIndex)}
           onSelectAnswer={handleSelectAnswer}
           onShowResult={handleShowResult}
           onNextQuestion={handleNextQuestion}
