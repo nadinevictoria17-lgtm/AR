@@ -19,7 +19,6 @@ import { format, parseISO, startOfDay } from 'date-fns'
 import type { SubjectKey } from '../../../types'
 import { DashboardSkeleton } from '../../ui/skeleton'
 import { Button } from '../../ui/button'
-import { Card } from '../../ui/card'
 
 const BIOLOGY_COLOR   = 'hsl(var(--subject-biology))'
 const CHEMISTRY_COLOR = 'hsl(var(--subject-chemistry))'
@@ -32,7 +31,7 @@ const DANGER_COLOR    = 'hsl(var(--destructive))'
 const TOOLTIP_STYLE = {
   backgroundColor: 'hsl(var(--card))',
   borderColor:     'hsl(var(--border))',
-  borderRadius:    '8px',
+  borderRadius:    '12px',
   fontSize:        '12px',
   color:           'hsl(var(--foreground))',
 }
@@ -233,36 +232,21 @@ export function AnalyticsDashboard() {
   if (showSkeleton) return <DashboardSkeleton />
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-5">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl md:text-[28px] font-semibold tracking-tight text-foreground flex items-center gap-2.5">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <LayoutDashboard size={20} className="text-primary" /> Class Analytics
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 text-success text-[11px] font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-success/20 text-success text-xs font-semibold">
+              <span className="animate-pulse w-2 h-2 rounded-full bg-success" />
               Live
             </span>
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">Visual insights into student performance across all subjects.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Visual insights into student performance across all subjects.</p>
         </div>
       </div>
 
-      {/* ── Bento row 1: headline stat + 3 supporting stats ─────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        {/* Headline tile: Avg Class Score — spans 2/6, taller emphasis */}
-        <Card className="col-span-2 lg:col-span-2 lg:row-span-2 p-6 flex flex-col justify-between bg-foreground text-background border-transparent">
-          <div className="flex items-start justify-between">
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-              <TrendingUp size={18} className="text-primary" />
-            </div>
-          </div>
-          <div className="mt-6">
-            <p className="text-5xl font-semibold tabular-nums leading-none">{avgClassScore}%</p>
-            <p className="text-sm text-background/60 mt-3">Avg Class Score</p>
-            <p className="text-xs text-background/45 mt-1">across all subjects</p>
-          </div>
-        </Card>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Users}
           label="Total Students"
@@ -270,6 +254,14 @@ export function AnalyticsDashboard() {
           context="enrolled in class"
           color="text-subject-physics"
           bg="bg-subject-physics/10"
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Avg Class Score"
+          value={`${avgClassScore}%`}
+          context="across all subjects"
+          color="text-primary"
+          bg="bg-primary/10"
         />
         <StatCard
           icon={BookOpen}
@@ -286,20 +278,17 @@ export function AnalyticsDashboard() {
           context="attempted at least 1 test"
           color="text-success"
           bg="bg-success/10"
-          className="col-span-2 lg:col-span-2"
         />
       </div>
 
-      {/* ── Bento row 2: charts + lists, varied tile sizes ──────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-6 gap-5">
-        {/* Wide chart tile: subject performance — spans 4/6 */}
-        <Card className="lg:col-span-4 p-5">
-          <h3 className="text-sm font-semibold text-foreground">Subject Performance Average</h3>
-          <p className="text-xs text-muted-foreground mb-5">Mean score by subject</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-bold text-foreground mb-1">Subject Performance Average</h3>
+          <p className="text-xs text-muted-foreground mb-6">Mean score by subject</p>
           <div className="h-64 w-full">
             {subjectAverages.every(s => s.value === 0) ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <TrendingUp size={22} className="opacity-40" />
+                <TrendingUp size={24} className="opacity-40" />
                 <p className="text-sm">No scores recorded yet</p>
               </div>
             ) : (
@@ -309,7 +298,7 @@ export function AnalyticsDashboard() {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => v + '%'} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40}>
                     <Cell fill={CHEMISTRY_COLOR} />
                     <Cell fill={BIOLOGY_COLOR} />
                     <Cell fill={PHYSICS_COLOR} />
@@ -318,16 +307,15 @@ export function AnalyticsDashboard() {
               </ResponsiveContainer>
             )}
           </div>
-        </Card>
+        </div>
 
-        {/* Narrower tile: score distribution — spans 2/6 */}
-        <Card className="lg:col-span-2 p-5">
-          <h3 className="text-sm font-semibold text-foreground">Class Score Distribution</h3>
-          <p className="text-xs text-muted-foreground mb-5">Students by performance tier</p>
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-bold text-foreground mb-1">Class Score Distribution</h3>
+          <p className="text-xs text-muted-foreground mb-6">Students by performance tier</p>
           <div className="h-64 w-full flex items-center justify-center">
             {scoreDistribution.reduce((a, b) => a + b.value, 0) === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <Trophy size={22} className="opacity-40" />
+                <Trophy size={24} className="opacity-40" />
                 <p className="text-sm">No students yet</p>
               </div>
             ) : (
@@ -354,53 +342,22 @@ export function AnalyticsDashboard() {
           <div className="flex justify-center gap-4 mt-4 flex-wrap">
             {scoreDistribution.map((cat) => (
               <div key={cat.name} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                <span className="text-[11px] text-muted-foreground font-medium">{cat.name} {cat.range}</span>
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                <span className="text-[10px] text-muted-foreground font-medium">{cat.name} {cat.range}</span>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
+      </div>
 
-        {/* Narrower tile: top performers — spans 2/6 */}
-        <Card className="lg:col-span-2 p-5">
-          <h3 className="text-sm font-semibold text-foreground">Top Performers</h3>
-          <p className="text-xs text-muted-foreground mb-5">Top 5 students by average score</p>
-          <div className="space-y-4">
-            {topPerformers.length === 0 ? (
-              <div className="h-48 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <Trophy size={22} className="opacity-40" />
-                <p className="text-sm">Not enough data</p>
-              </div>
-            ) : (
-              topPerformers.map((s, i) => (
-                <div key={s.name} className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold text-muted-foreground w-4">{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground truncate max-w-[140px]">{s.name}</span>
-                      <span className="text-sm font-semibold tabular-nums" style={{ color: s.color }}>{s.avg}%</span>
-                    </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${s.avg}%`, backgroundColor: s.color }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        {/* Wide tile: test activity — spans 4/6 */}
-        <Card className="lg:col-span-4 p-5">
-          <h3 className="text-sm font-semibold text-foreground">Test Activity</h3>
-          <p className="text-xs text-muted-foreground mb-5">Last 14 days of test attempts</p>
-          <div className="h-56 w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-bold text-foreground mb-1">Test Activity</h3>
+          <p className="text-xs text-muted-foreground mb-6">Last 14 days of test attempts</p>
+          <div className="h-64 w-full">
             {quizActivity.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <Activity size={22} className="opacity-40" />
+                <Activity size={24} className="opacity-40" />
                 <p className="text-sm">No test attempts yet</p>
               </div>
             ) : (
@@ -428,58 +385,88 @@ export function AnalyticsDashboard() {
               </ResponsiveContainer>
             )}
           </div>
-        </Card>
+        </div>
 
-        {/* Narrow tile: recent activity feed — spans 2/6, tall list */}
-        <Card className="lg:col-span-2 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock size={14} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
-            <span className="ml-auto text-[11px] text-muted-foreground">Last 8</span>
-          </div>
-
-          {recentActivity.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No test attempts yet.</p>
-          ) : (
-            <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
-              {recentActivity.map((item) => {
-                const pctColor = item.pct >= 90 ? SUCCESS_COLOR : item.pct >= 75 ? WARNING_COLOR : DANGER_COLOR
-                return (
-                  <div key={`${item.studentName}-${item.timestamp}`} className="flex items-center gap-2.5 py-2 px-2 rounded-md hover:bg-muted/50 transition-colors">
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-semibold text-primary">
-                        {item.studentName.charAt(0).toUpperCase()}
-                      </span>
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-bold text-foreground mb-1">Top Performers</h3>
+          <p className="text-xs text-muted-foreground mb-6">Top 5 students by average score</p>
+          <div className="space-y-4">
+            {topPerformers.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <Trophy size={24} className="opacity-40" />
+                <p className="text-sm">Not enough data</p>
+              </div>
+            ) : (
+              topPerformers.map((s, i) => (
+                <div key={s.name} className="flex items-center gap-3">
+                  <span className="text-[11px] font-bold text-muted-foreground w-4">{i + 1}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold text-foreground truncate max-w-[140px]">{s.name}</span>
+                      <span className="text-sm font-bold" style={{ color: s.color }}>{s.avg}%</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-foreground truncate">{item.studentName}</p>
-                      <p className="text-[11px] text-muted-foreground">{item.displayTime}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[13px] font-semibold tabular-nums" style={{ color: pctColor }}>{item.pct}%</p>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${s.avg}%`, backgroundColor: s.color }}
+                      />
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </Card>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* ── Class Management (Danger Zone) — kept visually separate ─── */}
-      <div className="border border-destructive/25 rounded-xl overflow-hidden mt-2">
-        <div className="bg-destructive/5 px-5 py-3 flex items-center gap-2 border-b border-destructive/15">
+      <div className="bg-card border border-border rounded-2xl p-6 mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Clock size={14} className="text-primary" />
+          <h3 className="text-xs font-bold text-foreground">Recent Activity</h3>
+          <span className="ml-auto text-[9px] text-muted-foreground">Last 8</span>
+        </div>
+
+        {recentActivity.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No test attempts yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {recentActivity.map((item) => {
+              const pctColor = item.pct >= 90 ? SUCCESS_COLOR : item.pct >= 75 ? WARNING_COLOR : DANGER_COLOR
+              return (
+                <div key={`${item.studentName}-${item.timestamp}`} className="flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-[9px] font-bold text-primary">
+                      {item.studentName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold text-foreground truncate">{item.studentName}</p>
+                    <p className="text-[9px] text-muted-foreground">{item.displayTime}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] font-bold" style={{ color: pctColor }}>{item.pct}%</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Class Management (Danger Zone) ─────────────────────────────── */}
+      <div className="border border-destructive/30 rounded-2xl overflow-hidden mt-4">
+        <div className="bg-destructive/5 px-5 py-3 flex items-center gap-2 border-b border-destructive/20">
           <AlertTriangle size={14} className="text-destructive" />
-          <h3 className="text-xs font-semibold text-destructive">Class Management</h3>
+          <h3 className="text-xs font-bold text-destructive">Class Management</h3>
         </div>
         <div className="bg-card px-5 py-4 grid sm:grid-cols-2 gap-3">
           {/* Restart Quarter */}
-          <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="rounded-xl border border-border p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+              <div className="p-1.5 bg-warning/10 rounded-lg">
                 <RotateCcw size={14} className="text-warning" />
               </div>
-              <p className="text-sm font-medium text-foreground">Restart Quarter</p>
+              <p className="text-sm font-semibold text-foreground">Restart Quarter</p>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Clears all student progress (scores, quiz attempts, completed lessons) and deletes all unlock codes. Student accounts are preserved.
@@ -490,7 +477,7 @@ export function AnalyticsDashboard() {
               onClick={handleRestartQuarter}
               isLoading={resetting}
               disabled={resetting || deleting}
-              className="w-full mt-1"
+              className="w-full mt-1 border-warning/40 text-warning hover:bg-warning/10 hover:border-warning"
             >
               {!resetting && <RotateCcw size={14} />}
               {resetting ? 'Resetting…' : 'Reset All Progress'}
@@ -498,23 +485,23 @@ export function AnalyticsDashboard() {
           </div>
 
           {/* Delete All Students */}
-          <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="rounded-xl border border-border p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <div className="p-1.5 bg-destructive/10 rounded-lg">
                 <Trash2 size={14} className="text-destructive" />
               </div>
-              <p className="text-sm font-medium text-foreground">Delete All Students</p>
+              <p className="text-sm font-semibold text-foreground">Delete All Students</p>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Permanently removes all student Firestore records except Student 000000. Use at the start of a new school year to register fresh batches.
             </p>
             <Button
-              variant="destructive"
+              variant="outline"
               size="sm"
               onClick={handleDeleteAllStudents}
               isLoading={deleting}
               disabled={resetting || deleting}
-              className="w-full mt-1"
+              className="w-full mt-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive"
             >
               {!deleting && <Trash2 size={14} />}
               {deleting ? 'Deleting…' : 'Delete All Students'}
@@ -533,22 +520,21 @@ interface StatCardProps {
   context: string
   color: string
   bg: string
-  className?: string
 }
 
-function StatCard({ icon: Icon, label, value, context, color, bg, className }: StatCardProps) {
+function StatCard({ icon: Icon, label, value, context, color, bg }: StatCardProps) {
   return (
-    <Card className={cn('col-span-1 p-5 flex flex-col justify-between h-full', className)}>
+    <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between h-full">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted-foreground leading-tight">{label}</p>
-          <p className="text-2xl font-semibold text-foreground mt-1 leading-none tabular-nums">{value}</p>
+          <p className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground leading-tight">{label}</p>
+          <p className="text-2xl font-black text-foreground mt-1 leading-none">{value}</p>
         </div>
-        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
-          <Icon size={15} className={color} />
+        <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', bg)}>
+          <Icon size={13} className={color} />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground leading-tight mt-3">{context}</p>
-    </Card>
+      <p className="text-[9px] text-muted-foreground leading-tight">{context}</p>
+    </div>
   )
 }

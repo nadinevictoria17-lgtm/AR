@@ -6,7 +6,7 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn('text-[13px] font-medium text-foreground', className)}
+      className={cn('text-sm font-semibold text-foreground', className)}
       {...props}
     />
   )

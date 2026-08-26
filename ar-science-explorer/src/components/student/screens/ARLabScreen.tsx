@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Smartphone, Printer, Box, Target, ChevronRight, FileText, Lock, BookOpen, Star, CheckCircle2, Zap, Camera, Check } from 'lucide-react'
+import { Smartphone, Printer, Box, Target, ChevronRight, FileText, Lock, BookOpen, Star, CheckCircle2, Zap, Camera } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { useQuizStore } from '../../../store/useQuizStore'
@@ -29,9 +29,9 @@ import { pageVariants } from '../../../lib/variants'
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
 const PHASE_TABS = [
-  { key: 'visual'     as const, icon: Target,   label: 'AR Lab'    },
-  { key: 'curriculum' as const, icon: BookOpen,  label: 'Study Hub' },
-  { key: 'reflection' as const, icon: Star,      label: 'Finish'    },
+  { key: 'visual'     as const, icon: Target,   label: '1. AR Lab'    },
+  { key: 'curriculum' as const, icon: BookOpen,  label: '2. Study Hub' },
+  { key: 'reflection' as const, icon: Star,      label: '3. Finish'    },
 ]
 
 
@@ -192,101 +192,130 @@ export function ARLabScreen() {
 
   if (showSkeleton) return <ContentSkeleton />
 
-  const phaseIndex = PHASE_TABS.findIndex((p) => p.key === phase)
-
   return (
     <div className="w-full pb-12">
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={handleBack}
-          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md border border-border bg-background text-[13px] font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-colors duration-150"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all shadow-sm"
         >
           <ChevronRight size={14} className="rotate-180" />
           Back to AR + Learn
         </button>
-
-        <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
-          Quarter {activeLesson?.quarter || 1} · Week {activeLesson?.week || 1}
-        </Badge>
+        
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="px-3 py-1 bg-primary/5 text-primary border-primary/20 rounded-full font-bold">
+            Quarter {activeLesson?.quarter || 1} · Week {activeLesson?.week || 1}
+          </Badge>
+        </div>
       </div>
 
-      {/* ── Persistent two-column layout: orientation rail + phase-specific content ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Main column: switches per phase */}
-        <div className="lg:col-span-2 order-2 lg:order-1">
-          <AnimatePresence mode="wait">
-            {phase === 'curriculum' && (
-              <motion.div
-                key="curriculum"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="space-y-6"
-              >
-                <Card className="p-6 md:p-8">
-                  <div className="space-y-7">
-                    <section className="space-y-3">
-                      <h4 className="text-[11px] font-medium text-primary flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" /> I. Curriculum Content &amp; Standards
-                      </h4>
-                      <div className="p-5 rounded-lg bg-muted/40 border border-border">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Content Standards</p>
-                        <p className="text-sm text-foreground leading-relaxed">
-                          {activeLesson?.curriculum?.standards || "Standard content for this module is being processed."}
-                        </p>
-                      </div>
-                    </section>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8 border-b border-border pb-8">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+            Science ({activeLesson?.subject}) / Quarter {activeLesson?.quarter || 1} / Grade 7
+          </p>
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
+            {activeLesson?.title}
+          </h2>
+        </div>
 
-                    <section className="space-y-3">
-                      <h4 className="text-[11px] font-medium text-primary flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" /> II. Performance Standards
-                      </h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed bg-primary/5 p-5 rounded-lg border border-primary/10 italic">
-                        {activeLesson?.curriculum?.performanceStandards}
+        <div className="flex p-1.5 bg-muted/50 border border-border rounded-[1.5rem] backdrop-blur-sm shadow-inner group">
+          {PHASE_TABS.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setPhase(item.key)}
+              className={cn(
+                'flex items-center gap-2 px-6 py-2.5 rounded-2xl text-xs font-black transition-all duration-300 uppercase tracking-wider',
+                phase === item.key 
+                  ? 'bg-foreground text-background shadow-xl scale-[1.02]' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
+              )}
+            >
+              <item.icon size={14} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {phase === 'curriculum' && (
+          <motion.div
+            key="curriculum"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+          >
+            <div className="lg:col-span-8 space-y-8">
+              {/* Main Curriculum Content */}
+              <div className="bg-card border border-border rounded-[2.5rem] p-8 md:p-10 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
+                
+                <div className="space-y-8 relative z-10">
+                  <section className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary" /> I. Curriculum Content & Standards
+                    </h4>
+                    <div className="p-6 rounded-[2rem] bg-muted/30 border border-border/50">
+                      <p className="text-sm font-bold text-foreground opacity-40 uppercase tracking-widest mb-2">Content Standards</p>
+                      <p className="text-base text-foreground leading-relaxed">
+                        {activeLesson?.curriculum?.standards || "Standard content for this module is being processed."}
                       </p>
-                    </section>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <section className="space-y-3">
-                        <h4 className="text-[11px] font-medium text-primary flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Learning Competencies
-                        </h4>
-                        <ul className="space-y-2.5">
-                          {activeLesson?.curriculum?.learningCompetencies?.map((lc, i) => (
-                            <li key={i} className="flex gap-2.5 text-[13px] text-foreground/80 leading-normal">
-                              <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0 mt-0.5"><CheckCircle2 size={12} /></div>
-                              {lc}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                      <section className="space-y-3">
-                        <h4 className="text-[11px] font-medium text-primary flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Lesson Objectives
-                        </h4>
-                        <ul className="space-y-2.5">
-                          {activeLesson?.curriculum?.objectives?.map((obj, i) => (
-                            <li key={i} className="flex gap-2.5 text-[13px] text-foreground/80 leading-normal">
-                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5 font-semibold text-[10px]">{i + 1}</div>
-                              {obj}
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
                     </div>
-                  </div>
-                </Card>
+                  </section>
 
-                <div className="flex justify-between items-center bg-foreground text-background p-5 rounded-xl">
-                  <div>
-                    <p className="text-[11px] font-medium opacity-60">Scientific Quality</p>
-                    <p className="text-sm font-medium flex items-center gap-2 mt-1">
-                      <Zap size={16} className="text-primary" /> {activeLesson?.curriculum?.integration?.qualities?.join(' & ')}
+                  <section className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary" /> II. Performance Standards
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed bg-primary/5 p-6 rounded-[2rem] border border-primary/10 italic">
+                      {activeLesson?.curriculum?.performanceStandards}
                     </p>
+                  </section>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <section className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Learning Competencies
+                      </h4>
+                      <ul className="space-y-3">
+                        {activeLesson?.curriculum?.learningCompetencies?.map((lc, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-foreground/80 font-medium leading-normal">
+                             <div className="w-5 h-5 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0 mt-0.5"><CheckCircle2 size={12} /></div>
+                             {lc}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Lesson Objectives
+                      </h4>
+                      <ul className="space-y-3">
+                        {activeLesson?.curriculum?.objectives?.map((obj, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-foreground/80 font-medium leading-normal">
+                             <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5 font-black text-[9px]">{i+1}</div>
+                             {obj}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
                   </div>
-                  <Button
-                    className="bg-primary text-primary-foreground"
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-foreground text-background p-6 rounded-[2rem] shadow-xl">
+                 <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Scientific Quality</p>
+                    <p className="text-sm font-bold flex items-center gap-2 mt-1">
+                       <Zap size={16} className="text-primary" /> {activeLesson?.curriculum?.integration?.qualities?.join(' & ')}
+                    </p>
+                 </div>
+                  <Button 
+                    className="rounded-xl px-6 bg-primary text-primary-foreground font-black text-xs uppercase" 
                     onClick={async () => {
                       if (currentStudentId && activeLessonId) {
                         console.log(`[Storage] Marking lesson ${activeLessonId} as completed...`)
@@ -297,73 +326,95 @@ export function ARLabScreen() {
                   >
                     Mark as Read
                   </Button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 space-y-6">
+              <Card className="p-6 rounded-[2rem] border-border bg-card">
+                 <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Reading Progress</h3>
+                 <div className="space-y-4">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                       <span>Content Depth</span>
+                       <span className="text-primary">100%</span>
+                    </div>
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                       <div className="h-full w-full bg-primary rounded-full" />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic">
+                      "Perseverance: Grasping the abstract concept of the Particle Model might take some effort."
+                    </p>
+                 </div>
+              </Card>
+
+              {activeLesson?.pdfUrl && (
+                <Button 
+                  variant="outline" 
+                  className="w-full h-16 rounded-[1.5rem] border-border bg-card hover:bg-primary/5 hover:border-primary/20 transition-all font-bold gap-3"
+                  onClick={() => window.open(activeLesson.pdfUrl, '_blank')}
+                >
+                  <FileText size={20} className="text-primary" />
+                  Download PDF Module
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {phase === 'visual' && (
+          <motion.div 
+            key="visual"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+          >
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6">
+                  <Target className="text-primary/5 w-24 h-24" />
+                </div>
+                
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">AR Target Marker</h4>
+                
+                {markerImage && (
+                  <div
+                    data-print-marker
+                    className="mx-auto bg-white rounded-3xl overflow-hidden aspect-square w-full max-w-[280px] flex items-center justify-center p-6 border border-border mb-6 shadow-inner ring-4 ring-muted/20"
+                  >
+                    <img
+                      src={markerImage}
+                      alt="AR Target Marker"
+                      className="w-full h-full object-contain block"
+                      onError={(e) => {
+                        const fallback = getFallbackMarkerPath(activeLesson?.arPayload?.modelIndex ?? 0)
+                        if ((e.target as HTMLImageElement).src !== window.location.origin + fallback) {
+                          ;(e.target as HTMLImageElement).src = fallback
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="p-5 rounded-2xl bg-muted/30 border border-border flex items-start gap-3">
+                  <Smartphone className="text-primary mt-1 shrink-0" size={18} />
+                  <div>
+                    <p className="text-xs font-black text-foreground uppercase tracking-wider">How to scan?</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 font-medium">
+                      Ensure this marker is visible. Use your phone's AR Science app to aim at it.
+                    </p>
+                  </div>
                 </div>
 
-                {activeLesson?.pdfUrl && (
-                  <Button
-                    variant="outline"
-                    className="w-full h-14 gap-2.5"
-                    onClick={() => window.open(activeLesson.pdfUrl, '_blank')}
-                  >
-                    <FileText size={18} className="text-primary" />
-                    Download PDF Module
-                  </Button>
-                )}
-              </motion.div>
-            )}
-
-            {phase === 'visual' && (
-              <motion.div
-                key="visual"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-5"
-              >
-                <Card className="p-6">
-                  <h4 className="text-[11px] font-medium text-muted-foreground mb-5">AR Target Marker</h4>
-
-                  {markerImage && (
-                    <div
-                      data-print-marker
-                      className="mx-auto bg-white rounded-lg overflow-hidden aspect-square w-full max-w-[280px] flex items-center justify-center p-6 border border-border mb-5"
-                    >
-                      <img
-                        src={markerImage}
-                        alt="AR Target Marker"
-                        className="w-full h-full object-contain block"
-                        onError={(e) => {
-                          const fallback = getFallbackMarkerPath(activeLesson?.arPayload?.modelIndex ?? 0)
-                          if ((e.target as HTMLImageElement).src !== window.location.origin + fallback) {
-                            ;(e.target as HTMLImageElement).src = fallback
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="p-4 rounded-lg bg-muted/40 border border-border flex items-start gap-3">
-                    <Smartphone className="text-primary mt-0.5 shrink-0" size={16} />
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">How to scan?</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                        Ensure this marker is visible. Use your phone&apos;s AR Science app to aim at it.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        if (!markerImage) return
-                        const absUrl = markerImage.startsWith('http')
-                          ? markerImage
-                          : `${window.location.origin}${markerImage}`
-                        const pw = window.open('', '_blank', 'width=700,height=700')
-                        if (!pw) return
-                        pw.document.write(`<!DOCTYPE html>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (!markerImage) return
+                    const absUrl = markerImage.startsWith('http')
+                      ? markerImage
+                      : `${window.location.origin}${markerImage}`
+                    const pw = window.open('', '_blank', 'width=700,height=700')
+                    if (!pw) return
+                    pw.document.write(`<!DOCTYPE html>
 <html><head><title>AR Marker</title>
 <style>
   @page { margin: 0; }
@@ -375,203 +426,145 @@ export function ARLabScreen() {
 </head><body>
 <img src="${absUrl}" onload="window.print();window.close();" onerror="document.body.innerHTML='<p>Marker image not found.</p>'" />
 </body></html>`)
-                        pw.document.close()
-                      }}
-                    >
-                      <Printer size={14} /> Print Target Image
-                    </Button>
+                    pw.document.close()
+                  }}
+                  className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                >
+                  <Printer size={14} className="mr-2" /> Print Target Image
+                </Button>
 
-                    {markerImage && arConfig && (
-                      <Button
-                        onClick={() => setShowARCamera(true)}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90"
-                      >
-                        <Camera size={14} /> Open AR Camera
-                      </Button>
-                    )}
-                    {!markerImage || !arConfig && (
-                      <Button disabled>
-                        <Camera size={14} /> AR Not Available
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <h4 className="text-[11px] font-medium text-muted-foreground mb-5">Execution Steps</h4>
-                  <div className="grid gap-3">
-                    {tutorialSteps.map((step, idx) => (
-                      <div
-                        key={idx}
-                        className={cn(
-                          "flex items-center gap-4 p-4 rounded-lg border transition-colors duration-150",
-                          idx === activeStep
-                            ? "bg-primary/5 border-primary/30"
-                            : "bg-muted/20 border-transparent opacity-50"
-                        )}
-                      >
-                        <span className={cn(
-                          "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-xs font-semibold",
-                          idx === activeStep ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                        )}>
-                          {idx + 1}
-                        </span>
-                        <p className="text-sm font-medium">{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <div className="flex gap-3">
-                  {!arMarked ? (
-                    <Button
-                      onClick={() => setArMarked(true)}
-                      size="lg"
-                      className="flex-1"
-                    >
-                      Mark Scan Complete
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => setPhase('curriculum')}
-                      size="lg"
-                      className="flex-1"
-                    >
-                      Study Full Curriculum
-                    </Button>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {phase === 'reflection' && (
-              <motion.div
-                key="reflection"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-              >
-                <Card className="p-8 md:p-10 text-center">
-                  <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-5 text-primary">
-                    <Box size={28} />
-                  </div>
-                  <h2 className="text-2xl font-semibold tracking-tight mb-2.5">Lesson Complete</h2>
-                  <p className="text-muted-foreground text-sm mb-7 leading-relaxed">
-                    {arMarked
-                      ? <>You&apos;ve explored the structural visual and studied the content for <span className="text-foreground font-medium">{activeLesson?.title}</span>. Ready to test your knowledge?</>
-                      : <>You&apos;ve studied the content for <span className="text-foreground font-medium">{activeLesson?.title}</span>. Ready to test your knowledge?</>
-                    }
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Button
-                      size="lg"
-                      onClick={handleStartQuizClick}
-                    >
-                      {isQuizUnlocked ? (
-                        <>Start Post-Test <ChevronRight size={18} /></>
-                      ) : (
-                        <><Lock size={16} /> Unlock Post-Test</>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() => navigate('/app/progress')}
-                    >
-                      View My Progress
-                    </Button>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Right rail: persistent orientation context — does not change with phase */}
-        <div className="lg:col-span-1 order-1 lg:order-2 space-y-5 lg:sticky lg:top-6">
-          <Card className="p-5">
-            <p className="text-[11px] font-medium text-muted-foreground">
-              Science ({activeLesson?.subject}) / Quarter {activeLesson?.quarter || 1} / Grade 7
-            </p>
-            <h2 className="text-xl font-semibold tracking-tight text-foreground mt-1 mb-5">
-              {activeLesson?.title}
-            </h2>
-
-            {/* Vertical stepper replaces the horizontal phase pills */}
-            <div className="space-y-1">
-              {PHASE_TABS.map((item, idx) => {
-                const isActive = phase === item.key
-                const isDone = idx < phaseIndex
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => setPhase(item.key)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors duration-150 text-left',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-                    )}
+                {markerImage && arConfig && (
+                  <Button
+                    onClick={() => setShowARCamera(true)}
+                    className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    <span className={cn(
-                      'w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[11px] font-semibold',
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : isDone
-                          ? 'bg-success/15 text-success'
-                          : 'bg-muted text-muted-foreground'
-                    )}>
-                      {isDone ? <Check size={12} /> : idx + 1}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <item.icon size={13} />
-                      {item.label}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-[11px] font-medium text-muted-foreground">Expert Voice Assistance</h4>
-              <Badge variant="success" className="text-[10px]">AI guide ready</Badge>
-            </div>
-            <ARLearningControls
-              language={voiceLang}
-              onLanguageToggle={() => {
-                voiceOver.reset()
-                setVoiceLang(voiceLang === 'en' ? 'Filipino' : 'en')
-              }}
-              onPlayAll={voiceOver.playAll}
-              onStop={voiceOver.stop}
-              onReplay={voiceOver.replay}
-              isPlaying={voiceOver.isPlaying}
-              currentIndex={voiceOver.currentIndex}
-              total={voiceList.length}
-              unsupported={!voiceOver.supported}
-            />
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-xs font-semibold text-muted-foreground mb-4">Reading Progress</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span>Content Depth</span>
-                <span className="text-primary">100%</span>
+                    <Camera size={14} className="mr-2" /> Open AR Camera
+                  </Button>
+                )}
+                {!markerImage || !arConfig && (
+                  <Button
+                    disabled
+                    className="w-full mt-4 rounded-xl text-[10px] font-black uppercase tracking-widest opacity-40"
+                  >
+                    <Camera size={14} className="mr-2" /> AR Not Available
+                  </Button>
+                )}
               </div>
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full w-full bg-primary rounded-full" />
+            </div>
+
+            <div className="lg:col-span-7 space-y-6">
+              <Card className="p-8 rounded-[2.5rem] border-border bg-card shadow-sm">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">Execution Steps</h4>
+                <div className="grid gap-4">
+                  {tutorialSteps.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "flex items-center gap-5 p-5 rounded-[1.5rem] border-2 transition-all",
+                        idx === activeStep 
+                          ? "bg-primary/5 border-primary shadow-lg scale-[1.02]" 
+                          : "bg-muted/10 border-transparent opacity-40"
+                      )}
+                    >
+                      <span className={cn(
+                        "w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black",
+                        idx === activeStep ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-muted text-muted-foreground"
+                      )}>
+                        {idx + 1}
+                      </span>
+                      <p className="text-sm font-bold">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <div className="bg-card border border-border rounded-[2.5rem] p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6 px-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Expert Voice Assistance</h4>
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] font-black">AI GUIDE READY</Badge>
+                </div>
+                <ARLearningControls
+                  language={voiceLang}
+                  onLanguageToggle={() => {
+                    voiceOver.reset()
+                    setVoiceLang(voiceLang === 'en' ? 'Filipino' : 'en')
+                  }}
+                  onPlayAll={voiceOver.playAll}
+                  onStop={voiceOver.stop}
+                  onReplay={voiceOver.replay}
+                  isPlaying={voiceOver.isPlaying}
+                  currentIndex={voiceOver.currentIndex}
+                  total={voiceList.length}
+                  unsupported={!voiceOver.supported}
+                />
               </div>
-              <p className="text-[11px] text-muted-foreground italic">
-                &quot;Perseverance: Grasping the abstract concept of the Particle Model might take some effort.&quot;
+
+              <div className="flex gap-4">
+                {!arMarked ? (
+                  <Button
+                    onClick={() => setArMarked(true)}
+                    className="flex-1 h-14 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20"
+                  >
+                    Mark Scan Complete
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setPhase('curriculum')}
+                    className="flex-1 h-14 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20"
+                  >
+                    Study Full Curriculum
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {phase === 'reflection' && (
+          <motion.div
+            key="reflection"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            className="max-w-2xl mx-auto"
+          >
+            <div className="bg-card border border-border rounded-[2.5rem] p-10 text-center shadow-xl">
+              <div className="w-20 h-20 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-primary shadow-inner">
+                <Box size={40} />
+              </div>
+              <h2 className="text-3xl font-extrabold mb-3">Lesson Complete</h2>
+              <p className="text-muted-foreground text-lg mb-8">
+                {arMarked
+                  ? <>You've explored the structural visual and studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
+                  : <>You've studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
+                }
               </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button
+                  size="lg"
+                  onClick={handleStartQuizClick}
+                  className="rounded-2xl font-bold gap-2 btn-glow"
+                >
+                  {isQuizUnlocked ? (
+                    <>Start Post-Test <ChevronRight size={18} /></>
+                  ) : (
+                    <><Lock size={16} /> Unlock Post-Test</>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => navigate('/app/progress')}
+                  className="rounded-2xl font-bold"
+                >
+                  View My Progress
+                </Button>
+              </div>
             </div>
-          </Card>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {showARCamera && arConfig && markerImage && (
         <ARCameraView

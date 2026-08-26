@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
-import { Eye, EyeOff, User, Lock, Moon, Sun, ArrowRight, Loader, Atom } from 'lucide-react'
+import { Eye, EyeOff, User, Lock, Moon, Sun, LogIn, Loader } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { cn } from '../lib/utils'
 import { CredentialField } from '../components/auth/CredentialField'
@@ -101,75 +101,48 @@ export default function LoginPage() {
   return (
     <div className={cn('min-h-screen', theme)}>
       <div className="min-h-dvh w-full flex bg-surface text-foreground">
-        {/* ── Left panel: brand surface with a bento preview, no motion/glow ── */}
-        <aside className="hidden md:flex w-[400px] shrink-0 border-r border-border bg-background p-8 flex-col justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-              <Atom size={15} className="text-primary-foreground" />
-            </div>
-            <span className="text-sm font-semibold">AR Science Explorer</span>
-          </div>
-
+        <aside className="hidden md:flex w-64 border-r border-border bg-background p-6 flex-col justify-between">
           <div>
-            <h1 className="text-[26px] font-semibold leading-[1.15] tracking-tight text-foreground mb-3">
-              Science, seen up close.
-            </h1>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-[300px] mb-6">
-              Augmented reality labs, lessons, and assessments for Grade 7 Science.
-            </p>
-
-            {/* Bento preview: irregular tiles, not a text list */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="col-span-2 rounded-lg border border-border p-3.5">
-                <p className="text-xs font-medium text-foreground">AR Labs</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Scan a marker, see it in 3D</p>
-              </div>
-              <div className="rounded-lg border border-border p-3.5">
-                <p className="text-xs font-medium text-foreground">Lessons</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Guided study</p>
-              </div>
-              <div className="rounded-lg border border-border p-3.5">
-                <p className="text-xs font-medium text-foreground">Tests</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Track progress</p>
-              </div>
-            </div>
+            <AtomLogo />
+            <h1 className="mt-5 text-2xl font-bold leading-tight">AR Science <span className="text-gradient">Explorer</span></h1>
+            <p className="mt-2 text-xs text-muted-foreground">Pasig Catholic College · Grade 7</p>
           </div>
-
-          <p className="text-xs text-muted-foreground">Pasig Catholic College · Grade 7</p>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>Authentication</p>
+            <p>Lessons</p>
+            <p>Labs</p>
+            <p>AR Experiments</p>
+          </div>
         </aside>
 
-        <main className="flex-1 min-w-0 overflow-y-auto flex flex-col">
-          <div className="md:hidden flex items-center gap-2.5 px-4 py-4 border-b border-border">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-              <Atom size={13} className="text-primary-foreground" />
-            </div>
-            <span className="text-[13px] font-semibold">AR Science Explorer</span>
-          </div>
-
-          <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-10">
-            <div className="w-full max-w-[360px]">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Sign in</h2>
-                  <p className="text-[13px] text-muted-foreground mt-0.5">Continue to your dashboard</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleTheme}
-                  aria-label="Toggle theme"
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                </Button>
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-10">
+            <div className="md:hidden flex items-center gap-3 mb-6">
+              <AtomLogo size="sm" />
+              <div>
+                <h1 className="text-lg font-bold">AR Science Explorer</h1>
+                <p className="text-xs text-muted-foreground">Grade 7 Learning App</p>
               </div>
+            </div>
+            <div className="w-full max-w-md ml-auto mr-auto">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="ml-auto mb-6 flex rounded-xl text-muted-foreground hover:text-foreground hover:bg-border"
+              >
+                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </Button>
 
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                <div className="flex gap-1 p-1 bg-muted rounded-md mb-6">
+              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+                <h2 className="text-2xl font-bold text-foreground mb-1">Welcome back</h2>
+                <p className="text-sm text-muted-foreground mb-8">Sign in to continue to your science dashboard</p>
+
+                <div className="flex gap-1 p-1 bg-muted rounded-xl mb-8">
                   {(['student', 'teacher'] as Role[]).map((r) => (
-                    <button
+                    <Button
+                      variant={role === r ? 'default' : 'ghost'}
                       key={r}
-                      type="button"
                       onClick={() => {
                         setRole(r)
                         setId('')
@@ -178,20 +151,18 @@ export default function LoginPage() {
                         setPassError('')
                       }}
                       className={cn(
-                        'flex-1 py-1.5 rounded-[5px] text-[13px] font-medium capitalize transition-colors duration-150',
-                        role === r
-                          ? 'bg-card text-foreground shadow-xs'
-                          : 'text-muted-foreground hover:text-foreground'
+                        'flex-1 py-2 rounded-lg text-sm font-semibold capitalize',
+                        role === r ? 'bg-card text-foreground shadow-sm hover:text-foreground' : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
                       {r}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <CredentialField
-                    label={role === 'student' ? 'Student ID' : 'Email address'}
+                    label={role === 'student' ? 'Student ID' : 'Email Address'}
                     value={id}
                     onChange={handleIdChange}
                     onBlur={() => setIdError(validateIdentifier(role, id))}
@@ -222,30 +193,76 @@ export default function LoginPage() {
                     )}
                   />
 
-                  <Button
+                  <motion.button
                     type="submit"
                     disabled={isLoading}
-                    isLoading={isLoading}
-                    className="w-full h-10"
+                    whileHover={{ scale: isLoading ? 1 : 1.01 }}
+                    whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm transition-all',
+                      isLoading
+                        ? 'bg-primary/60 text-primary-foreground/70 cursor-not-allowed'
+                        : 'bg-primary text-primary-foreground btn-glow hover:bg-primary/90'
+                    )}
                   >
                     {isLoading ? (
                       <>
-                        <Loader size={14} className="animate-spin" />
-                        Signing in
+                        <Loader size={16} className="animate-spin" />
+                        Signing in...
                       </>
                     ) : (
                       <>
-                        Sign in as {role === 'student' ? 'student' : 'teacher'}
-                        <ArrowRight size={14} />
+                        <LogIn size={16} />
+                        Sign In as {role === 'student' ? 'Student' : 'Teacher'}
                       </>
                     )}
-                  </Button>
+                  </motion.button>
                 </form>
               </motion.div>
             </div>
           </div>
         </main>
       </div>
+    </div>
+  )
+}
+
+function AtomLogo({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const dim = size === 'sm' ? 80 : 110
+  return (
+    <div className="relative" style={{ width: dim, height: dim }}>
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full z-10"
+        style={{
+          width: dim * 0.3,
+          height: dim * 0.3,
+          background: 'radial-gradient(circle at 35% 30%, hsl(var(--subject-biology)), hsl(var(--primary)))',
+          boxShadow: '0 0 20px hsl(var(--primary) / 0.6), 0 0 40px hsl(var(--primary) / 0.3)',
+        }}
+      />
+      {[
+        { color: 'hsl(var(--subject-biology))', dir: 'normal', i: 0 },
+        { color: 'hsl(var(--subject-chemistry))', dir: 'reverse', i: 1 },
+        { color: 'hsl(var(--primary))', dir: 'normal', i: 2 },
+      ].map(({ color, dir, i }) => (
+        <div
+          key={i}
+          className="absolute inset-0 rounded-full border"
+          style={{
+            borderColor: color,
+            borderWidth: '1.5px',
+            opacity: 0.6,
+            animation: `orbit ${2.8 + i * 0.6}s linear infinite ${dir}`,
+            animationDelay: `${i * 0.3}s`,
+            transform: `rotateX(70deg) rotateZ(${i * 60}deg)`,
+          }}
+        >
+          <div
+            className="absolute w-2 h-2 rounded-full -top-1 left-1/2 -translate-x-1/2"
+            style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+          />
+        </div>
+      ))}
     </div>
   )
 }

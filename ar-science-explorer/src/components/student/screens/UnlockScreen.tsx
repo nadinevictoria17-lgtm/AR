@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../../store/useAppStore'
 import { cn } from '../../../lib/utils'
 import { SUBJECT_STYLES } from '../../../lib/variants'
-import { KeyRound, CheckCircle2, Lock, ArrowLeft } from 'lucide-react'
+import { KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react'
 import type { SubjectKey } from '../../../types'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
@@ -27,30 +27,28 @@ export function UnlockScreen() {
   const [code, setCode] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
-  const entries = Object.entries(unlocked) as [SubjectKey, boolean][]
-  const locked = entries.filter(([, v]) => !v).map(([k]) => k)
+  const locked = (Object.entries(unlocked) as [SubjectKey, boolean][])
+    .filter(([, v]) => !v)
+    .map(([k]) => k)
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-6">
       <BackNav onClick={() => navigate('/app/home')} label="Back to Home" />
+      <div>
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <KeyRound size={18} className="text-primary" /> Unlock Subjects
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Enter an access code from your teacher to unlock new subjects.</p>
+      </div>
 
-      {/* ── Hero: unlock form as the full-bleed dark banner ─────────── */}
-      <div className="rounded-xl border border-border bg-foreground text-background p-6 md:p-8">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center text-primary shrink-0">
-            <KeyRound size={18} />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Unlock subjects</h1>
-            <p className="text-[13px] text-background/55">Enter an access code from your teacher.</p>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 max-w-lg">
+      <Card className="p-5">
+        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Access Code</label>
+        <div className="flex flex-col sm:flex-row gap-2">
           <Input
             value={code}
             onChange={(e) => { setCode(e.target.value.toUpperCase()); setMessage(null) }}
             placeholder="e.g. UNLOCK2"
-            className="flex-1 font-mono tracking-widest bg-background/10 border-background/15 text-background placeholder:text-background/40"
+            className="flex-1 font-mono tracking-widest"
           />
           <Button
             onClick={async () => {
@@ -70,30 +68,29 @@ export function UnlockScreen() {
             {message}
           </p>
         )}
-      </div>
+      </Card>
 
-      {/* ── Bento grid: one tile per subject, sized by lock state ───── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {entries.map(([subject, isUnlocked]) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {(Object.entries(unlocked) as [SubjectKey, boolean][]).map(([subject, isUnlocked]) => {
           const s = SUBJECT_STYLES[subject]
           return (
-            <Card key={subject} className={cn('p-5', !isUnlocked && 'opacity-70')}>
-              <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center mb-4', s.bg, s.text)}>
-                {isUnlocked ? <CheckCircle2 size={17} /> : <Lock size={16} className="text-muted-foreground" />}
+            <div key={subject} className={cn('rounded-2xl border p-4 bg-card flex items-center gap-3', s.border)}>
+              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', s.badge)}>
+                <CheckCircle2 size={16} />
               </div>
-              <p className="text-sm font-medium text-foreground capitalize">{subject}</p>
-              <p className={cn('text-xs mt-0.5', isUnlocked ? 'text-success' : 'text-muted-foreground')}>
-                {isUnlocked ? 'Unlocked' : 'Locked'}
-              </p>
-            </Card>
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground capitalize">{subject}</p>
+                <p className="text-xs text-muted-foreground">{isUnlocked ? 'Unlocked' : 'Locked'}</p>
+              </div>
+            </div>
           )
         })}
       </div>
 
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-xs text-muted-foreground">{locked.length > 0 ? `${locked.length} subject${locked.length > 1 ? 's' : ''} still locked` : 'All subjects unlocked'}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{locked.length > 0 ? `${locked.length} subjects still locked` : 'All subjects unlocked'}</p>
         <Button variant="outline" onClick={() => navigate('/app/home')}>
-          Continue to dashboard
+          Continue to Dashboard
         </Button>
       </div>
     </div>

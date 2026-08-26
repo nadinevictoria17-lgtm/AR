@@ -116,12 +116,12 @@ export function ContentSkeleton() {
       </div>
 
       {/* Hero / banner block */}
-      <Skeleton className="h-40 w-full rounded-2xl" />
+      <Skeleton className="h-40 w-full rounded-[2rem]" />
 
       {/* Two-column card row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-border bg-card p-6 space-y-3">
+          <div key={i} className="rounded-[2rem] border border-border bg-card p-6 space-y-3">
             <Skeleton className="h-10 w-10 rounded-2xl" />
             <Skeleton className="h-6 w-20" />
             <Skeleton className="h-3 w-32" />
@@ -130,7 +130,7 @@ export function ContentSkeleton() {
       </div>
 
       {/* List / activity block */}
-      <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+      <div className="rounded-[2rem] border border-border bg-card p-6 space-y-4">
         <Skeleton className="h-4 w-36" />
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3">

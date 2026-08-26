@@ -16,7 +16,7 @@ interface Props {
   onMobileClose: () => void
 }
 
-const SIDEBAR_TRANSITION = { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const } as const
+const SIDEBAR_TRANSITION = { duration: 0.25, ease: [0.4, 0, 0.2, 1] as const } as const
 
 const NAV_ITEMS: { path: string; icon: LucideIcon; label: string }[] = [
   { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -46,46 +46,46 @@ function SidebarInner({
   return (
     <>
       <div className={cn(
-        'flex items-center h-14 px-3.5 border-b border-border shrink-0',
+        'flex items-center h-16 px-4 border-b border-border',
         collapsed ? 'justify-center' : 'justify-between'
       )}>
         <AnimatePresence>
           {!collapsed && (
             <motion.div
-              initial={{ opacity: 0, x: -8 }}
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
+              exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15 }}
               className="flex items-center gap-2 min-w-0"
             >
-              <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
-                <Atom size={13} className="text-primary-foreground" />
+              <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                <Atom size={15} className="text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate leading-tight">AR Science</p>
-                <p className="text-[11px] text-muted-foreground truncate leading-tight">Teacher Portal</p>
+                <p className="text-xs font-bold text-foreground truncate">AR Science</p>
+                <p className="text-[10px] text-muted-foreground truncate">Teacher Portal</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {collapsed && (
-          <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-            <Atom size={13} className="text-primary-foreground" />
+          <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+            <Atom size={15} className="text-primary" />
           </div>
         )}
         {isMobile && !collapsed && (
           <button
             onClick={onMobileClose}
-            className="ml-auto w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="ml-auto w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             aria-label="Close menu"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         )}
       </div>
 
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
           return (
             <NavLink
@@ -96,16 +96,16 @@ function SidebarInner({
               }}
               title={collapsed ? label : undefined}
               className={({ isActive }) => cn(
-                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium transition-colors duration-150 group',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
                 isActive
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 collapsed && 'justify-center px-2'
               )}
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={16} className={cn('shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground')} />
+                  <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
                   <AnimatePresence>
                     {!collapsed && (
                       <motion.span
@@ -132,16 +132,16 @@ function SidebarInner({
         })}
       </nav>
 
-      <div className="px-2 py-2.5 border-t border-border space-y-0.5">
+      <div className="px-2 py-3 border-t border-border space-y-1">
         <button
           onClick={onToggleTheme}
           title={collapsed ? 'Toggle theme' : undefined}
           className={cn(
-            'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150',
+            'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all',
             collapsed && 'justify-center px-2'
           )}
         >
-          {theme === 'dark' ? <Sun size={15} className="shrink-0" /> : <Moon size={15} className="shrink-0" />}
+          {theme === 'dark' ? <Sun size={16} className="shrink-0" /> : <Moon size={16} className="shrink-0" />}
           <AnimatePresence>
             {!collapsed && (
               <motion.span
@@ -160,11 +160,11 @@ function SidebarInner({
           onClick={onLogout}
           title={collapsed ? 'Logout' : undefined}
           className={cn(
-            'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-150 group',
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all group',
             collapsed && 'justify-center px-2'
           )}
         >
-          <LogOut size={15} className="shrink-0" />
+          <LogOut size={16} className="shrink-0" />
           <AnimatePresence>
             {!collapsed && (
               <motion.span
@@ -184,10 +184,10 @@ function SidebarInner({
           <button
             onClick={onToggleCollapse}
             className={cn(
-              'w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-md text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors duration-150 mt-1'
+              'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all'
             )}
           >
-            {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             {!collapsed && <span>Collapse</span>}
           </button>
         )}
@@ -202,7 +202,7 @@ export function TeacherSidebar({ onLogout, theme, onToggleTheme, mobileOpen, onM
   // The static `style.width` sets the correct width on the very first React
   // paint so there is no flash-of-collapsed-sidebar before Framer Motion's
   // JavaScript take-over (which happens one frame later).
-  const sidebarWidth = collapsed ? 64 : 232
+  const sidebarWidth = collapsed ? 72 : 240
 
   return (
     <>

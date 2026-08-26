@@ -7,9 +7,9 @@ import type { SubjectKey } from '../types'
 // ── Page transition ──────────────────────────────────────────────────────────
 
 export const pageVariants = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } },
-  exit:    { opacity: 0, y: -4, transition: { duration: 0.1 } },
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0,  transition: { duration: 0.25 } },
+  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
 } as const
 
 // ── Subject colour tokens ────────────────────────────────────────────────────
@@ -27,8 +27,6 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
   dot:    string
   /** Solid bar colour (same as dot, explicit alias) */
   bar:    string
-  /** Specimen-label top-edge stripe — pair with the .specimen-card utility */
-  stripe: string
   /** Human-readable label */
   label:  string
 }> = {
@@ -39,7 +37,6 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
     badge:  'bg-subject-biology/15 text-subject-biology border-subject-biology/30',
     dot:    'bg-subject-biology',
     bar:    'bg-subject-biology',
-    stripe: 'border-t-subject-biology',
     label:  'Biology',
   },
   chemistry: {
@@ -49,7 +46,6 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
     badge:  'bg-subject-chemistry/15 text-subject-chemistry border-subject-chemistry/30',
     dot:    'bg-subject-chemistry',
     bar:    'bg-subject-chemistry',
-    stripe: 'border-t-subject-chemistry',
     label:  'Chemistry',
   },
   physics: {
@@ -59,7 +55,6 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
     badge:  'bg-subject-physics/15 text-subject-physics border-subject-physics/30',
     dot:    'bg-subject-physics',
     bar:    'bg-subject-physics',
-    stripe: 'border-t-subject-physics',
     label:  'Physics',
   },
 }
@@ -67,7 +62,7 @@ export const SUBJECT_STYLES: Record<SubjectKey, {
 // ── Responsive layout tokens ─────────────────────────────────────────────────
 
 export const LAYOUT = {
-  maxWidth: 'max-w-[1280px]',
+  maxWidth: 'max-w-[1440px]',
   padding: 'px-4 sm:px-6 md:px-8',
-  spacing: 'py-6 sm:py-8',
+  spacing: 'py-6 sm:py-10',
 } as const

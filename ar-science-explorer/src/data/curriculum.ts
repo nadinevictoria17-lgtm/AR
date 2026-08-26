@@ -649,7 +649,7 @@ const CURRICULUM: LessonWithQuiz[] = [
       integration: { qualities: ['Ecological Preservation', 'Holistic Thinking', 'Climate Action'], description: 'Conservation of Ecosystem and Biodiversity.' }
     },
     arPayload: {
-      modelIndex: 6, detectionMode: 'marker', markerImage: '/markers/Q2W7.jpg',
+      modelIndex: 6, detectionMode: 'marker', markerImage: '/markers/Q2W7and8.jpg',
       anchorHint: 'Scan the Ecosystem worksheet.',
       lessonSteps: ['Aim at Q2W7 marker', 'Zoom into atoms', 'Expand to view the Biosphere'],
       title: 'Biological Organization', subtitle: 'From Atoms to Biosphere',
@@ -684,8 +684,8 @@ const CURRICULUM: LessonWithQuiz[] = [
       integration: { qualities: ['Sustainable Energy Logic', 'Biological Research'], description: 'Food pyramid as a guide to energy intake and phytoplankton roles.' }
     },
     arPayload: {
-      modelIndex: 7, detectionMode: 'marker', markerImage: '/markers/Q2W8.jpg',
-      anchorHint: 'Scan the Ecosystem worksheet.',
+      modelIndex: 7, detectionMode: 'marker', markerImage: '/markers/Q2W7and8.jpg',
+      anchorHint: 'Scan the Ecosystem worksheet (shared marker).',
       lessonSteps: ['Aim at Q2W8 marker', 'Trace arrows from grass to hawk', 'Observe decomposer role'],
       title: 'Food Web & Energy Flow', subtitle: 'Trophic Levels and Transfer',
       description: 'Shows how energy flows through an ecosystem as organisms eat each other.',

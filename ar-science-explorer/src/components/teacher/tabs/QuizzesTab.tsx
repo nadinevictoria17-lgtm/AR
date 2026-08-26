@@ -11,7 +11,7 @@ import { LESSONS } from '../../../data/lessons'
 import { PRE_TEST_QUESTIONS, POST_TEST_QUESTIONS } from '../../../data/curriculum'
 import { builtinQuizId } from '../../../lib/quizId'
 import { cn } from '../../../lib/utils'
-import { SUBJECT_STYLES } from '../../../lib/variants'
+import { pageVariants, SUBJECT_STYLES } from '../../../lib/variants'
 import { FormInput } from '../../form/FormInput'
 import { FormTextarea } from '../../form/FormTextarea'
 import type { TeacherQuiz, SubjectKey, TeacherLesson, Lesson } from '../../../types'
@@ -69,55 +69,10 @@ function uid() { return Math.random().toString(36).slice(2, 9) }
 function SubjectBadge({ subject }: { subject: SubjectKey }) {
   const s = SUBJECT_STYLES[subject]
   return (
-    <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-medium', s.badge)}>
+    <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-semibold', s.badge)}>
       <span className={cn('w-1.5 h-1.5 rounded-full', s.dot)} />
       {s.label}
     </span>
-  )
-}
-
-function SegmentedOption({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors duration-150',
-        active
-          ? 'bg-primary/10 text-primary border-primary/30'
-          : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-/**
- * Right-anchored slide-in drawer shell. Backdrop + fixed inset-y-0 right-0 panel,
- * x-axis framer-motion slide. Wide (max-w-3xl) to comfortably host a long,
- * internally-scrolling field-array of question cards below a sticky header.
- */
-function Drawer({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  return createPortal(
-    <div className="fixed inset-0 z-50">
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        transition={{ duration: 0.18 }}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed inset-y-0 right-0 w-full max-w-3xl bg-card border-l border-border shadow-popover flex flex-col z-10"
-        role="dialog"
-        aria-modal="true"
-      >
-        {children}
-      </motion.div>
-    </div>,
-    document.body
   )
 }
 
@@ -206,133 +161,130 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
   })
 
   return (
-    <Drawer onClose={onCancel}>
-      <form onSubmit={onSubmit} className="flex flex-col h-full min-h-0">
-        {/* Sticky header: quiz-level fields + Save/Cancel stay visible while the
-            question list below scrolls. */}
-        <div className="shrink-0 border-b border-border bg-card px-6 pt-5 pb-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">{initial ? 'Edit Test' : 'New Test'}</h3>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-              <Button type="submit" disabled={isSaving} isLoading={isSaving}>
-                {isSaving ? 'Saving...' : 'Save Test'}
-              </Button>
-              <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Close">
-                <X size={16} />
-              </Button>
-            </div>
-          </div>
+    <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto w-full">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold text-foreground">{initial ? 'Edit Test' : 'New Test'}</h3>
+        <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Close">
+          <X size={16} />
+        </Button>
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormInput
-              {...register('title')}
-              label="Test Title"
-              placeholder="e.g. Motion & Forces Pre-Test"
-              error={errors.title?.message}
-              required
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="w-full space-y-4">
+          <FormInput
+            {...register('title')}
+            label="Test Title"
+            placeholder="e.g. Motion & Forces Pre-Test"
+            error={errors.title?.message}
+            required
+          />
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Subject</label>
+            <Controller
+              control={control}
+              name="subject"
+              render={({ field }) => (
+                <div className="flex gap-2 flex-wrap">
+                  {SUBJECT_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => field.onChange(o.value)}
+                      className={cn(
+                        'px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
+                        field.value === o.value
+                          ? SUBJECT_STYLES[o.value].badge + ' shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-border/70'
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             />
-            <div>
-              <label className="block text-[13px] font-medium text-foreground mb-1.5">Lesson Module</label>
-              <Controller
-                control={control}
-                name="topicId"
-                render={({ field }) => (
-                  <select
-                    {...field}
-                    className="w-full h-9 px-3 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    {subjectLessons.map((l) => (
-                      <option key={l.id} value={l.id}>{l.title}</option>
-                    ))}
-                  </select>
-                )}
-              />
-              {errors.topicId && <p className="text-xs text-destructive mt-1.5">{errors.topicId.message}</p>}
-            </div>
           </div>
-
-          <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-            <div>
-              <label className="block text-[13px] font-medium text-foreground mb-1.5">Subject</label>
-              <Controller
-                control={control}
-                name="subject"
-                render={({ field }) => (
-                  <div className="flex gap-2 flex-wrap">
-                    {SUBJECT_OPTIONS.map((o) => (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => field.onChange(o.value)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors duration-150',
-                          field.value === o.value
-                            ? SUBJECT_STYLES[o.value].badge
-                            : 'border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-                        )}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              />
-            </div>
-
-            <div>
-              <label className="block text-[13px] font-medium text-foreground mb-1.5">Test Type</label>
-              <Controller
-                control={control}
-                name="phase"
-                render={({ field }) => (
-                  <div className="flex gap-2">
-                    {([['pre', 'Pre-Test'], ['post', 'Post-Test']] as const).map(([val, label]) => (
-                      <SegmentedOption key={val} active={field.value === val} onClick={() => field.onChange(val)}>
-                        {label}
-                      </SegmentedOption>
-                    ))}
-                  </div>
-                )}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground -mt-1">
-            Pre-Tests are taken before the lesson (ungated). Post-Tests are taken after and complete the lesson.
-          </p>
-
-          {duplicateWarning && (
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-start gap-3">
-              <AlertCircle size={16} className="text-warning shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-medium text-foreground">Test already assigned</p>
-                <p className="text-xs text-muted-foreground mt-0.5">This lesson already has a {phase === 'pre' ? 'Pre-Test' : 'Post-Test'}. Edit it instead of creating a new one.</p>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Internally scrollable question-list area */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-2">
-          <p className="text-[13px] font-medium text-foreground mb-3">Questions ({fields.length})</p>
+        <div className="w-full space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Test Type</label>
+            <Controller
+              control={control}
+              name="phase"
+              render={({ field }) => (
+                <div className="flex gap-2">
+                  {([['pre', 'Pre-Test'], ['post', 'Post-Test']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => field.onChange(val)}
+                      className={cn(
+                        'px-4 py-2 rounded-xl text-xs font-semibold border transition-all',
+                        field.value === val
+                          ? 'bg-primary/10 text-primary border-primary/40 shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-border/70'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Pre-Tests are taken before the lesson (ungated). Post-Tests are taken after and complete the lesson.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lesson Module</label>
+            {duplicateWarning && (
+              <div className="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-3">
+                <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">Test already assigned</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">This lesson already has a {phase === 'pre' ? 'Pre-Test' : 'Post-Test'}. Edit it instead of creating a new one.</p>
+                </div>
+              </div>
+            )}
+            <Controller
+              control={control}
+              name="topicId"
+              render={({ field }) => (
+                <select
+                  {...field}
+                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  {subjectLessons.map((l) => (
+                    <option key={l.id} value={l.id}>{l.title}</option>
+                  ))}
+                </select>
+              )}
+            />
+            {errors.topicId && <p className="text-xs text-destructive mt-1">{errors.topicId.message}</p>}
+          </div>
+        </div>
+
+        <div className="w-full space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Questions ({fields.length})</p>
           {fields.map((q, qi) => (
-            <div key={q.id} className="rounded-lg border border-border bg-background overflow-hidden">
+            <div key={q.id} className="rounded-xl border border-border bg-card overflow-hidden">
               <button
                 type="button"
                 className="w-full flex items-center justify-between px-4 py-3 text-left"
                 onClick={() => setExpanded(expanded === qi ? null : qi)}
               >
-                <span className="text-sm font-medium text-foreground truncate pr-4">
+                <span className="text-sm font-semibold text-foreground truncate pr-4">
                   Q{qi + 1}{q.question ? ` — ${String(q.question).slice(0, 40)}${String(q.question).length > 40 ? '…' : ''}` : ' — Untitled'}
                 </span>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); remove(qi) }}
-                    className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150"
-                    aria-label="Remove question"
+                    className="w-6 h-6 rounded-lg flex items-center justify-center text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={12} />
                   </button>
                   {expanded === qi
                     ? <ChevronUp size={14} className="text-muted-foreground" />
@@ -360,9 +312,9 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                       return (
                         <div className="flex gap-2">
                           {([['mc', 'Multiple Choice'], ['tf', 'True / False']] as const).map(([val, label]) => (
-                            <SegmentedOption
+                            <button
                               key={val}
-                              active={qType === val}
+                              type="button"
                               onClick={() => {
                                 field.onChange(val)
                                 if (val === 'tf') {
@@ -374,9 +326,15 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                                   setValue(`questions.${qi}.options`, ['', '', '', ''])
                                 }
                               }}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all',
+                                qType === val
+                                  ? 'bg-primary/10 text-primary border-primary/40'
+                                  : 'border-border text-muted-foreground hover:border-border/70'
+                              )}
                             >
                               {label}
-                            </SegmentedOption>
+                            </button>
                           ))}
                         </div>
                       )
@@ -386,7 +344,7 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                   {(watch(`questions.${qi}.type`) ?? 'mc') === 'tf' ? (
                     <div className="space-y-2">
                       {[0, 1].map((oi) => (
-                        <label key={oi} className="flex items-center gap-3 px-3 py-2 rounded-md border border-border cursor-pointer hover:bg-muted/50 transition-colors duration-150">
+                        <div key={oi} className="flex items-center gap-3">
                           <Controller
                             control={control}
                             name={`questions.${qi}.correctIndex`}
@@ -400,10 +358,10 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                               />
                             )}
                           />
-                          <span className="text-sm text-foreground">{['True', 'False'][oi]}</span>
-                        </label>
+                          <span className="text-sm font-semibold text-foreground">{['True', 'False'][oi]}</span>
+                        </div>
                       ))}
-                      <p className="text-xs text-muted-foreground">Select the correct answer.</p>
+                      <p className="text-[11px] text-muted-foreground">Select the correct answer.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -422,7 +380,7 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                               />
                             )}
                           />
-                          <span className="text-xs font-medium text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
+                          <span className="text-xs font-bold text-muted-foreground w-4 shrink-0">{['A', 'B', 'C', 'D'][oi]}</span>
                           <Controller
                             control={control}
                             name={`questions.${qi}.options.${oi as 0 | 1 | 2 | 3}`}
@@ -430,7 +388,7 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
                               <input
                                 {...field}
                                 placeholder={`Option ${['A', 'B', 'C', 'D'][oi]}…`}
-                                className="flex-1 h-9 px-3 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                                className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
                               />
                             )}
                           />
@@ -451,17 +409,20 @@ function QuizBuilder({ initial, onSave, onCancel, teacherLessons, allQuizzes }: 
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              append({ question: '', type: 'mc', options: ['', '', '', ''], correctIndex: 0, hint: '' })
-              setExpanded(fields.length)
-            }}
-            className="w-full border-dashed gap-2"
+            onClick={() => append({ question: '', type: 'mc', options: ['', '', '', ''], correctIndex: 0, hint: '' })}
+            className="w-full border-dashed border-primary/40 text-primary hover:bg-primary/5 gap-2"
           >
             <Plus size={14} /> Add Question
           </Button>
         </div>
+
+        <div className="w-full">
+          <Button type="submit" className="btn-glow" disabled={isSaving} isLoading={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Test'}
+          </Button>
+        </div>
       </form>
-    </Drawer>
+    </motion.div>
   )
 }
 
@@ -568,22 +529,26 @@ export function QuizzesTab() {
     }
   }
 
+  if (building || editing) {
+    return <QuizBuilder initial={editing ?? undefined} onSave={handleSave} onCancel={() => { setBuilding(false); setEditing(null) }} teacherLessons={data.lessons} allQuizzes={quizzes} />
+  }
+
   if (showSkeleton) {
     return <TableSkeleton columns={['Test', 'Module', 'Questions', '']} rows={8} />
   }
 
   return (
-    <>
+    <motion.div variants={pageVariants} initial="initial" animate="animate">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl md:text-[28px] font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <Brain size={22} className="text-subject-biology" /> Tests
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Brain size={20} className="text-subject-biology" /> Tests
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {filteredQuizzes.length} of {quizzes.length} test{quizzes.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={() => setBuilding(true)} className="gap-2">
+        <Button onClick={() => setBuilding(true)} className="gap-2 btn-glow">
           <Plus size={14} /> New Test
         </Button>
       </div>
@@ -596,35 +561,35 @@ export function QuizzesTab() {
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
             placeholder="Search tests…"
-            className="h-8 pl-8 pr-3 rounded-md border border-border bg-background text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring w-44"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
           />
         </div>
-        <div className="flex items-center gap-1 p-1 rounded-md bg-muted border border-border">
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border">
           {(['all', 'chemistry', 'biology'] as const).map(s => (
             <button key={s} onClick={() => { setFilterSubject(s); setCurrentPage(1) }}
-              className={cn('px-2.5 py-1 rounded text-xs font-medium transition-colors duration-150 capitalize',
-                filterSubject === s ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
+              className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors capitalize',
+                filterSubject === s ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
               {s === 'all' ? 'All Subjects' : s}
             </button>
           ))}
         </div>
         {(searchQuery || filterSubject !== 'all') && (
           <button onClick={() => { setSearchQuery(''); setFilterSubject('all'); setCurrentPage(1) }}
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted transition-colors duration-150">
+            className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted transition-colors">
             <X size={11} /> Clear
           </button>
         )}
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="rounded-2xl border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Test</th>
-                <th className="px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Module</th>
-                <th className="px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">Questions</th>
-                <th className="px-5 py-3" />
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Test</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Module</th>
+                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Questions</th>
+                <th className="px-6 py-4" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -641,19 +606,19 @@ export function QuizzesTab() {
                   <tr
                     key={q.id}
                     onClick={() => setPreviewQuiz(q)}
-                    className="hover:bg-muted/20 cursor-pointer transition-colors duration-150 group"
+                    className="hover:bg-muted/20 cursor-pointer transition-colors group"
                   >
-                    <td className="px-5 py-3.5">
-                      <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-150 truncate max-w-[220px]">{q.title}</p>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[220px]">{q.title}</p>
                       <div className="mt-1"><SubjectBadge subject={q.subject} /></div>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm text-foreground truncate max-w-[200px] block">{moduleName}</span>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-medium text-foreground truncate max-w-[200px] block">{moduleName}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{q.questions.length}</span>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-sm font-bold text-foreground">{q.questions.length}</span>
                     </td>
-                    <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setEditing(q)} aria-label="Edit test">
                           <Edit3 size={14} />
@@ -662,7 +627,7 @@ export function QuizzesTab() {
                           variant="ghost"
                           size="icon"
                           aria-label="Delete test"
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          className="text-destructive/40 hover:text-destructive hover:bg-destructive/10"
                           onClick={() => showConfirmModal(
                             isModified ? 'Reset Test' : 'Delete Test',
                             isModified
@@ -691,12 +656,12 @@ export function QuizzesTab() {
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center">
-                        <Brain size={18} className="text-muted-foreground" />
+                      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
+                        <Brain size={20} className="text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-medium text-foreground">No tests yet</p>
+                      <p className="text-sm font-semibold text-foreground">No tests yet</p>
                       <p className="text-xs text-muted-foreground">Create a test to assign to your students.</p>
-                      <Button onClick={() => setBuilding(true)} className="gap-2 mt-1">
+                      <Button onClick={() => setBuilding(true)} className="gap-2 btn-glow mt-1">
                         <Plus size={14} /> Create First Quiz
                       </Button>
                     </div>
@@ -707,7 +672,7 @@ export function QuizzesTab() {
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/10">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10">
             <div className="text-xs text-muted-foreground">
               Showing {startIndex + 1}–{Math.min(endIndex, filteredQuizzes.length)} of {filteredQuizzes.length} tests
             </div>
@@ -715,7 +680,7 @@ export function QuizzesTab() {
               <button
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Previous page"
               >
                 <ChevronLeft size={16} />
@@ -726,7 +691,7 @@ export function QuizzesTab() {
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     className={cn(
-                      'min-w-8 h-8 rounded-md text-xs font-medium transition-colors duration-150',
+                      'min-w-8 h-8 rounded-lg text-xs font-semibold transition-colors',
                       currentPage === page
                         ? 'bg-primary text-primary-foreground'
                         : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -739,7 +704,7 @@ export function QuizzesTab() {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 aria-label="Next page"
               >
                 <ChevronRight size={16} />
@@ -750,34 +715,20 @@ export function QuizzesTab() {
       </Card>
 
       <AnimatePresence>
-        {(building || editing) && (
-          <QuizBuilder
-            key="quiz-builder-drawer"
-            initial={editing ?? undefined}
-            onSave={handleSave}
-            onCancel={() => { setBuilding(false); setEditing(null) }}
-            teacherLessons={data.lessons}
-            allQuizzes={quizzes}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {previewQuiz && createPortal(
           <div className="fixed inset-0 z-50 flex items-end justify-center p-4" onClick={() => setPreviewQuiz(null)}>
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
             <motion.div
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-card border border-border rounded-xl w-full max-w-lg max-h-[75vh] overflow-y-auto p-6 shadow-popover z-10"
+              className="relative bg-card border border-border rounded-3xl w-full max-w-lg max-h-[75vh] overflow-y-auto p-6 shadow-2xl z-10"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h3 className="font-semibold text-foreground text-base tracking-tight">{previewQuiz.title}</h3>
+                  <h3 className="font-bold text-foreground text-base">{previewQuiz.title}</h3>
                   <div className="flex items-center gap-2 mt-1.5">
                     <SubjectBadge subject={previewQuiz.subject} />
-                    <span className="text-xs text-muted-foreground">{previewQuiz.questions.length} question{previewQuiz.questions.length !== 1 ? 's' : ''}</span>
+                    <span className="text-[11px] text-muted-foreground">{previewQuiz.questions.length} question{previewQuiz.questions.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setPreviewQuiz(null)} aria-label="Close" className="shrink-0">
@@ -786,16 +737,16 @@ export function QuizzesTab() {
               </div>
               <div className="space-y-4">
                 {previewQuiz.questions.map((q, qi) => (
-                  <div key={qi} className="rounded-lg border border-border p-4 bg-muted/20">
-                    <p className="text-sm font-medium text-foreground mb-3">Q{qi + 1}. {q.question}</p>
+                  <div key={qi} className="rounded-xl border border-border p-4 bg-muted/20">
+                    <p className="text-sm font-semibold text-foreground mb-3">Q{qi + 1}. {q.question}</p>
                     <div className="space-y-1.5">
                       {q.options.map((opt, oi) => (
                         <div
                           key={oi}
                           className={cn(
-                            'flex items-center gap-2 px-3 py-2 rounded-md text-sm',
+                            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm',
                             oi === q.correctIndex
-                              ? 'bg-success/10 text-success font-medium'
+                              ? 'bg-success/10 text-success font-semibold'
                               : 'text-muted-foreground'
                           )}
                         >
@@ -803,7 +754,7 @@ export function QuizzesTab() {
                             ? <CheckCircle2 size={13} className="shrink-0" />
                             : <span className="w-[13px] shrink-0" />
                           }
-                          <span className="font-medium text-xs w-4 shrink-0">{['A','B','C','D'][oi]}</span>
+                          <span className="font-bold text-xs w-4 shrink-0">{['A','B','C','D'][oi]}</span>
                           <span className="truncate">{opt}</span>
                         </div>
                       ))}
@@ -821,6 +772,6 @@ export function QuizzesTab() {
           document.body
         )}
       </AnimatePresence>
-    </>
+    </motion.div>
   )
 }

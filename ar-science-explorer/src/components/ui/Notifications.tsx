@@ -11,40 +11,39 @@ export function Toaster() {
   )
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 w-full max-w-[380px]">
+    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 w-full max-w-[400px]">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div
             key={t.id}
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, x: 20, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 20, scale: 0.95 }}
             className={cn(
-              'relative grid gap-1 p-3.5 rounded-lg border shadow-popover bg-card',
-              t.type === 'success'     && 'border-success/25',
-              t.type === 'destructive' && 'border-destructive/25',
-              t.type === 'warning'     && 'border-warning/25',
-              t.type === 'info'        && 'border-border'
+              'relative grid gap-1 p-4 rounded-2xl border shadow-xl backdrop-blur-md',
+              t.type === 'success'     && 'bg-success/10 border-success/20 text-success',
+              t.type === 'destructive' && 'bg-destructive/10 border-destructive/20 text-destructive',
+              t.type === 'warning'     && 'bg-warning/10 border-warning/20 text-warning',
+              t.type === 'info'        && 'bg-primary/10 border-primary/20 text-primary'
             )}
           >
-            <div className="flex items-start gap-2.5">
-              {t.type === 'success'     && <CheckCircle2 size={17} className="shrink-0 mt-0.5 text-success" />}
-              {t.type === 'destructive' && <AlertCircle  size={17} className="shrink-0 mt-0.5 text-destructive" />}
-              {t.type === 'warning'     && <AlertCircle  size={17} className="shrink-0 mt-0.5 text-warning" />}
-              {t.type === 'info'        && <Info         size={17} className="shrink-0 mt-0.5 text-primary" />}
+            <div className="flex items-start gap-3">
+              {t.type === 'success'     && <CheckCircle2 size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'destructive' && <AlertCircle  size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'warning'     && <AlertCircle  size={18} className="shrink-0 mt-0.5" />}
+              {t.type === 'info'        && <Info         size={18} className="shrink-0 mt-0.5" />}
 
-              <div className="flex-1 min-w-0">
-                {t.title && <p className="text-[13px] font-semibold leading-tight mb-0.5 text-foreground">{t.title}</p>}
-                <p className="text-[13px] text-muted-foreground leading-snug">{t.description}</p>
+              <div className="flex-1">
+                {t.title && <p className="text-sm font-bold leading-tight mb-0.5">{t.title}</p>}
+                <p className="text-sm opacity-90">{t.description}</p>
               </div>
 
               <button
                 onClick={() => removeToast(t.id)}
-                className="p-1 -m-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="p-1 rounded-lg hover:bg-foreground/5 transition-colors"
                 aria-label="Dismiss"
               >
-                <X size={13} />
+                <X size={14} />
               </button>
             </div>
           </motion.div>
@@ -68,19 +67,18 @@ export function ErrorModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={hideErrorModal}
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 6 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 6 }}
-            transition={{ duration: 0.15 }}
-            className="relative w-full max-w-sm bg-card border border-border rounded-xl p-6 shadow-popover"
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-2xl"
           >
-            <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive mb-4">
-              <AlertCircle size={20} />
+            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive mb-4">
+              <AlertCircle size={24} />
             </div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1.5">{errorModal.title}</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">{errorModal.title}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">{errorModal.message}</p>
             <Button onClick={hideErrorModal} className="w-full">
               Dismiss
@@ -116,21 +114,20 @@ export function ConfirmModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleCancel}
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 6 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 6 }}
-            transition={{ duration: 0.15 }}
-            className="relative w-full max-w-sm bg-card border border-border rounded-xl p-6 shadow-popover"
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-2xl"
           >
-            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center text-warning mb-4">
-              <AlertCircle size={20} />
+            <div className="w-12 h-12 rounded-2xl bg-warning/10 flex items-center justify-center text-warning mb-4">
+              <AlertCircle size={24} />
             </div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1.5">{confirmModal.title}</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">{confirmModal.title}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">{confirmModal.message}</p>
-            <div className="flex gap-2.5">
+            <div className="flex gap-3">
               <Button variant="outline" onClick={handleCancel} className="flex-1">
                 Cancel
               </Button>
