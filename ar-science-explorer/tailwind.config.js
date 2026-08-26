@@ -7,8 +7,8 @@ export default {
   ],
   theme: {
     fontFamily: {
-      sans: ['Poppins', 'sans-serif'],
-      mono: ['Poppins', 'sans-serif'],
+      sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
+      mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
     },
     extend: {
       colors: {
@@ -39,27 +39,33 @@ export default {
         'accent-foreground': 'hsl(var(--accent-foreground))',
       },
       borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        sm:  '6px',
+        DEFAULT: '8px',
+        md:  '8px',
+        lg:  '10px',
+        xl:  '12px',
+        '2xl': '16px',
+        '3xl': '20px',
       },
       boxShadow: {
-        glow:  '0 0 20px hsl(var(--primary) / 0.35)',
-        'glow-sm': '0 0 10px hsl(var(--primary) / 0.25)',
+        xs: '0 1px 2px rgba(0,0,0,0.04)',
+        sm: '0 1px 2px rgba(0,0,0,0.06), 0 1px 1px rgba(0,0,0,0.04)',
+        DEFAULT: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)',
+        md: '0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+        lg: '0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.05)',
+        popover: '0 12px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)',
       },
       animation: {
-        'slide-up':   'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
-        'fade-in':    'fadeIn 0.25s ease',
+        'slide-up':   'slideUp 0.2s cubic-bezier(0.16,1,0.3,1)',
+        'fade-in':    'fadeIn 0.15s ease',
         'spin-slow':  'spin 3s linear infinite',
-        'orbit':      'orbit 3s linear infinite',
-        'float':      'float 3s ease-in-out infinite',
-        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
       },
       keyframes: {
-        slideUp:   { from: { transform: 'translateY(16px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
+        slideUp:   { from: { transform: 'translateY(6px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
         fadeIn:    { from: { opacity: '0' }, to: { opacity: '1' } },
-        orbit:     { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
-        float:     { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
-        pulseSoft: { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.4' } },
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

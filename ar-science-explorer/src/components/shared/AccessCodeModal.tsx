@@ -187,73 +187,74 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm" suppressHydrationWarning>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" suppressHydrationWarning>
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.97, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="w-full max-w-md bg-card border border-border rounded-3xl shadow-2xl overflow-hidden"
+            exit={{ opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.15 }}
+            className="w-full max-w-md bg-card border border-border rounded-xl shadow-popover overflow-hidden"
           >
-            <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
+            <div className="p-5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                  <KeyRound size={20} />
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <KeyRound size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Unlock Access</h3>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Required for {title}</p>
+                  <h3 className="text-sm font-semibold text-foreground">Unlock access</h3>
+                  <p className="text-[11px] text-muted-foreground">Required for {title}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Teacher Access Code
+            <div className="p-6 space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-foreground">
+                  Teacher access code
                 </label>
                 <Input
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE HERE"
+                  placeholder="Enter code"
                   disabled={status === 'loading' || status === 'success'}
                   autoFocus
-                  className="text-xl font-mono font-black text-center tracking-widest h-auto py-4"
+                  className="text-base font-mono text-center tracking-widest h-11"
                 />
               </div>
 
               {message && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.12 }}
                   className={cn(
-                    'p-4 rounded-2xl flex items-start gap-3 text-sm font-medium border',
+                    'p-3 rounded-md flex items-start gap-2.5 text-[13px] border',
                     status === 'error'
                       ? 'bg-destructive/10 text-destructive border-destructive/20'
                       : 'bg-success/10 text-success border-success/20'
                   )}
                 >
                   {status === 'error'
-                    ? <AlertCircle  size={18} className="shrink-0 mt-0.5" />
-                    : <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                    ? <AlertCircle  size={16} className="shrink-0 mt-0.5" />
+                    : <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
                   }
                   {message}
                 </motion.div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <Button
                   variant="outline"
                   size="lg"
                   onClick={onClose}
-                  className="rounded-2xl"
                 >
                   Cancel
                 </Button>
@@ -262,9 +263,8 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
                   onClick={handleUnlock}
                   disabled={!code.trim() || status === 'loading' || status === 'success'}
                   isLoading={status === 'loading'}
-                  className="rounded-2xl btn-glow"
                 >
-                  {status !== 'loading' && 'Unlock Now'}
+                  {status !== 'loading' && 'Unlock now'}
                 </Button>
               </div>
             </div>

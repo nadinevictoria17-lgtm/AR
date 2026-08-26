@@ -29,11 +29,11 @@ export function CredentialField({
 }: CredentialFieldProps) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
+      <label className="block text-[13px] font-medium text-foreground mb-1.5">
         {label}
       </label>
       <div className="relative">
-        <Icon size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Icon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           type={type}
           value={value}
@@ -42,12 +42,12 @@ export function CredentialField({
           placeholder={placeholder}
           maxLength={maxLength}
           className={cn(
-            'w-full pl-10 py-3 rounded-xl bg-muted border text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all',
-            rightSlot ? 'pr-11' : 'pr-4',
+            'w-full h-10 pl-9 rounded-md bg-background border text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring',
+            rightSlot ? 'pr-10' : 'pr-3.5',
             error ? 'border-destructive' : 'border-border'
           )}
         />
-        {rightSlot ? <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{rightSlot}</div> : null}
+        {rightSlot ? <div className="absolute right-3 top-1/2 -translate-y-1/2">{rightSlot}</div> : null}
       </div>
       <AnimatePresence>
         {error && (
@@ -55,7 +55,8 @@ export function CredentialField({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-1.5 text-xs text-destructive font-medium"
+            transition={{ duration: 0.12 }}
+            className="mt-1.5 text-xs text-destructive"
           >
             {error}
           </motion.p>

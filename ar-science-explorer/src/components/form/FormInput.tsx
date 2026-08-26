@@ -19,7 +19,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <label className="block text-[13px] font-medium text-foreground mb-1.5">
             {label}
             {props.required && <span className="text-destructive ml-1">*</span>}
           </label>
@@ -35,11 +35,11 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
           <input
             ref={ref}
             className={cn(
-              'w-full px-4 py-3 rounded-xl bg-muted border-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all',
-              icon && 'pl-10',
+              'w-full h-9 px-3 rounded-md bg-background border text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring',
+              icon && 'pl-9',
               error
-                ? 'border-destructive/50 focus:border-destructive'
-                : 'border-border focus:border-primary/50',
+                ? 'border-destructive focus:ring-destructive/40'
+                : 'border-border',
               className
             )}
             {...props}
@@ -47,7 +47,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
 
           {error && (
             <AlertCircle
-              size={18}
+              size={15}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive flex-shrink-0"
             />
           )}

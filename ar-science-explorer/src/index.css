@@ -5,62 +5,64 @@
 @layer base {
   /* ── DARK MODE (default) ───────────────────────────────────── */
   html, html.dark {
-    --surface:              14 21% 11%;
-    --background:           220 30% 7%;
-    --card:                 224 32% 13%;
-    --card-foreground:      210 40% 96%;
-    --foreground:           210 40% 96%;
-    --muted:                217 26% 22%;
-    --muted-foreground:     215 20% 55%;
-    --border:               217 26% 20%;
-    --ring:                 173 80% 45%;
-    --primary:              173 80% 45%;
-    --primary-foreground:   220 30% 7%;
-    --secondary:            224 32% 18%;
-    --secondary-foreground: 210 40% 90%;
-    --accent:               173 80% 45%;
-    --accent-foreground:    220 30% 7%;
-    --destructive:          0 72% 60%;
+    --surface:              0 0% 6%;
+    --background:           0 0% 4%;
+    --card:                 0 0% 8%;
+    --card-foreground:      0 0% 96%;
+    --foreground:           0 0% 96%;
+    --muted:                0 0% 14%;
+    --muted-foreground:     0 0% 60%;
+    --border:               0 0% 16%;
+    --ring:                 217 91% 60%;
+    --primary:              217 91% 60%;
+    --primary-foreground:   0 0% 100%;
+    --secondary:            0 0% 12%;
+    --secondary-foreground: 0 0% 92%;
+    --accent:               217 91% 60%;
+    --accent-foreground:    0 0% 100%;
+    --destructive:          0 72% 58%;
     --destructive-foreground: 0 0% 100%;
-    --success:              160 84% 44%;
+    --success:              160 70% 45%;
     --success-foreground:   0 0% 100%;
-    --warning:              38 92% 52%;
-    --warning-foreground:   0 0% 100%;
+    --warning:              38 92% 55%;
+    --warning-foreground:   0 0% 8%;
 
-    --subject-physics:   195 83% 58%;
-    --subject-biology:   142 70% 48%;
-    --subject-chemistry: 338 80% 65%;
-    --subject-earth:     44 90% 62%;
+    --subject-physics:   199 89% 62%;
+    --subject-biology:   142 65% 50%;
+    --subject-chemistry: 330 75% 65%;
+    --subject-earth:     38 92% 58%;
   }
 
   /* ── LIGHT MODE ────────────────────────────────────────────── */
+  /* Off-white throughout — pure #fff reads as glare, so the page
+     surface sits slightly below white and cards sit one step above it. */
   html.light {
-    --surface:              0 0% 98%;
-    --background:           0 0% 100%;
+    --surface:              220 20% 97.3%;
+    --background:           220 20% 97.3%;
     --card:                 0 0% 100%;
-    --card-foreground:      224 32% 10%;
-    --foreground:           224 32% 10%;
-    --muted:                220 14% 94%;
-    --muted-foreground:     220 9% 46%;
-    --border:               220 13% 90%;
-    --ring:                 173 72% 38%;
-    --primary:              173 72% 38%;
+    --card-foreground:      220 15% 14%;
+    --foreground:           220 15% 14%;
+    --muted:                220 14% 93%;
+    --muted-foreground:     220 9% 43%;
+    --border:               220 13% 88%;
+    --ring:                 217 91% 50%;
+    --primary:              217 91% 50%;
     --primary-foreground:   0 0% 100%;
-    --secondary:            220 14% 94%;
-    --secondary-foreground: 220 9% 30%;
-    --accent:               173 72% 38%;
+    --secondary:            220 14% 93%;
+    --secondary-foreground: 220 15% 18%;
+    --accent:               217 91% 50%;
     --accent-foreground:    0 0% 100%;
-    --destructive:          0 72% 51%;
+    --destructive:          0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --success:              160 84% 36%;
+    --success:              160 75% 34%;
     --success-foreground:   0 0% 100%;
-    --warning:              38 92% 44%;
+    --warning:              38 92% 42%;
     --warning-foreground:   0 0% 100%;
 
-    --subject-physics:   195 83% 42%;
-    --subject-biology:   142 70% 35%;
-    --subject-chemistry: 338 80% 52%;
-    --subject-earth:     44 90% 45%;
+    --subject-physics:   199 89% 44%;
+    --subject-biology:   142 65% 34%;
+    --subject-chemistry: 330 75% 48%;
+    --subject-earth:     38 85% 40%;
   }
 
   * {
@@ -81,30 +83,48 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    font-feature-settings: 'cv11', 'ss01';
   }
 
-  ::-webkit-scrollbar       { width: 4px; height: 4px; }
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  ::-webkit-scrollbar       { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-muted rounded-full; }
+  ::-webkit-scrollbar-thumb { @apply bg-muted rounded-full border-4 border-solid border-transparent bg-clip-padding; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/30; }
 }
 
 @layer components {
+  /* Subtle translucent surface for sticky headers / overlays */
   .glass {
-    @apply bg-card/80 backdrop-blur-md border border-border/60;
+    @apply bg-card/80 backdrop-blur-md border border-border/70;
   }
-  .glass-heavy {
-    @apply bg-card/95 backdrop-blur-xl border border-border;
-  }
-  .btn-glow {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 4px 16px rgba(0,0,0,0.3);
-  }
-  .text-gradient {
-    background: linear-gradient(135deg, hsl(var(--subject-physics)), hsl(var(--primary)), hsl(var(--subject-chemistry)));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+
+  /* Shared hover lift used sparingly on interactive cards */
   .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-glow;
+    @apply transition-all duration-150 hover:border-border hover:shadow-sm;
+  }
+
+  /* Signature texture — used once per screen max, on hero/instrument surfaces only. */
+  .dot-grid {
+    background-image: radial-gradient(hsl(var(--background) / 0.14) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  /* Instrument-readout numerals: tabular monospace for any number that is DATA
+     (a score, a count, a percentage) — never for headings or body copy. */
+  .readout {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Specimen-label stripe: a 3px top edge in the subject's color, the one
+     consistent way subject identity shows up on a card. Pair with a
+     `border-t-[color]` on the element, e.g. border-t-subject-chemistry. */
+  .specimen-card {
+    border-top-width: 3px;
   }
 }

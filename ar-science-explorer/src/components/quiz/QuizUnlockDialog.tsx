@@ -48,20 +48,28 @@ export function QuizUnlockDialog({
 
   return createPortal(
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
       onClick={onCancel}
       suppressHydrationWarning
     >
-      <div className="bg-card rounded-2xl border border-border p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()} suppressHydrationWarning>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 4 }}
+        transition={{ duration: 0.15 }}
+        className="bg-card rounded-xl border border-border shadow-popover p-6 max-w-sm w-full"
+        onClick={(e) => e.stopPropagation()}
+        suppressHydrationWarning
+      >
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
-            <Lock size={20} className="text-amber-600" />
+          <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+            <Lock size={17} className="text-warning" />
           </div>
           <div>
-            <h3 className="font-bold text-foreground">Unlock Test</h3>
+            <h3 className="text-sm font-semibold text-foreground">Unlock Test</h3>
             <p className="text-xs text-muted-foreground">{quizTitle}</p>
           </div>
         </div>
@@ -80,7 +88,7 @@ export function QuizUnlockDialog({
             disabled={status !== 'idle'}
             className={cn(
               'font-mono text-center tracking-widest uppercase',
-              status === 'error' && 'border-destructive focus:ring-destructive/50 bg-destructive/5'
+              status === 'error' && 'border-destructive focus-visible:ring-destructive/50 bg-destructive/5'
             )}
           />
 
@@ -97,7 +105,7 @@ export function QuizUnlockDialog({
           )}
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-5">
           <Button
             variant="outline"
             onClick={onCancel}
@@ -115,7 +123,7 @@ export function QuizUnlockDialog({
             {status === 'checking' ? 'Checking...' : 'Unlock'}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </motion.div>,
     document.body
   )

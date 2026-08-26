@@ -20,7 +20,7 @@ export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <label className="block text-[13px] font-medium text-foreground mb-1.5">
             {label}
             {props.required && <span className="text-destructive ml-1">*</span>}
           </label>
@@ -30,9 +30,9 @@ export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
           <textarea
             ref={ref}
             className={cn(
-              'w-full px-4 py-3 rounded-xl bg-background border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed',
+              'w-full px-3 py-2 rounded-md bg-background border text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-50 disabled:cursor-not-allowed',
               error
-                ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/50'
+                ? 'border-destructive focus:ring-destructive/40'
                 : 'border-border',
               className
             )}
@@ -41,7 +41,7 @@ export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
 
           {error && (
             <AlertCircle
-              size={18}
+              size={15}
               className="absolute right-3 top-3 text-destructive flex-shrink-0"
             />
           )}
@@ -65,7 +65,7 @@ export const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
               className={cn(
                 'text-xs font-medium',
                 charCount && charCount > maxChars * 0.9
-                  ? 'text-amber-600 dark:text-amber-400'
+                  ? 'text-warning'
                   : 'text-muted-foreground'
               )}
             >

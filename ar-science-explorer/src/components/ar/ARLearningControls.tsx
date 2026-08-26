@@ -37,23 +37,23 @@ export function ARLearningControls({
       <button
         onClick={onPlayAll}
         disabled={unsupported}
-        className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border bg-card text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <PlayCircle size={15} />
         Play All
       </button>
-      <button onClick={onStop} className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border bg-card text-sm font-semibold hover:bg-muted transition-colors">
+      <button onClick={onStop} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors">
         <Square size={15} />
         Stop
       </button>
-      <button onClick={onLanguageToggle} className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border bg-card text-sm font-semibold hover:bg-muted transition-colors">
+      <button onClick={onLanguageToggle} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors">
         <Languages size={15} />
         {language === 'en' ? 'English' : 'Filipino'}
       </button>
       <button
         onClick={onReplay}
         disabled={unsupported}
-        className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border bg-card text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <RefreshCcw size={15} />
         Replay

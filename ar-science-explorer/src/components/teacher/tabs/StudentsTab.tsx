@@ -18,6 +18,7 @@ import type { StudentRecord, TeacherQuiz } from '../../../types'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { Input } from '../../ui/input'
+import { Label } from '../../ui/label'
 import { TableSkeleton } from '../../ui/skeleton'
 import { useNotificationStore } from '../../../store/useNotificationStore'
 
@@ -58,6 +59,53 @@ function buildAllQuizzes(teacherQuizzes: TeacherQuiz[]): TeacherQuiz[] {
 }
 
 const ITEMS_PER_PAGE = 10
+
+/** Shared right-side slide-in drawer shell (Linear/Notion-style "create"/detail panel). */
+function Drawer({
+  onClose,
+  title,
+  subtitle,
+  children,
+}: {
+  onClose: () => void
+  title: string
+  subtitle?: string
+  children: React.ReactNode
+}) {
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
+        className="fixed inset-y-0 right-0 z-10 w-full max-w-md bg-card border-l border-border shadow-popover flex flex-col"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-border shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground truncate">{title}</h3>
+            {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="shrink-0">
+            <X size={16} />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {children}
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  )
+}
 
 export function StudentsTab() {
   const { data } = useStorageData(true)
@@ -169,6 +217,8 @@ export function StudentsTab() {
   const handlePrevPage = () => setCurrentPage(p => Math.max(1, p - 1))
   const handleNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1))
 
+  const closeForm = () => { setShowForm(false); setFormError(null); reset() }
+
   if (showSkeleton) {
     return <TableSkeleton columns={['Student', 'Section', 'Last Test', 'Joined', '']} rows={8} />
   }
@@ -177,51 +227,45 @@ export function StudentsTab() {
     <motion.div variants={pageVariants} initial="initial" animate="animate">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <h2 className="text-2xl md:text-[28px] font-semibold tracking-tight text-foreground flex items-center gap-2.5">
             <Users size={20} className="text-primary" /> Students
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-success/20 text-success text-xs font-semibold">
-              <span className="animate-pulse w-2 h-2 rounded-full bg-success" />
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 text-success text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
               Live
             </span>
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-muted-foreground mt-1">
             {filteredStudents.length} of {students.length} student{students.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            onClick={handleExportCSV}
-            className="border border-border rounded-xl"
-          >
+          <Button variant="outline" onClick={handleExportCSV}>
             Export CSV
           </Button>
-          <Button
-            onClick={() => setShowForm(true)}
-            className="gap-2 rounded-xl btn-glow"
-          >
+          <Button onClick={() => setShowForm(true)}>
             <Plus size={14} /> Add Student
           </Button>
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      {/* Compact toolbar: search + section filter in one dense row */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 p-2 rounded-lg border border-border bg-muted/20">
         <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }}
             placeholder="Search name or ID…"
-            className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+            className="h-8 pl-8 pr-3 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring w-48"
           />
         </div>
+        <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
         {sections.length > 1 && (
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted border border-border flex-wrap">
+          <div className="flex items-center gap-1 p-1 rounded-md bg-muted border border-border flex-wrap">
             {sections.map(sec => (
               <button key={sec} onClick={() => { setFilterSection(sec); setCurrentPage(1) }}
-                className={cn('px-3 py-1 rounded-md text-[11px] font-semibold transition-colors',
-                  filterSection === sec ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn('px-2.5 h-6 rounded text-xs font-medium transition-colors duration-150',
+                  filterSection === sec ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
                 {sec === 'all' ? 'All Sections' : sec}
               </button>
             ))}
@@ -229,71 +273,11 @@ export function StudentsTab() {
         )}
         {(searchQuery || filterSection !== 'all') && (
           <button onClick={() => { setSearchQuery(''); setFilterSection('all'); setCurrentPage(1) }}
-            className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted transition-colors">
-            <X size={11} /> Clear
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 h-6 rounded-md hover:bg-muted transition-colors duration-150 ml-auto">
+            <X size={12} /> Clear
           </button>
         )}
       </div>
-
-      {showForm && (
-        <Card className="rounded-2xl p-6 mb-8 max-w-lg border-border">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-foreground">Add New Student</h3>
-            <Button variant="ghost" size="icon" onClick={() => { setShowForm(false); setFormError(null); reset() }} aria-label="Close">
-              <X size={16} />
-            </Button>
-          </div>
-          <form onSubmit={handleAdd} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Full Name</label>
-              <Input {...register('name')} placeholder="e.g. Juan De La Cruz" />
-              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Student ID (6 digits)</label>
-                <Input {...register('studentId')} placeholder="e.g. 123456" maxLength={6} />
-                {errors.studentId && <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>}
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Section</label>
-                <Input {...register('section')} placeholder="e.g. St. Jude" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Login Password</label>
-              <div className="relative">
-                <Input
-                  {...register('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Min. 6 characters"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
-              <p className="text-[11px] text-muted-foreground mt-1">
-                This password will be used by the student to log in.
-              </p>
-            </div>
-            {formError && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
-                {formError}
-              </div>
-            )}
-            <Button type="submit" className="w-full rounded-xl btn-glow mt-2" disabled={isSaving} isLoading={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Student Record'}
-            </Button>
-          </form>
-        </Card>
-      )}
 
       <AnimatePresence>
         {successName && (
@@ -301,29 +285,30 @@ export function StudentsTab() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-success/10 border border-success/20 text-success text-sm font-semibold"
+            transition={{ duration: 0.18 }}
+            className="flex items-center gap-3 px-4 py-3 mb-4 rounded-md bg-success/10 border border-success/20 text-success text-sm font-medium"
           >
             <CheckCircle2 size={16} className="shrink-0" />
-            <span>Student <span className="font-bold">{successName}</span> was added successfully.</span>
-            <button onClick={() => setSuccessName(null)} className="ml-auto text-success/60 hover:text-success transition-colors">
+            <span>Student <span className="font-semibold">{successName}</span> was added successfully.</span>
+            <button onClick={() => setSuccessName(null)} className="ml-auto text-success/60 hover:text-success transition-colors duration-150">
               <X size={14} />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Card className="rounded-2xl border-border overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-muted/30 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Student Info</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Section</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Bio</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Chem</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest text-center">Score: Phys</th>
-                <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest">Last Test</th>
-                <th className="px-6 py-4"></th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Student Info</th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Section</th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">Score: Bio</th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">Score: Chem</th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">Score: Phys</th>
+                <th className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Last Test</th>
+                <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -342,36 +327,36 @@ export function StudentsTab() {
                       : lastAttempt.quizId))
                   : null
                 return (
-                <tr key={s.id} className="hover:bg-muted/20 cursor-default transition-colors group">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{s.name}</p>
+                <tr key={s.id} className="hover:bg-muted/30 cursor-default transition-colors duration-150 group">
+                  <td className="px-6 py-3.5">
+                    <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-150">{s.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">ID: {s.studentId}</p>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-medium text-foreground">{s.section}</span>
+                  <td className="px-6 py-3.5">
+                    <span className="text-sm text-foreground">{s.section}</span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={cn('text-xs font-bold', s.scores.biology != null ? 'text-subject-biology' : 'text-muted-foreground opacity-40')}>{s.scores.biology ?? '—'}</span>
+                  <td className="px-6 py-3.5 text-center">
+                    <span className={cn('text-sm font-medium tabular-nums', s.scores.biology != null ? 'text-subject-biology' : 'text-muted-foreground opacity-40')}>{s.scores.biology ?? '—'}</span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={cn('text-xs font-bold', s.scores.chemistry != null ? 'text-subject-chemistry' : 'text-muted-foreground opacity-40')}>{s.scores.chemistry ?? '—'}</span>
+                  <td className="px-6 py-3.5 text-center">
+                    <span className={cn('text-sm font-medium tabular-nums', s.scores.chemistry != null ? 'text-subject-chemistry' : 'text-muted-foreground opacity-40')}>{s.scores.chemistry ?? '—'}</span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={cn('text-xs font-bold', s.scores.physics != null ? 'text-subject-physics' : 'text-muted-foreground opacity-40')}>{s.scores.physics ?? '—'}</span>
+                  <td className="px-6 py-3.5 text-center">
+                    <span className={cn('text-sm font-medium tabular-nums', s.scores.physics != null ? 'text-subject-physics' : 'text-muted-foreground opacity-40')}>{s.scores.physics ?? '—'}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-3.5">
                     {lastQuizTitle ? (
                       <div>
-                        <p className="text-xs font-semibold text-foreground truncate max-w-[160px]">{lastQuizTitle}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                        <p className="text-sm font-medium text-foreground truncate max-w-[160px]">{lastQuizTitle}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {lastAttempt!.correctAnswers}/{lastAttempt!.totalQuestions} correct
                         </p>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground opacity-40">—</span>
+                      <span className="text-sm text-muted-foreground opacity-40">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -386,7 +371,7 @@ export function StudentsTab() {
                         variant="ghost"
                         size="icon"
                         aria-label="Delete student"
-                        className="text-destructive/40 hover:text-destructive hover:bg-destructive/10"
+                        className="text-destructive/50 hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => {
                           e.stopPropagation()
                           showConfirmModal(
@@ -427,7 +412,7 @@ export function StudentsTab() {
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10">
+          <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-muted/10">
             <div className="text-xs text-muted-foreground">
               Showing {startIndex + 1}–{Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
             </div>
@@ -435,7 +420,7 @@ export function StudentsTab() {
               <button
                 onClick={handlePrevPage}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
                 aria-label="Previous page"
               >
                 <ChevronLeft size={16} />
@@ -446,7 +431,7 @@ export function StudentsTab() {
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     className={cn(
-                      'min-w-8 h-8 rounded-lg text-xs font-semibold transition-colors',
+                      'min-w-8 h-8 rounded-md text-xs font-medium transition-colors duration-150',
                       currentPage === page
                         ? 'bg-primary text-primary-foreground'
                         : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -459,7 +444,7 @@ export function StudentsTab() {
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
                 aria-label="Next page"
               >
                 <ChevronRight size={16} />
@@ -469,64 +454,105 @@ export function StudentsTab() {
         )}
       </Card>
 
-      {viewStudent && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setViewStudent(null)} />
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-card border border-border rounded-3xl w-full max-w-lg p-6 shadow-2xl z-10"
-          >
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h3 className="font-bold text-foreground text-lg">{viewStudent.name}'s Tests</h3>
-                <p className="text-sm text-muted-foreground">
-                  {viewStudent.quizAttempts?.length ?? 0} attempted
+      <AnimatePresence>
+        {showForm && (
+          <Drawer onClose={closeForm} title="Add New Student">
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Full Name</Label>
+                <Input {...register('name')} placeholder="e.g. Juan De La Cruz" />
+                {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Student ID (6 digits)</Label>
+                  <Input {...register('studentId')} placeholder="e.g. 123456" maxLength={6} />
+                  {errors.studentId && <p className="text-xs text-destructive mt-1">{errors.studentId.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Section</Label>
+                  <Input {...register('section')} placeholder="e.g. St. Jude" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Login Password</Label>
+                <div className="relative">
+                  <Input
+                    {...register('password')}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Min. 6 characters"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
+                <p className="text-xs text-muted-foreground mt-1">
+                  This password will be used by the student to log in.
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setViewStudent(null)} aria-label="Close" className="shrink-0">
-                <X size={16} />
+              {formError && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                  {formError}
+                </div>
+              )}
+              <Button type="submit" className="w-full mt-2" disabled={isSaving} isLoading={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Student Record'}
               </Button>
-            </div>
+            </form>
+          </Drawer>
+        )}
+      </AnimatePresence>
 
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-              {(() => {
-                return allQuizzes.map((q) => {
-                  const attempts = (viewStudent.quizAttempts ?? [])
-                    .filter(a => a.quizId === q.id)
-                    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-                  const lastAttempt = attempts[0] ?? null
-                  
-                  return (
-                    <div
-                      key={q.id}
-                      className={cn(
-                        'flex items-center justify-between gap-3 p-3 rounded-xl border bg-muted/20',
-                        lastAttempt ? 'border-primary/30' : 'border-border'
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground truncate">{q.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className={cn('text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted', 
-                            q.subject === 'biology' ? 'text-subject-biology' : 
-                            q.subject === 'chemistry' ? 'text-subject-chemistry' : 'text-subject-physics')}>{q.subject}</span>
-                          {lastAttempt && (
-                            <span className="text-xs text-muted-foreground">
-                              {lastAttempt.score}% ({lastAttempt.correctAnswers}/{lastAttempt.totalQuestions})
-                            </span>
-                          )}
-                        </div>
+      <AnimatePresence>
+        {viewStudent && (
+          <Drawer
+            onClose={() => setViewStudent(null)}
+            title={`${viewStudent.name}'s Tests`}
+            subtitle={`${viewStudent.quizAttempts?.length ?? 0} attempted`}
+          >
+            <div className="space-y-2">
+              {allQuizzes.map((q) => {
+                const attempts = (viewStudent.quizAttempts ?? [])
+                  .filter(a => a.quizId === q.id)
+                  .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+                const lastAttempt = attempts[0] ?? null
+
+                return (
+                  <div
+                    key={q.id}
+                    className={cn(
+                      'flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/20',
+                      lastAttempt ? 'border-primary/30' : 'border-border'
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{q.title}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className={cn('text-[10px] uppercase font-medium px-1.5 py-0.5 rounded bg-muted',
+                          q.subject === 'biology' ? 'text-subject-biology' :
+                          q.subject === 'chemistry' ? 'text-subject-chemistry' : 'text-subject-physics')}>{q.subject}</span>
+                        {lastAttempt && (
+                          <span className="text-xs text-muted-foreground">
+                            {lastAttempt.score}% ({lastAttempt.correctAnswers}/{lastAttempt.totalQuestions})
+                          </span>
+                        )}
                       </div>
-                      
                     </div>
-                  )
-                })
-              })()}
+
+                  </div>
+                )
+              })}
             </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </Drawer>
+        )}
+      </AnimatePresence>
 
     </motion.div>
   )

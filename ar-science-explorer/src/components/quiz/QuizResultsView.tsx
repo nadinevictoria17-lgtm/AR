@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Trophy, Home, Zap, Loader2, KeyRound } from 'lucide-react'
+import { Trophy, Home, Zap, Loader2, KeyRound, CheckCircle2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Badge } from '../ui/badge'
@@ -44,38 +44,13 @@ export function QuizResultsView({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="max-w-md mx-auto py-12 px-4"
+      className="max-w-3xl mx-auto py-12 px-4"
     >
-      {/* Trophy/Medal Animation */}
-      <motion.div
-        animate={{ scale: [1, 1.1, 1] }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="flex justify-center mb-8"
-      >
-        <div
-          className={cn(
-            'w-24 h-24 rounded-full flex items-center justify-center',
-            passed ? 'bg-success/15' : 'bg-warning/15'
-          )}
-        >
-          {passed ? (
-            <Trophy size={48} className="text-success" />
-          ) : (
-            <Zap size={48} className="text-warning" />
-          )}
-        </div>
-      </motion.div>
-
       {/* Result Text */}
-      <div className="text-center mb-8">
-        <h1
-          className={cn(
-            'text-3xl font-black mb-2',
-            passed ? 'text-success' : 'text-warning'
-          )}
-        >
+      <div className="text-center mb-7">
+        <h1 className="text-2xl font-semibold tracking-tight mb-1.5 text-foreground">
           {passed ? 'Excellent!' : 'Keep Trying!'}
         </h1>
         <p className="text-muted-foreground text-sm">
@@ -83,32 +58,59 @@ export function QuizResultsView({
         </p>
       </div>
 
-      {/* Score Card */}
-      <Card className="p-8 mb-8 text-center border-border">
-        <div className="mb-6">
-          <div className="text-5xl font-black mb-2 text-foreground">
-            {percentage}%
+      {/* Score Card: focal score + breakdown side-by-side on sm+ */}
+      <Card className="p-6 md:p-8 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-8">
+          {/* Focal score */}
+          <div className="flex items-center gap-5 sm:shrink-0">
+            <motion.div
+              animate={{ scale: [1, 1.06, 1] }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className={cn(
+                'w-16 h-16 rounded-full flex items-center justify-center shrink-0',
+                passed ? 'bg-success/10' : 'bg-warning/10'
+              )}
+            >
+              {passed ? (
+                <Trophy size={30} className="text-success" />
+              ) : (
+                <Zap size={30} className="text-warning" />
+              )}
+            </motion.div>
+            <div>
+              <div className="text-5xl font-semibold text-foreground tabular-nums tracking-tight leading-none">
+                {percentage}%
+              </div>
+              <p className="text-muted-foreground text-sm mt-2">
+                {score} out of {totalQuestions} correct
+              </p>
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm">
-            {score} out of {totalQuestions} correct
-          </p>
-        </div>
 
-        {/* Score Breakdown */}
-        <div className="space-y-3 pt-6 border-t border-border">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Correct Answers</span>
-            <span className="font-semibold text-success">
-              {score}/{totalQuestions}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Hints Used</span>
-            <span className="font-semibold">{hintsUsed}/3</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Pass Threshold</span>
-            <span className="font-semibold">{passThreshold}%</span>
+          {/* Breakdown panel */}
+          <div className="flex-1 sm:pl-8 sm:border-l border-border">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Correct</div>
+                <div className="font-semibold text-success tabular-nums text-lg">
+                  {score}/{totalQuestions}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Hints Used</div>
+                <div className="font-semibold text-foreground tabular-nums text-lg">{hintsUsed}/3</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Pass Mark</div>
+                <div className="font-semibold text-foreground tabular-nums text-lg">{passThreshold}%</div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Badge variant={passed ? 'success' : 'warning'} size="md" className="gap-1">
+                {passed ? <CheckCircle2 size={12} /> : <Zap size={12} />}
+                {passed ? 'Passed' : 'Not Yet Passed'}
+              </Badge>
+            </div>
           </div>
         </div>
       </Card>
@@ -116,16 +118,17 @@ export function QuizResultsView({
       {/* Achievement Badge */}
       {passed && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-8 p-4 bg-success/10 border border-success/20 rounded-xl text-center"
+          transition={{ delay: 0.25 }}
+          className="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg text-center"
         >
-          <Badge variant="success" size="md" className="mb-2">
-            ✓ Quiz Completed
+          <Badge variant="success" size="md" className="mb-2 gap-1">
+            <CheckCircle2 size={12} />
+            Quiz Completed
           </Badge>
           <p className="text-xs text-success">
-            Great job! You've unlocked the next section.
+            Great job! You&apos;ve unlocked the next section.
           </p>
         </motion.div>
       )}
@@ -135,8 +138,8 @@ export function QuizResultsView({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-xl flex items-start gap-3"
+          transition={{ delay: 0.25 }}
+          className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-3"
         >
           <KeyRound size={16} className="text-warning shrink-0 mt-0.5" />
           <p className="text-xs text-warning leading-relaxed">
@@ -146,18 +149,15 @@ export function QuizResultsView({
       )}
 
       {/* Action Buttons */}
-      <div className="space-y-3">
+      <div className="max-w-sm mx-auto space-y-3">
         {isRedirecting ? (
-          <Button disabled className="w-full h-12 font-bold text-base">
-            <Loader2 size={18} className="mr-2 animate-spin" />
+          <Button disabled size="lg" className="w-full">
+            <Loader2 size={17} className="mr-1.5 animate-spin" />
             Going to Progress…
           </Button>
         ) : (
-          <Button
-            onClick={onHome}
-            className="w-full h-12 font-bold text-base"
-          >
-            <Home size={18} className="mr-2" />
+          <Button onClick={onHome} size="lg" className="w-full">
+            <Home size={17} className="mr-1.5" />
             View My Progress
           </Button>
         )}
@@ -168,10 +168,10 @@ export function QuizResultsView({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.4 }}
           className="text-xs text-muted-foreground text-center mt-6"
         >
-          You've completed all quizzes in this section! 🎉
+          You&apos;ve completed all quizzes in this section!
         </motion.p>
       )}
     </motion.div>

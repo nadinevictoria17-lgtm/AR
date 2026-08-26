@@ -46,11 +46,11 @@ export function QuizListView({
       className="max-w-3xl mx-auto pb-8"
     >
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-black mb-2 text-foreground">
+      <div className="mb-7">
+        <h1 className="text-2xl md:text-[28px] font-semibold tracking-tight mb-1.5 text-foreground">
           Tests
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Take the Pre-Test before a lesson and the Post-Test after to check your understanding.
         </p>
       </div>
@@ -60,7 +60,7 @@ export function QuizListView({
         {Object.entries(groupedByTopic).map(([topicName, topicQuizzes]) => (
           <div key={topicName}>
             {/* Topic Header */}
-            <h2 className="text-lg font-bold mb-3 text-foreground">
+            <h2 className="text-sm font-semibold mb-2.5 text-foreground">
               {topicName}
             </h2>
 
@@ -71,42 +71,42 @@ export function QuizListView({
                   key={quiz.id}
                   initial={ITEM_INITIAL}
                   animate={ITEM_ANIMATE}
-                  transition={{ delay: idx * 0.1 }}
+                  transition={{ delay: idx * 0.04, duration: 0.15 }}
                 >
                   <Card
                     className={cn(
-                      'p-4 cursor-pointer transition-all border-border',
+                      'p-4 transition-colors duration-150',
                       quiz.isLocked
-                        ? 'opacity-60 cursor-not-allowed'
-                        : 'hover:border-primary hover:shadow-lg'
+                        ? 'opacity-60'
+                        : 'hover:border-muted-foreground/25'
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-bold text-foreground">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <h3 className="text-sm font-medium text-foreground">
                             {quiz.title}
                           </h3>
                           {quiz.isCompleted && (
                             <CheckCircle2
-                              size={18}
+                              size={15}
                               className="text-success flex-shrink-0"
                             />
                           )}
                           {quiz.isLocked && (
                             <Lock
-                              size={18}
+                              size={14}
                               className="text-muted-foreground flex-shrink-0"
                             />
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock size={14} />
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock size={12} />
                           <span>{quiz.questionCount} questions</span>
                           {quiz.lastAttemptScore !== undefined && (
                             <>
-                              <span>•</span>
+                              <span>·</span>
                               <span>
                                 Best score: {quiz.lastAttemptScore}%
                               </span>
@@ -120,19 +120,19 @@ export function QuizListView({
                         disabled={quiz.isLocked}
                         size="sm"
                         variant={quiz.isCompleted ? 'outline' : 'default'}
-                        className="flex-shrink-0 ml-4"
+                        className="flex-shrink-0"
                       >
                         {quiz.isLocked ? (
-                          <Lock size={16} />
+                          <Lock size={14} />
                         ) : quiz.isCompleted ? (
                           <>
                             Retake
-                            <ChevronRight size={16} className="ml-1" />
+                            <ChevronRight size={14} />
                           </>
                         ) : (
                           <>
                             Start
-                            <ChevronRight size={16} className="ml-1" />
+                            <ChevronRight size={14} />
                           </>
                         )}
                       </Button>
@@ -147,8 +147,8 @@ export function QuizListView({
 
       {/* Empty State */}
       {quizzes.length === 0 && (
-        <Card className="p-12 text-center border-border">
-          <p className="text-muted-foreground mb-4">
+        <Card className="p-10 text-center">
+          <p className="text-sm text-muted-foreground mb-2">
             No quizzes available for this subject yet.
           </p>
           <p className="text-xs text-muted-foreground">

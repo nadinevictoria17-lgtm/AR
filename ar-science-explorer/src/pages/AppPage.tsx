@@ -37,13 +37,13 @@ export default function AppPage() {
       <ErrorModal />
       <ConfirmModal />
       <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="sticky top-0 z-30 md:hidden bg-surface/95 backdrop-blur border-b border-border px-4 py-3">
+        <div className="sticky top-0 z-30 md:hidden bg-surface/95 backdrop-blur border-b border-border px-4 py-2.5">
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-muted transition-colors"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-border bg-card text-foreground hover:bg-muted transition-colors"
             aria-label="Open menu"
           >
-            <Menu size={18} />
+            <Menu size={17} />
           </button>
         </div>
         <div className={cn('w-full mx-auto', LAYOUT.maxWidth, LAYOUT.padding, LAYOUT.spacing)}>
