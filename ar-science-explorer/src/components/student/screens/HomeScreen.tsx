@@ -5,13 +5,14 @@ import { useStorageData } from '../../../hooks/useStorageData'
 import { useDeferredLoading } from '../../../hooks/useDeferredLoading'
 import { cn } from '../../../lib/utils'
 import { LESSONS } from '../../../data/lessons'
-import { Trophy, KeyRound, ArrowRight, CheckCircle2, Star } from 'lucide-react'
+import { Trophy, KeyRound, ArrowRight, CheckCircle2, ClipboardCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../ui/button'
 import { Card } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Input } from '../../ui/input'
 import { ContentSkeleton } from '../../ui/skeleton'
+import { ProgressRing } from '../../ui/ProgressRing'
 
 export function HomeScreen() {
   const { currentStudentId, applyAccessCode, setActiveLesson } = useAppStore(
@@ -68,94 +69,92 @@ export function HomeScreen() {
   if (showSkeleton) return <ContentSkeleton />
 
   return (
-    <div className="space-y-8 pb-10">
-      {/* Top Welcome Header */}
+    <div className="space-y-6 pb-10">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <Badge variant="outline" className="mb-2 px-3 py-1 bg-primary/5 text-primary border-primary/20 rounded-full font-bold">
-            Quarter {currentProgress.quarter} · Week {currentProgress.week}
-          </Badge>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
-            {student
-              ? `Hello, ${student.name ? student.name.split(' ')[0] : `Student ${student.studentId}`}!`
-              : 'Welcome back!'
-            }
-          </h1>
-          <p className="text-muted-foreground font-medium mt-1">
-            You're doing great! You've completed {stats.percent}% of your science journey.
-          </p>
+        <div className="flex items-center gap-4">
+          <ProgressRing percent={stats.percent} className="shrink-0" />
+          <div>
+            <Badge variant="outline" className="mb-2 bg-primary/5 text-primary border-primary/20">
+              Quarter {currentProgress.quarter} · Week {currentProgress.week}
+            </Badge>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              {student
+                ? `Hi, ${student.name ? student.name.split(' ')[0] : `Student ${student.studentId}`}`
+                : 'Welcome back'
+              }
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              {stats.percent}% of the science curriculum complete.
+            </p>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/app/progress')} className="rounded-2xl border-border bg-card font-bold">
-            <Trophy size={16} className="mr-2 text-primary" />
-            Full Report
-          </Button>
-        </div>
+
+        <Button variant="outline" onClick={() => navigate('/app/progress')}>
+          <Trophy size={16} className="mr-2 text-primary" />
+          Full Report
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main left content */}
         <div className="lg:col-span-8 space-y-6">
-          <div className="relative group cursor-pointer overflow-hidden rounded-[2.5rem] bg-foreground p-8 md:p-10 text-background shadow-2xl transition-all duration-500 hover:shadow-primary/20" onClick={handleStartNext}>
-            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-primary/30 rounded-full blur-[80px] group-hover:scale-110 transition-transform duration-700" />
-            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-              <div className="flex-1 space-y-4 text-center md:text-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/10 border border-background/20">
-                  <Star size={14} className="text-primary fill-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-background/80">Recommended for you</span>
-                </div>
-                <h2 className="text-3xl font-black leading-tight">Next Up: <span className="text-primary">{nextLesson.title}</span></h2>
-                <p className="text-background/60 text-sm max-w-md line-clamp-2">{nextLesson.summary}</p>
-                <div className="pt-2">
-                  <Button className="rounded-2xl px-8 h-12 font-black text-sm gap-2 btn-glow bg-primary text-primary-foreground border-none">
-                    Start Lesson <ArrowRight size={18} />
-                  </Button>
-                </div>
-              </div>
+          <Card
+            className="p-6 md:p-8 cursor-pointer transition-colors hover:border-primary/40"
+            onClick={handleStartNext}
+          >
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Continue where you left off
+            </p>
+            <h2 className="text-xl md:text-2xl font-bold leading-tight text-foreground">{nextLesson.title}</h2>
+            <p className="text-muted-foreground text-sm mt-2 max-w-md line-clamp-2">{nextLesson.summary}</p>
+            <div className="pt-4">
+              <Button className="gap-2">
+                Start Lesson <ArrowRight size={16} />
+              </Button>
             </div>
-          </div>
+          </Card>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-subject-biology/10 flex items-center justify-center text-subject-biology">
-                  <CheckCircle2 size={24} />
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-subject-biology/10 flex items-center justify-center text-subject-biology">
+                  <CheckCircle2 size={18} />
                 </div>
+                <p className="text-xs font-medium text-muted-foreground">Lessons Done</p>
               </div>
-              <p className="text-2xl font-black text-foreground">{stats.completed}</p>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Lessons Done</p>
+              <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
             </Card>
-            <Card className="p-6 rounded-[2rem] border-border bg-card hover:border-primary/30 transition-all group pointer-events-none">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-subject-chemistry/10 flex items-center justify-center text-subject-chemistry">
-                  <Star size={24} />
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-subject-chemistry/10 flex items-center justify-center text-subject-chemistry">
+                  <ClipboardCheck size={18} />
                 </div>
+                <p className="text-xs font-medium text-muted-foreground">Tests Taken</p>
               </div>
-              <p className="text-2xl font-black text-foreground">{student?.completedQuizIds.length || 0}</p>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Tests Taken</p>
+              <p className="text-2xl font-bold text-foreground">{student?.completedQuizIds.length || 0}</p>
             </Card>
           </div>
         </div>
 
         {/* Sidebar */}
         <div className="lg:col-span-4 space-y-6">
-          <Card className="p-6 rounded-[2rem] border-border bg-card">
-            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-              <Trophy size={18} className="text-primary" /> Recent Scores
+          <Card className="p-5">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-sm">
+              <Trophy size={16} className="text-primary" /> Recent Scores
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentAttempts.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">No recent attempts yet.</p>
               ) : (
                 recentAttempts.map((attempt, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/50">
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div>
-                      <p className="text-xs font-bold text-foreground">Test Result</p>
-                      <p className="text-[10px] text-muted-foreground italic">{new Date(attempt.timestamp).toLocaleDateString()}</p>
+                      <p className="text-xs font-medium text-foreground">Test Result</p>
+                      <p className="text-[11px] text-muted-foreground">{new Date(attempt.timestamp).toLocaleDateString()}</p>
                     </div>
                     <span className={cn(
-                      "text-sm font-black",
+                      "text-sm font-semibold",
                       attempt.score >= 80 ? "text-success" : attempt.score >= 50 ? "text-warning" : "text-destructive"
                     )}>
                       {attempt.score}%
@@ -166,14 +165,14 @@ export function HomeScreen() {
             </div>
           </Card>
 
-          <Card className="p-6 rounded-[2rem] border-border bg-card">
+          <Card className="p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <KeyRound size={20} />
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <KeyRound size={18} />
               </div>
               <div>
-                <h3 className="font-bold text-foreground leading-tight">Unlock Content</h3>
-                <p className="text-[10px] text-muted-foreground">Enter code from teacher</p>
+                <h3 className="font-semibold text-foreground text-sm leading-tight">Unlock Content</h3>
+                <p className="text-[11px] text-muted-foreground">Enter code from teacher</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -198,7 +197,7 @@ export function HomeScreen() {
                     setIsApplyingCode(false)
                   }
                 }}
-                className="w-full rounded-xl h-11 font-bold text-sm"
+                className="w-full"
                 disabled={!accessCode || isApplyingCode}
               >
                 {isApplyingCode ? 'Applying...' : 'Apply Code'}

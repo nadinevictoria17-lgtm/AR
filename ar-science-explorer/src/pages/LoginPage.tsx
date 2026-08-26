@@ -9,6 +9,7 @@ import { validateIdentifier, validatePassword } from '../lib/auth'
 import { storage } from '../lib/storage'
 import { firebaseStudentLogin, firebaseTeacherLogin } from '../lib/firebaseAuth'
 import { Button } from '../components/ui/button'
+import { AtomLogo } from '../components/ui/AtomLogo'
 
 type Role = 'student' | 'teacher'
 
@@ -104,7 +105,7 @@ export default function LoginPage() {
         <aside className="hidden md:flex w-64 border-r border-border bg-background p-6 flex-col justify-between">
           <div>
             <AtomLogo />
-            <h1 className="mt-5 text-2xl font-bold leading-tight">AR Science <span className="text-gradient">Explorer</span></h1>
+            <h1 className="mt-5 text-2xl font-bold leading-tight text-foreground">AR Science Explorer</h1>
             <p className="mt-2 text-xs text-muted-foreground">Pasig Catholic College · Grade 7</p>
           </div>
           <div className="space-y-2 text-sm text-muted-foreground">
@@ -227,42 +228,3 @@ export default function LoginPage() {
   )
 }
 
-function AtomLogo({ size = 'md' }: { size?: 'sm' | 'md' }) {
-  const dim = size === 'sm' ? 80 : 110
-  return (
-    <div className="relative" style={{ width: dim, height: dim }}>
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full z-10"
-        style={{
-          width: dim * 0.3,
-          height: dim * 0.3,
-          background: 'radial-gradient(circle at 35% 30%, hsl(var(--subject-biology)), hsl(var(--primary)))',
-          boxShadow: '0 0 20px hsl(var(--primary) / 0.6), 0 0 40px hsl(var(--primary) / 0.3)',
-        }}
-      />
-      {[
-        { color: 'hsl(var(--subject-biology))', dir: 'normal', i: 0 },
-        { color: 'hsl(var(--subject-chemistry))', dir: 'reverse', i: 1 },
-        { color: 'hsl(var(--primary))', dir: 'normal', i: 2 },
-      ].map(({ color, dir, i }) => (
-        <div
-          key={i}
-          className="absolute inset-0 rounded-full border"
-          style={{
-            borderColor: color,
-            borderWidth: '1.5px',
-            opacity: 0.6,
-            animation: `orbit ${2.8 + i * 0.6}s linear infinite ${dir}`,
-            animationDelay: `${i * 0.3}s`,
-            transform: `rotateX(70deg) rotateZ(${i * 60}deg)`,
-          }}
-        >
-          <div
-            className="absolute w-2 h-2 rounded-full -top-1 left-1/2 -translate-x-1/2"
-            style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-          />
-        </div>
-      ))}
-    </div>
-  )
-}

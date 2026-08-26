@@ -6,9 +6,13 @@ export default {
     './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
+    // System-native stack on purpose (see DESIGN.md "Type"): zero webfont
+    // load, zero flash-of-fallback, and it reads as a precise instrument
+    // rather than a themed template — the exact opposite of the previous
+    // Poppins-everywhere / font-black-everywhere pattern.
     fontFamily: {
-      sans: ['Poppins', 'sans-serif'],
-      mono: ['Poppins', 'sans-serif'],
+      sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Helvetica Neue', 'Arial', 'sans-serif'],
+      mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
     },
     extend: {
       colors: {
@@ -38,28 +42,28 @@ export default {
         accent:              'hsl(var(--accent))',
         'accent-foreground': 'hsl(var(--accent-foreground))',
       },
+      // One consistent radius scale used everywhere (replaces the ad hoc
+      // rounded-[1.5rem]/[2rem]/[2.5rem] values scattered per-component,
+      // which had no documented relationship to each other).
       borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
-      },
-      boxShadow: {
-        glow:  '0 0 20px hsl(var(--primary) / 0.35)',
-        'glow-sm': '0 0 10px hsl(var(--primary) / 0.25)',
+        sm:  '6px',
+        DEFAULT: '8px',
+        md:  '8px',
+        lg:  '10px',
+        xl:  '12px',
+        '2xl': '16px',
+        '3xl': '20px',
       },
       animation: {
         'slide-up':   'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
         'fade-in':    'fadeIn 0.25s ease',
         'spin-slow':  'spin 3s linear infinite',
         'orbit':      'orbit 3s linear infinite',
-        'float':      'float 3s ease-in-out infinite',
-        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
       },
       keyframes: {
         slideUp:   { from: { transform: 'translateY(16px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
         fadeIn:    { from: { opacity: '0' }, to: { opacity: '1' } },
         orbit:     { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
-        float:     { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
-        pulseSoft: { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.4' } },
       },
     },
   },

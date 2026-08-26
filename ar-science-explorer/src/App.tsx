@@ -72,41 +72,57 @@ export default function App() {
             </Route>
 
             {/* Student Routes — require Firebase student session.
+                The bare "/app" index redirect is now a SIBLING of the AppPage
+                layout route, not a child of it. Previously it lived inside
+                AppPage's Outlet, which meant every login/landing on "/app"
+                mounted AppPage (and its AnimatePresence) for the index route,
+                then immediately re-keyed to "/app/home" — an invisible
+                mount-then-transition cycle stacked in front of the real
+                page-swap animation. This was the actual "double load" bug;
+                it never showed up in per-screen fixes because it lives in
+                the route tree, not in any single screen's motion code.
                 AppPage itself loads once behind this outer Suspense; the inner
                 per-screen Suspense (around <Outlet/> inside AppPage.tsx) is what
                 actually catches each lazy screen chunk, so switching between
                 student screens never unmounts the sidebar/layout or interrupts
                 the page-transition animation with a fallback flash. */}
             <Route element={<StudentRoute />}>
-              <Route path="/app" element={
-                <Suspense fallback={<PageSkeleton />}>
-                  <AppPage />
-                </Suspense>
-              }>
+              <Route path="/app">
                 <Route index element={<Navigate to="/app/home" replace />} />
-                <Route path="home"       element={<HomeScreen />} />
-                <Route path="unlock"     element={<UnlockScreen />} />
-                <Route path="learn"      element={<LearnScreen />} />
-                <Route path="arlab"      element={<ARLabScreen />} />
-                <Route path="quiz"       element={<QuizScreen />} />
-                <Route path="progress"   element={<ProgressScreen />} />
-                <Route path="getstarted" element={<GetStartedScreen />} />
+                <Route element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <AppPage />
+                  </Suspense>
+                }>
+                  <Route path="home"       element={<HomeScreen />} />
+                  <Route path="unlock"     element={<UnlockScreen />} />
+                  <Route path="learn"      element={<LearnScreen />} />
+                  <Route path="arlab"      element={<ARLabScreen />} />
+                  <Route path="quiz"       element={<QuizScreen />} />
+                  <Route path="progress"   element={<ProgressScreen />} />
+                  <Route path="getstarted" element={<GetStartedScreen />} />
+                </Route>
               </Route>
             </Route>
 
-            {/* Teacher Routes — require Firebase teacher session */}
+            {/* Teacher Routes — require Firebase teacher session.
+                Same fix applied here for consistency, even though TeacherPage
+                has no page-transition animation to double: it still avoided
+                a pointless mount-then-redirect of TeacherPage/Suspense. */}
             <Route element={<TeacherRoute />}>
-              <Route path="/teacher" element={
-                <Suspense fallback={<PageSkeleton />}>
-                  <TeacherPage />
-                </Suspense>
-              }>
+              <Route path="/teacher">
                 <Route index element={<Navigate to="/teacher/dashboard" replace />} />
-                <Route path="dashboard" element={<AnalyticsDashboard />} />
-                <Route path="quizzes"   element={<QuizzesTab />} />
-                <Route path="lessons"   element={<LessonsTab />} />
-                <Route path="students"  element={<StudentsTab />} />
-                <Route path="codes"     element={<UnlockCodesTab />} />
+                <Route element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <TeacherPage />
+                  </Suspense>
+                }>
+                  <Route path="dashboard" element={<AnalyticsDashboard />} />
+                  <Route path="quizzes"   element={<QuizzesTab />} />
+                  <Route path="lessons"   element={<LessonsTab />} />
+                  <Route path="students"  element={<StudentsTab />} />
+                  <Route path="codes"     element={<UnlockCodesTab />} />
+                </Route>
               </Route>
             </Route>
 

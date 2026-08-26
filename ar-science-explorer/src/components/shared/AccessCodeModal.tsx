@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { KeyRound, X, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { cn } from '../../lib/utils'
 import { getUnlockCodeData, trackCodeUsage } from '../../lib/unlockCodeManager'
 import { storage } from '../../lib/storage'
 import { useAppStore } from '../../store/useAppStore'
@@ -57,21 +56,21 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
 
       if (!data) {
         setStatus('error')
-        setMessage('Invalid access code. Please check with your teacher.')
+        setMessage(`Code "${normalized}" isn't valid. Check with your teacher.`)
         return
       }
 
       // Validate student-specific code
       if (data.targetStudentId && data.targetStudentId !== currentStudentId) {
         setStatus('error')
-        setMessage('This code is assigned to a different student.')
+        setMessage(`Code "${normalized}" is assigned to a different student.`)
         return
       }
 
       // Check if this student has already used this code (one-time use for lesson/subject codes)
       if (data.usedByStudentIds?.includes(currentStudentId)) {
         setStatus('error')
-        setMessage('This code has already been used. Ask your teacher for a new one.')
+        setMessage(`Code "${normalized}" has already been used. Ask your teacher for a new one.`)
         return
       }
 
@@ -79,7 +78,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       if (data.type === 'subject' && data.lessonIds?.length) {
         if (!data.lessonIds.includes(targetId)) {
           setStatus('error')
-          setMessage('This code is not valid for this lesson.')
+          setMessage(`Code "${normalized}" isn't valid for this lesson.`)
           return
         }
         // Unlock only the listed lessons in Firestore (not the whole subject)
@@ -105,7 +104,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       if (data.type === 'lesson' && type === 'quiz') {
         if (data.targetId && data.targetId !== targetId) {
           setStatus('error')
-          setMessage('This code is not valid for this test.')
+          setMessage(`Code "${normalized}" isn't valid for this test.`)
           return
         }
         const quizId = builtinQuizId(targetId, 'post')
@@ -126,12 +125,12 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
         // Enforce one-time use
         if (data.isUsed) {
           setStatus('error')
-          setMessage('This code has already been used. Ask your teacher for a new one.')
+          setMessage(`Code "${normalized}" has already been used. Ask your teacher for a new one.`)
           return
         }
         if (data.targetId && data.targetId !== targetId) {
           setStatus('error')
-          setMessage('This code is not valid for this test.')
+          setMessage(`Code "${normalized}" isn't valid for this test.`)
           return
         }
 
@@ -160,7 +159,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       if (data.type === 'lesson' && type === 'lesson') {
         if (data.targetId && data.targetId !== targetId) {
           setStatus('error')
-          setMessage('This code is not valid for this lesson.')
+          setMessage(`Code "${normalized}" isn't valid for this lesson.`)
           return
         }
         const success = await storage.unlockContent(currentStudentId, targetId, 'lesson')
@@ -176,7 +175,7 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
       }
 
       setStatus('error')
-      setMessage(`This code is not for this ${type === 'quiz' ? 'test' : type}.`)
+      setMessage(`Code "${normalized}" isn't for this ${type === 'quiz' ? 'test' : type}.`)
     } catch (err) {
       console.error('Unlock error:', err)
       setStatus('error')
@@ -192,82 +191,118 @@ export function AccessCodeModal({ isOpen, onClose, targetId, type, title, onSucc
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="w-full max-w-md bg-card border border-border rounded-3xl shadow-2xl overflow-hidden"
+            className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
           >
-            <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                  <KeyRound size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground">Unlock Access</h3>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Required for {title}</p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Teacher Access Code
-                </label>
-                <Input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE HERE"
-                  disabled={status === 'loading' || status === 'success'}
-                  autoFocus
-                  className="text-xl font-mono font-black text-center tracking-widest h-auto py-4"
-                />
-              </div>
-
-              {message && (
+            <AnimatePresence mode="wait" initial={false}>
+              {status === 'success' ? (
+                // The unlock is a real accomplishment moment for a student —
+                // worth a beat of genuine feedback instead of a form field
+                // just quietly turning green and vanishing 1.5s later.
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={cn(
-                    'p-4 rounded-2xl flex items-start gap-3 text-sm font-medium border',
-                    status === 'error'
-                      ? 'bg-destructive/10 text-destructive border-destructive/20'
-                      : 'bg-success/10 text-success border-success/20'
-                  )}
+                  key="success"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="p-10 flex flex-col items-center text-center"
                 >
-                  {status === 'error'
-                    ? <AlertCircle  size={18} className="shrink-0 mt-0.5" />
-                    : <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
-                  }
-                  {message}
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    className="relative w-16 h-16 mb-4"
+                  >
+                    <div className="absolute inset-0 rounded-full bg-success/15 flex items-center justify-center text-success">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    {/* Three subject-colored dots ping outward once — a small
+                        callback to the AtomLogo motif instead of a generic
+                        confetti burst, so it still reads as this product. */}
+                    {['hsl(var(--subject-biology))', 'hsl(var(--subject-chemistry))', 'hsl(var(--subject-physics))'].map((color, i) => (
+                      <motion.span
+                        key={color}
+                        className="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full"
+                        style={{ background: color }}
+                        initial={{ x: 0, y: 0, opacity: 1 }}
+                        animate={{
+                          x: Math.cos((i * 2 * Math.PI) / 3) * 34,
+                          y: Math.sin((i * 2 * Math.PI) / 3) * 34,
+                          opacity: 0,
+                        }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                      />
+                    ))}
+                  </motion.div>
+                  <h3 className="font-semibold text-foreground">Unlocked!</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{message}</p>
+                </motion.div>
+              ) : (
+                <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                        <KeyRound size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Unlock Access</h3>
+                        <p className="text-xs text-muted-foreground">Required for {title}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={onClose}
+                      aria-label="Close"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="p-8 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Teacher Access Code
+                      </label>
+                      <Input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                        placeholder="ENTER CODE HERE"
+                        disabled={status === 'loading'}
+                        autoFocus
+                        className="text-xl font-mono font-semibold text-center tracking-widest h-auto py-4"
+                      />
+                    </div>
+
+                    {message && status === 'error' && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-lg flex items-start gap-3 text-sm font-medium border bg-destructive/10 text-destructive border-destructive/20"
+                      >
+                        <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                        {message}
+                      </motion.div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={onClose}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="lg"
+                        onClick={handleUnlock}
+                        disabled={!code.trim() || status === 'loading'}
+                        isLoading={status === 'loading'}
+                      >
+                        {status !== 'loading' && 'Unlock Now'}
+                      </Button>
+                    </div>
+                  </div>
                 </motion.div>
               )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={onClose}
-                  className="rounded-2xl"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="lg"
-                  onClick={handleUnlock}
-                  disabled={!code.trim() || status === 'loading' || status === 'success'}
-                  isLoading={status === 'loading'}
-                  className="rounded-2xl btn-glow"
-                >
-                  {status !== 'loading' && 'Unlock Now'}
-                </Button>
-              </div>
-            </div>
+            </AnimatePresence>
           </motion.div>
         </div>
       )}

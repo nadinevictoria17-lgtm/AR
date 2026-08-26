@@ -23,7 +23,7 @@ export function Badge({ className, variant = 'default', size = 'sm', ...props }:
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-full font-bold transition-colors border',
+        'inline-flex items-center rounded-full font-medium transition-colors border',
         variantStyles[variant],
         sizeStyles[size],
         className

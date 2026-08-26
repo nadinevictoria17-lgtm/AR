@@ -19,6 +19,7 @@ import { format, parseISO, startOfDay } from 'date-fns'
 import type { SubjectKey } from '../../../types'
 import { DashboardSkeleton } from '../../ui/skeleton'
 import { Button } from '../../ui/button'
+import { CountUp } from '../../ui/CountUp'
 
 const BIOLOGY_COLOR   = 'hsl(var(--subject-biology))'
 const CHEMISTRY_COLOR = 'hsl(var(--subject-chemistry))'
@@ -235,12 +236,11 @@ export function AnalyticsDashboard() {
     <motion.div variants={pageVariants} initial="initial" animate="animate" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          {/* Removed the "Live" pulsing badge — decorative status theater the
+              design critique flagged (Firestore-synced isn't meaningfully
+              "live" enough to call out on every tab). */}
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <LayoutDashboard size={20} className="text-primary" /> Class Analytics
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-success/20 text-success text-xs font-semibold">
-              <span className="animate-pulse w-2 h-2 rounded-full bg-success" />
-              Live
-            </span>
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">Visual insights into student performance across all subjects.</p>
         </div>
@@ -258,7 +258,8 @@ export function AnalyticsDashboard() {
         <StatCard
           icon={TrendingUp}
           label="Avg Class Score"
-          value={`${avgClassScore}%`}
+          value={avgClassScore}
+          suffix="%"
           context="across all subjects"
           color="text-primary"
           bg="bg-primary/10"
@@ -266,7 +267,8 @@ export function AnalyticsDashboard() {
         <StatCard
           icon={BookOpen}
           label="Lesson Progress"
-          value={`${avgLessonProgress}%`}
+          value={avgLessonProgress}
+          suffix="%"
           context="avg completion rate"
           color="text-warning"
           bg="bg-warning/10"
@@ -274,7 +276,8 @@ export function AnalyticsDashboard() {
         <StatCard
           icon={ClipboardCheck}
           label="Test Participation"
-          value={`${quizParticipation}%`}
+          value={quizParticipation}
+          suffix="%"
           context="attempted at least 1 test"
           color="text-success"
           bg="bg-success/10"
@@ -516,25 +519,28 @@ export function AnalyticsDashboard() {
 interface StatCardProps {
   icon: typeof Users
   label: string
-  value: string | number
+  value: number
+  suffix?: string
   context: string
   color: string
   bg: string
 }
 
-function StatCard({ icon: Icon, label, value, context, color, bg }: StatCardProps) {
+function StatCard({ icon: Icon, label, value, suffix = '', context, color, bg }: StatCardProps) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between h-full">
+    <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-between h-full">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[9px] uppercase tracking-widest font-bold text-muted-foreground leading-tight">{label}</p>
-          <p className="text-2xl font-black text-foreground mt-1 leading-none">{value}</p>
+          <p className="text-xs font-medium text-muted-foreground leading-tight">{label}</p>
+          <p className="text-2xl font-bold text-foreground mt-1 leading-none tabular-nums">
+            <CountUp value={value} suffix={suffix} />
+          </p>
         </div>
         <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', bg)}>
           <Icon size={13} className={color} />
         </div>
       </div>
-      <p className="text-[9px] text-muted-foreground leading-tight">{context}</p>
+      <p className="text-[11px] text-muted-foreground leading-tight">{context}</p>
     </div>
   )
 }

@@ -29,3 +29,9 @@ node_modules
 
 # Vite
 .vite
+
+# Impeccable design-skill artifacts (local working docs, not project source)
+.impeccable/
+/PRODUCT.md
+/DESIGN.md
+/FLOW.md

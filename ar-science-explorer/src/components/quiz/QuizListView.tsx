@@ -5,8 +5,6 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { cn } from '../../lib/utils'
 
-const LIST_INITIAL   = { opacity: 0, y: 10 } as const
-const LIST_ANIMATE   = { opacity: 1, y: 0  } as const
 const ITEM_INITIAL   = { opacity: 0, x: -10 } as const
 const ITEM_ANIMATE   = { opacity: 1, x: 0  } as const
 
@@ -40,11 +38,12 @@ export function QuizListView({
   ), [quizzes])
 
   return (
-    <motion.div
-      initial={LIST_INITIAL}
-      animate={LIST_ANIMATE}
-      className="max-w-3xl mx-auto pb-8"
-    >
+    // Plain div, not motion.div: AppPage's route-level transition already
+    // fades this whole screen in on navigation. A second fade here on the
+    // same content was the exact "double load" stutter — same bug class as
+    // the ARLabScreen/LearnScreen AnimatePresence fix, different shape
+    // (a bare entrance animation instead of a re-keyed AnimatePresence).
+    <div className="max-w-3xl mx-auto pb-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-black mb-2 text-foreground">
@@ -156,6 +155,6 @@ export function QuizListView({
           </p>
         </Card>
       )}
-    </motion.div>
+    </div>
   )
 }

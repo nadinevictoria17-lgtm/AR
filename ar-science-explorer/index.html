@@ -10,38 +10,48 @@
       This prevents invisible text during the very first paint when
       CSS custom properties haven't been applied yet (race between
       Vite injecting the stylesheet and React rendering the component).
-      display=fallback gives a 100ms block window then falls back to
-      system fonts permanently – no infinite invisible-text swap.
+      No webfont here on purpose — see DESIGN.md "Type" for why the
+      system-font stack replaced Poppins: zero load race, zero flash,
+      and it reads as a native tool rather than a themed template.
     -->
     <style>
       html { color-scheme: dark; }
       html, html.dark {
-        --foreground: 210 40% 96%;
-        --background: 220 30% 7%;
-        --muted-foreground: 215 20% 55%;
-        --primary: 173 80% 45%;
+        --foreground: 210 20% 92%;
+        --background: 222 18% 9%;
+        --muted-foreground: 215 12% 58%;
+        --primary: 217 91% 60%;
       }
       html.light {
-        --foreground: 220 20% 15%;
+        --foreground: 222 20% 14%;
         --background: 0 0% 100%;
-        --muted-foreground: 220 10% 46%;
-        --primary: 173 80% 35%;
+        --muted-foreground: 220 9% 44%;
+        --primary: 221 83% 53%;
       }
-      body { font-family: 'Poppins', system-ui, -apple-system, sans-serif; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
     </style>
-    <!-- Preconnect so the font handshake starts before CSS is parsed -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!--
-      display=fallback: 100 ms block window → use fallback forever if not cached.
-      Prevents the indefinite invisible-text window that display=swap can cause.
-    -->
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=fallback"
-    />
   </head>
   <body>
+    <!--
+      IMPECCABLE-DIRECTION seed:8f2c1a4e
+      THESIS: A student science tool that reads as a precise instrument, not
+      a themed dashboard — clarity and restraint replace decorative gradient
+      chrome, mega-radius cards, and hype badges.
+      OWN-WORLD: Near-black/near-white neutral ground, one confident blue
+      accent (no gradients), a small consistent radius scale (6/8/12/16px),
+      system-font stack, subject colors used only as functional tags.
+      STORY: Students see their next lesson and progress with zero visual
+      noise between them and the task; teachers see a serious operating
+      tool, not a toy skinned differently from the student side.
+      FIRST VIEWPORT: Login and Home lead with one clear primary action,
+      real content immediately visible, no decorative hero blobs.
+      FORM: Canon path (Linear + Notion + Duolingo craft bar), chosen
+      deliberately over an exotic visual-world direction because this is
+      an Operate-mode task tool, not a marketing surface.
+      FINISH: unreviewed and undocumented is unfinished; this build ends
+      with the finish review, the verdict, DESIGN.md, and every shipping
+      raster carrying its provenance.
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

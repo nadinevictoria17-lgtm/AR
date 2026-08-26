@@ -119,11 +119,14 @@ function SidebarInner({
                       </motion.span>
                     )}
                   </AnimatePresence>
+                  {/* Plain conditional render, not a layoutId shared-layout
+                      animation: that ran on its own independent spring
+                      timeline, uncoordinated with and visually fighting
+                      whatever page-entrance animation was firing at the same
+                      time on every navigation (the sidebar persists across
+                      routes, so this fired on literally every page switch). */}
                   {isActive && !collapsed && (
-                    <motion.div
-                      layoutId={isMobile ? 'teacherActiveIndicatorMobile' : 'teacherActiveIndicator'}
-                      className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0"
-                    />
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                   )}
                 </>
               )}

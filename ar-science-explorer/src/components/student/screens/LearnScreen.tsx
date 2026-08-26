@@ -24,13 +24,13 @@ const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 const LESSONS_WITH_PRETEST = new Set(PRE_TEST_QUESTIONS.map(q => q.lessonId).filter(Boolean) as string[])
 
 // Memoized card to prevent re-renders when parent updates
-const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick, onPreTest }: {
+const LessonCard = memo(function LessonCard({ lesson, idx, isUnlocked, onLessonClick, onPreTest }: {
   lesson: Lesson | TeacherLesson
   idx: number
   isUnlocked: boolean
   onLessonClick: (lesson: Lesson | TeacherLesson) => void
   onPreTest: (lesson: Lesson | TeacherLesson) => void
-}) => {
+}) {
   const hasPreTest = LESSONS_WITH_PRETEST.has(lesson.id)
   const style = SUBJECT_STYLES[lesson.subject]
   return (
@@ -42,81 +42,67 @@ const LessonCard = memo(({ lesson, idx, isUnlocked, onLessonClick, onPreTest }: 
       transition={{ duration: 0.3 }}
       onClick={() => onLessonClick(lesson)}
       className={cn(
-        "group relative p-6 rounded-[2rem] border-2 cursor-pointer overflow-hidden hover:shadow-xl",
+        "group relative p-5 rounded-xl border cursor-pointer transition-colors",
         isUnlocked
-          ? "bg-card border-border hover:border-primary/40 hover:shadow-primary/5"
-          : "bg-muted/30 border-transparent grayscale opacity-80"
+          ? "bg-card border-border hover:border-primary/40"
+          : "bg-card border-border hover:border-primary/30"
       )}
     >
-      <div className="relative z-10">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="space-y-1 flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
-                isUnlocked
-                  ? style.badge
-                  : "bg-muted text-muted-foreground border-border"
-              )}>
-                {lesson.subject.slice(0, 4)}
-              </span>
-              <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
-                isUnlocked
-                  ? "bg-muted text-muted-foreground border-border"
-                  : "bg-muted text-muted-foreground border-border"
-              )}>
-                {`Week ${lesson.week || idx + 1}`}
-              </span>
-            </div>
-            <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors leading-tight">
-              {lesson.title}
-            </h3>
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="space-y-1.5 flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium capitalize border", style.badge)}>
+              {lesson.subject.slice(0, 4)}
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+              {`Week ${lesson.week || idx + 1}`}
+            </span>
           </div>
-          {isUnlocked ? (
-            <div className={cn("p-2.5 rounded-2xl bg-card border-2 border-border shadow-md text-primary group-hover:border-primary/50 group-hover:scale-110 transition-all")}>
-              <ChevronRight size={20} />
-            </div>
-          ) : (
-            <div className="p-2.5 rounded-2xl bg-muted/50 border border-border text-muted-foreground">
-              <Lock size={18} />
-            </div>
-          )}
+          <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
+            {lesson.title}
+          </h3>
         </div>
+        {isUnlocked ? (
+          <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+        ) : (
+          <Lock size={16} className="text-muted-foreground shrink-0 mt-1" />
+        )}
+      </div>
 
-        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-6">
-          {lesson.summary}
-        </p>
+      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-4">
+        {lesson.summary}
+      </p>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-border/50">
-          {isUnlocked ? (
-            <>
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider">
-                <GraduationCap size={14} /> Ready to Explore
-              </div>
-              <div className="ml-auto flex gap-2 items-center">
-                {hasPreTest && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onPreTest(lesson) }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-black uppercase tracking-wider hover:bg-primary/20 transition-colors"
-                  >
-                    <ClipboardCheck size={13} /> Pre-Test
-                  </button>
-                )}
-                {lesson.pdfUrl && (
-                  <a href={lesson.pdfUrl} download className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
-                    <FileText size={14} />
-                  </a>
-                )}
-                <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
-                  <Info size={14} />
+      <div className="flex items-center gap-3 pt-3 border-t border-border">
+        {isUnlocked ? (
+          <>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+              <GraduationCap size={13} /> Ready
+            </div>
+            <div className="ml-auto flex gap-1 items-center">
+              {hasPreTest && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onPreTest(lesson) }}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                >
+                  <ClipboardCheck size={12} /> Pre-Test
                 </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              <Lock size={14} /> Unlock to Explore
+              )}
+              {lesson.pdfUrl && (
+                <a href={lesson.pdfUrl} download onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                  <FileText size={14} />
+                </a>
+              )}
+              <button onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                <Info size={14} />
+              </button>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+            <Lock size={13} /> Unlock with your teacher&apos;s code
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -196,68 +182,50 @@ export function LearnScreen() {
 
   return (
     <div className="space-y-8 pb-12">
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-foreground p-8 sm:p-12 text-background shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px]" />
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-subject-biology/20 rounded-full blur-[100px]" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/10 border border-background/20 backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-background/80">Interactive Learning</span>
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1]">
-               Grade 7 <br />
-              <span className="text-primary">Interactive Science</span>
-            </h1>
-            <p className="text-muted-foreground text-base mt-2 max-w-lg leading-relaxed">
-              Explore the wonders of Chemistry and Biology through tactile AR visuals and comprehensive study guides.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 shrink-0">
-            {SUBJECTS_DATA.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveSubject(s.id)}
-                className={cn(
-                  "p-5 rounded-3xl border-2 transition-all text-left min-w-[140px] group",
-                  activeSubject === s.id 
-                    ? "bg-background border-primary shadow-xl scale-105" 
-                    : "bg-background/5 border-background/10 hover:bg-background/10"
-                )}
-              >
-                <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 group-hover:translate-x-1 transition-transform", activeSubject === s.id ? "text-primary" : "text-background/40")}>
-                  {s.shortName}
-                </p>
-                <p className={cn("text-xl font-black", activeSubject === s.id ? "text-foreground" : "text-background/60")}>
-                  {activeSubject === s.id ? 'Active' : `View Q${SUBJECT_ORDER.indexOf(s.id) + 1}`}
-                </p>
-              </button>
-            ))}
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Lessons</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Chemistry, Biology, and Physics — Grade 7 curriculum.
+          </p>
+        </div>
+
+        <div className="inline-flex gap-1 p-1 bg-muted rounded-lg self-start">
+          {SUBJECTS_DATA.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSubject(s.id)}
+              className={cn(
+                "px-4 py-2 rounded-md text-sm font-medium capitalize transition-colors",
+                activeSubject === s.id
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {s.shortName}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg", SUBJECT_STYLES[activeSubject].bg, SUBJECT_STYLES[activeSubject].text)}>
-              <Layout size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground capitalize">
-                Quarter {SUBJECT_ORDER.indexOf(activeSubject) + 1}: {activeSubject}
-              </h2>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs font-medium text-muted-foreground">{filteredLessons.length} Lessons</span>
-              </div>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", SUBJECT_STYLES[activeSubject].bg, SUBJECT_STYLES[activeSubject].text)}>
+            <Layout size={18} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground capitalize">
+              Quarter {SUBJECT_ORDER.indexOf(activeSubject) + 1}: {activeSubject}
+            </h2>
+            <span className="text-xs text-muted-foreground">{filteredLessons.length} lessons</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          <AnimatePresence mode="wait">
+          {/* initial=false: the outer AppPage route transition already fades
+              this screen in on mount, so cards should only animate in/out
+              when the subject filter changes, not on first render. */}
+          <AnimatePresence mode="wait" initial={false}>
             {filteredLessons.map((lesson, idx) => {
               const isUnlocked = ('isUnlockedByDefault' in lesson && lesson.isUnlockedByDefault) || unlockedLessons.has(lesson.id)
               return (

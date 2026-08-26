@@ -3,64 +3,67 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── DARK MODE (default) ───────────────────────────────────── */
+  /* ── DARK MODE (default) ───────────────────────────────────────────
+     Restrained color strategy: neutral grayscale ground, one accent
+     (a confident blue) carrying every interactive/primary moment.
+     Subject colors are functional tags only — never decorative fields. */
   html, html.dark {
-    --surface:              14 21% 11%;
-    --background:           220 30% 7%;
-    --card:                 224 32% 13%;
-    --card-foreground:      210 40% 96%;
-    --foreground:           210 40% 96%;
-    --muted:                217 26% 22%;
-    --muted-foreground:     215 20% 55%;
-    --border:               217 26% 20%;
-    --ring:                 173 80% 45%;
-    --primary:              173 80% 45%;
-    --primary-foreground:   220 30% 7%;
-    --secondary:            224 32% 18%;
-    --secondary-foreground: 210 40% 90%;
-    --accent:               173 80% 45%;
-    --accent-foreground:    220 30% 7%;
-    --destructive:          0 72% 60%;
+    --surface:              222 20% 7%;
+    --background:           222 18% 9%;
+    --card:                 222 16% 12%;
+    --card-foreground:      210 20% 92%;
+    --foreground:           210 20% 92%;
+    --muted:                217 14% 17%;
+    --muted-foreground:     215 12% 58%;
+    --border:               217 14% 19%;
+    --ring:                 217 91% 60%;
+    --primary:              217 91% 60%;
+    --primary-foreground:   222 20% 7%;
+    --secondary:            222 16% 15%;
+    --secondary-foreground: 210 20% 88%;
+    --accent:               217 91% 60%;
+    --accent-foreground:    222 20% 7%;
+    --destructive:          4 78% 58%;
     --destructive-foreground: 0 0% 100%;
-    --success:              160 84% 44%;
+    --success:              152 55% 45%;
     --success-foreground:   0 0% 100%;
-    --warning:              38 92% 52%;
-    --warning-foreground:   0 0% 100%;
+    --warning:              38 85% 55%;
+    --warning-foreground:   222 20% 7%;
 
-    --subject-physics:   195 83% 58%;
-    --subject-biology:   142 70% 48%;
-    --subject-chemistry: 338 80% 65%;
-    --subject-earth:     44 90% 62%;
+    --subject-physics:   199 70% 55%;
+    --subject-biology:   152 45% 48%;
+    --subject-chemistry: 322 55% 60%;
+    --subject-earth:     38 70% 55%;
   }
 
-  /* ── LIGHT MODE ────────────────────────────────────────────── */
+  /* ── LIGHT MODE ──────────────────────────────────────────────── */
   html.light {
-    --surface:              0 0% 98%;
+    --surface:              0 0% 100%;
     --background:           0 0% 100%;
     --card:                 0 0% 100%;
-    --card-foreground:      224 32% 10%;
-    --foreground:           224 32% 10%;
-    --muted:                220 14% 94%;
-    --muted-foreground:     220 9% 46%;
+    --card-foreground:      222 20% 12%;
+    --foreground:           222 20% 12%;
+    --muted:                220 14% 96%;
+    --muted-foreground:     220 9% 42%;
     --border:               220 13% 90%;
-    --ring:                 173 72% 38%;
-    --primary:              173 72% 38%;
+    --ring:                 221 83% 53%;
+    --primary:              221 83% 53%;
     --primary-foreground:   0 0% 100%;
-    --secondary:            220 14% 94%;
-    --secondary-foreground: 220 9% 30%;
-    --accent:               173 72% 38%;
+    --secondary:            220 14% 96%;
+    --secondary-foreground: 220 9% 26%;
+    --accent:               221 83% 53%;
     --accent-foreground:    0 0% 100%;
-    --destructive:          0 72% 51%;
+    --destructive:          4 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --success:              160 84% 36%;
+    --success:              152 60% 32%;
     --success-foreground:   0 0% 100%;
-    --warning:              38 92% 44%;
+    --warning:              32 90% 40%;
     --warning-foreground:   0 0% 100%;
 
-    --subject-physics:   195 83% 42%;
-    --subject-biology:   142 70% 35%;
-    --subject-chemistry: 338 80% 52%;
-    --subject-earth:     44 90% 45%;
+    --subject-physics:   199 75% 40%;
+    --subject-biology:   152 50% 32%;
+    --subject-chemistry: 322 60% 44%;
+    --subject-earth:     32 80% 38%;
   }
 
   * {
@@ -89,22 +92,22 @@
 }
 
 @layer components {
+  /* Used sparingly for true overlays (modals) — not a decorative default. */
   .glass {
     @apply bg-card/80 backdrop-blur-md border border-border/60;
   }
   .glass-heavy {
     @apply bg-card/95 backdrop-blur-xl border border-border;
   }
-  .btn-glow {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 4px 16px rgba(0,0,0,0.3);
-  }
-  .text-gradient {
-    background: linear-gradient(135deg, hsl(var(--subject-physics)), hsl(var(--primary)), hsl(var(--subject-chemistry)));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  /* Restrained hover lift for clickable cards — no glow, just a border/shadow shift. */
   .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-glow;
+    @apply transition-colors duration-150 hover:border-primary/40 hover:shadow-sm;
+  }
+  /* Kept as a class name so every primary-CTA call site doesn't need touching
+     in this pass (tracked in DESIGN.md as follow-up: rename to .btn-primary).
+     Redefined from a glow/shadow effect to a plain, restrained hover-darken —
+     the glow itself was exactly the decorative chrome this redesign removes. */
+  .btn-glow {
+    @apply transition-colors;
   }
 }

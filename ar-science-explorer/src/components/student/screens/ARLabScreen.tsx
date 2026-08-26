@@ -28,10 +28,12 @@ import { pageVariants } from '../../../lib/variants'
 
 const SUBJECT_ORDER: SubjectKey[] = ['chemistry', 'biology', 'physics']
 
+// Consistent metaphor: all three are steps in one lesson, not a "lab" vs
+// a "hub" vs a "finish line" (a mismatch the design critique flagged).
 const PHASE_TABS = [
-  { key: 'visual'     as const, icon: Target,   label: '1. AR Lab'    },
-  { key: 'curriculum' as const, icon: BookOpen,  label: '2. Study Hub' },
-  { key: 'reflection' as const, icon: Star,      label: '3. Finish'    },
+  { key: 'visual'     as const, icon: Target,   label: '1. Scan'  },
+  { key: 'curriculum' as const, icon: BookOpen,  label: '2. Read'  },
+  { key: 'reflection' as const, icon: Star,      label: '3. Review' },
 ]
 
 
@@ -220,7 +222,7 @@ export function ARLabScreen() {
           </h2>
         </div>
 
-        <div className="flex p-1.5 bg-muted/50 border border-border rounded-[1.5rem] backdrop-blur-sm shadow-inner group">
+        <div className="flex p-1.5 bg-muted/50 border border-border rounded-xl backdrop-blur-sm shadow-inner group">
           {PHASE_TABS.map((item) => (
             <button
               key={item.key}
@@ -239,7 +241,11 @@ export function ARLabScreen() {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
+      {/* initial=false: the outer AppPage route transition already fades this
+          screen in on mount, so this AnimatePresence should only animate
+          phase-to-phase switches, not the first render (avoids a doubled
+          fade-in stacked on top of the page-swap animation). */}
+      <AnimatePresence mode="wait" initial={false}>
         {phase === 'curriculum' && (
           <motion.div
             key="curriculum"
@@ -251,7 +257,7 @@ export function ARLabScreen() {
           >
             <div className="lg:col-span-8 space-y-8">
               {/* Main Curriculum Content */}
-              <div className="bg-card border border-border rounded-[2.5rem] p-8 md:p-10 shadow-sm relative overflow-hidden">
+              <div className="bg-card border border-border rounded-3xl p-8 md:p-10 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
                 
                 <div className="space-y-8 relative z-10">
@@ -259,7 +265,7 @@ export function ARLabScreen() {
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-primary" /> I. Curriculum Content & Standards
                     </h4>
-                    <div className="p-6 rounded-[2rem] bg-muted/30 border border-border/50">
+                    <div className="p-6 rounded-2xl bg-muted/30 border border-border/50">
                       <p className="text-sm font-bold text-foreground opacity-40 uppercase tracking-widest mb-2">Content Standards</p>
                       <p className="text-base text-foreground leading-relaxed">
                         {activeLesson?.curriculum?.standards || "Standard content for this module is being processed."}
@@ -271,7 +277,7 @@ export function ARLabScreen() {
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-primary" /> II. Performance Standards
                     </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed bg-primary/5 p-6 rounded-[2rem] border border-primary/10 italic">
+                    <p className="text-sm text-muted-foreground leading-relaxed bg-primary/5 p-6 rounded-2xl border border-primary/10 italic">
                       {activeLesson?.curriculum?.performanceStandards}
                     </p>
                   </section>
@@ -307,7 +313,7 @@ export function ARLabScreen() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center bg-foreground text-background p-6 rounded-[2rem] shadow-xl">
+              <div className="flex justify-between items-center bg-foreground text-background p-6 rounded-2xl shadow-xl">
                  <div>
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Scientific Quality</p>
                     <p className="text-sm font-bold flex items-center gap-2 mt-1">
@@ -330,7 +336,7 @@ export function ARLabScreen() {
             </div>
 
             <div className="lg:col-span-4 space-y-6">
-              <Card className="p-6 rounded-[2rem] border-border bg-card">
+              <Card className="p-6 rounded-2xl border-border bg-card">
                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Reading Progress</h3>
                  <div className="space-y-4">
                     <div className="flex items-center justify-between text-xs font-bold">
@@ -341,7 +347,7 @@ export function ARLabScreen() {
                        <div className="h-full w-full bg-primary rounded-full" />
                     </div>
                     <p className="text-[10px] text-muted-foreground italic">
-                      "Perseverance: Grasping the abstract concept of the Particle Model might take some effort."
+                      &quot;Perseverance: Grasping the abstract concept of the Particle Model might take some effort.&quot;
                     </p>
                  </div>
               </Card>
@@ -349,7 +355,7 @@ export function ARLabScreen() {
               {activeLesson?.pdfUrl && (
                 <Button 
                   variant="outline" 
-                  className="w-full h-16 rounded-[1.5rem] border-border bg-card hover:bg-primary/5 hover:border-primary/20 transition-all font-bold gap-3"
+                  className="w-full h-16 rounded-xl border-border bg-card hover:bg-primary/5 hover:border-primary/20 transition-all font-bold gap-3"
                   onClick={() => window.open(activeLesson.pdfUrl, '_blank')}
                 >
                   <FileText size={20} className="text-primary" />
@@ -369,7 +375,7 @@ export function ARLabScreen() {
             className="grid grid-cols-1 lg:grid-cols-12 gap-8"
           >
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+              <div className="bg-card border border-border rounded-3xl p-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6">
                   <Target className="text-primary/5 w-24 h-24" />
                 </div>
@@ -400,7 +406,7 @@ export function ARLabScreen() {
                   <div>
                     <p className="text-xs font-black text-foreground uppercase tracking-wider">How to scan?</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 font-medium">
-                      Ensure this marker is visible. Use your phone's AR Science app to aim at it.
+                      Ensure this marker is visible. Use your phone&apos;s AR Science app to aim at it.
                     </p>
                   </div>
                 </div>
@@ -453,14 +459,14 @@ export function ARLabScreen() {
             </div>
 
             <div className="lg:col-span-7 space-y-6">
-              <Card className="p-8 rounded-[2.5rem] border-border bg-card shadow-sm">
+              <Card className="p-8 rounded-3xl border-border bg-card shadow-sm">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">Execution Steps</h4>
                 <div className="grid gap-4">
                   {tutorialSteps.map((step, idx) => (
                     <div
                       key={idx}
                       className={cn(
-                        "flex items-center gap-5 p-5 rounded-[1.5rem] border-2 transition-all",
+                        "flex items-center gap-5 p-5 rounded-xl border-2 transition-all",
                         idx === activeStep 
                           ? "bg-primary/5 border-primary shadow-lg scale-[1.02]" 
                           : "bg-muted/10 border-transparent opacity-40"
@@ -478,10 +484,12 @@ export function ARLabScreen() {
                 </div>
               </Card>
 
-              <div className="bg-card border border-border rounded-[2.5rem] p-6 shadow-sm">
+              <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-6 px-2">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Expert Voice Assistance</h4>
-                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[9px] font-black">AI GUIDE READY</Badge>
+                  <h4 className="text-xs font-semibold text-muted-foreground">Audio Narration</h4>
+                  {/* Was "AI GUIDE READY" — this is scripted TTS playback, not
+                      an AI feature, so the badge shouldn't claim otherwise. */}
+                  <Badge variant="success" size="sm">Narrated</Badge>
                 </div>
                 <ARLearningControls
                   language={voiceLang}
@@ -528,15 +536,15 @@ export function ARLabScreen() {
             animate="animate"
             className="max-w-2xl mx-auto"
           >
-            <div className="bg-card border border-border rounded-[2.5rem] p-10 text-center shadow-xl">
-              <div className="w-20 h-20 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-primary shadow-inner">
+            <div className="bg-card border border-border rounded-3xl p-10 text-center shadow-xl">
+              <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-primary shadow-inner">
                 <Box size={40} />
               </div>
               <h2 className="text-3xl font-extrabold mb-3">Lesson Complete</h2>
               <p className="text-muted-foreground text-lg mb-8">
                 {arMarked
-                  ? <>You've explored the structural visual and studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
-                  : <>You've studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
+                  ? <>You&apos;ve explored the structural visual and studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
+                  : <>You&apos;ve studied the content for <span className="text-foreground font-bold">{activeLesson?.title}</span>. Ready to test your knowledge?</>
                 }
               </p>
               
