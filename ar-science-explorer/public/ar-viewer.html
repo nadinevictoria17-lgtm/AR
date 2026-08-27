@@ -2,384 +2,340 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AR Science Explorer - Camera View</title>
 
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-
-  <!-- AR.js for A-Frame (Barcode tracking) -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <!-- A-Frame + MindAR (image tracking). Loaded via CDN, same pattern the
+       previous AR.js setup used — no bundler/npm involvement needed for
+       the tracking runtime itself. -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe-master.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       width: 100%;
       height: 100vh;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       background: #000;
+      color: #fff;
     }
 
-    a-scene {
-      display: block !important;
+    a-scene { display: block !important; }
+    canvas { display: block !important; width: 100% !important; height: 100% !important; }
+
+    /* ── Top controls ─────────────────────────────────────────────── */
+    #controls {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      gap: 8px;
     }
 
-    canvas {
-      display: block !important;
-      width: 100% !important;
-      height: 100% !important;
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(20, 20, 24, 0.72);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: background-color 0.15s ease;
     }
 
-    #exit-btn:hover, #camera-toggle-btn:hover {
-      background: rgba(0, 0, 0, 0.9);
-      border-color: rgba(255, 255, 255, 0.5);
-    }
+    .btn:hover { background: rgba(20, 20, 24, 0.9); }
+    .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 
-    /* Info overlay */
+    /* ── Bottom info panel (shown once the marker is found) ─────────── */
     #overlay {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.7), transparent);
-      color: white;
-      padding: 40px 24px 32px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.6), transparent);
+      padding: 48px 20px 28px;
       transform: translateY(100%);
-      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transition: transform 0.3s ease;
       pointer-events: none;
       z-index: 1000;
     }
 
-    #overlay.visible {
-      transform: translateY(0);
+    #overlay.visible { transform: translateY(0); }
+    #overlay-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; line-height: 1.3; }
+    #overlay-desc { font-size: 13px; margin: 0; opacity: 0.75; line-height: 1.5; max-width: 520px; }
+
+    #controls-hint { display: flex; gap: 14px; margin-top: 12px; }
+    #controls-hint .hint { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; opacity: 0.55; }
+    #controls-hint svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ── Scanning instruction (shown while looking for the marker) ──── */
+    #instruction {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.5), transparent);
+      padding: 56px 20px 36px;
+      text-align: center;
+      z-index: 999;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
     }
 
-    #overlay-title {
-      font-size: 24px;
-      font-weight: 800;
-      margin: 0 0 8px;
-      line-height: 1.2;
-    }
+    #instruction-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    #instruction-text { font-size: 13px; opacity: 0.7; }
 
-    #overlay-desc {
-      font-size: 13px;
-      margin: 0;
-      opacity: 0.85;
-      line-height: 1.6;
-      max-width: 600px;
-    }
-
-    /* Loading indicator */
-    #loading {
+    /* ── Status message (loading / errors) ───────────────────────────── */
+    #status {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 24px 32px;
+      background: rgba(20, 20, 24, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px 28px;
       border-radius: 12px;
       text-align: center;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
       z-index: 5000;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.3s;
+      transition: opacity 0.2s;
+      max-width: 320px;
     }
 
-    #loading.show {
-      opacity: 1;
-    }
-
-    #loading::after {
-      content: '';
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin-left: 8px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
+    #status.show { opacity: 1; }
+    #status .spinner {
+      width: 20px;
+      height: 20px;
+      margin: 0 auto 10px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
-      vertical-align: -2px;
     }
+    #status.error .spinner { display: none; }
+    #status.error { border-color: rgba(239, 68, 68, 0.4); }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div style="position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; gap: 8px;">
-    <video id="video-fallback" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: none; z-index: -1;" playsinline autoplay></video>
-
-  <button id="exit-btn" title="Exit AR mode" style="background: rgba(0, 0, 0, 0.7); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.2s ease;">✕ Exit AR</button>
-    <button id="camera-toggle-btn" title="Switch camera" style="background: rgba(0, 0, 0, 0.7); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.2s ease;">📷 Front</button>
+  <div id="controls">
+    <button id="exit-btn" class="btn" title="Exit AR mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      Exit
+    </button>
+    <button id="camera-toggle-btn" class="btn" title="Switch camera">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <span id="camera-label">Rear</span>
+    </button>
   </div>
 
   <div id="overlay">
     <h2 id="overlay-title"></h2>
     <p id="overlay-desc"></p>
-  </div>
-
-  <div id="loading" class="show">
-    <div style="text-align: center; line-height: 1.6;">
-      📷 Initializing camera...
-      <div style="font-size: 11px; margin-top: 8px; opacity: 0.7;">Allow camera access if prompted</div>
+    <!-- Icons are Lucide's RotateCw / ZoomIn (same icon set the rest of the
+         app uses via lucide-react), path data copied from
+         node_modules/lucide-react/dist/esm/icons/ rather than hand-drawn,
+         so this stays visually consistent with the product's icon language. -->
+    <div id="controls-hint">
+      <span class="hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        Drag to rotate
+      </span>
+      <span class="hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
+        Scroll to zoom
+      </span>
     </div>
   </div>
 
-  <div id="instruction-overlay" style="position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.6), transparent); color: white; padding: 60px 24px 40px; text-align: center; z-index: 999; pointer-events: none; opacity: 1; transition: opacity 0.3s ease;">
-    <div style="font-size: 24px; font-weight: 800; margin-bottom: 12px;" id="instruction-title">Looking for Model</div>
-    <div style="font-size: 14px; opacity: 0.85; margin-bottom: 20px;" id="instruction-text">Point your camera at the printed marker image</div>
-    <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
-      <span style="background: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">📷 Scanning</span>
-      <span style="background: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;" id="instruction-hint"></span>
-    </div>
+  <div id="instruction">
+    <div id="instruction-title">Scanning for marker</div>
+    <div id="instruction-text">Point your camera at the printed marker sheet</div>
+  </div>
+
+  <div id="status" class="show">
+    <div class="spinner"></div>
+    <div>Starting camera…</div>
   </div>
 
   <a-scene
     id="arscene"
+    mindar-image="autoStart: false; uiScanning: no; uiLoading: no; uiError: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true"
+    device-orientation-permission-ui="enabled: false"
     embedded
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; maxDetectionRate: 30; canvasWidth: 1280; canvasHeight: 960; cameraParametersUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIAAgDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8VAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='"
   >
-    <!-- NFT Marker -->
-    <a-nft
-      id="nft-marker"
-      type="nft"
-      url=""
-      smooth="true"
-      smoothCount="10"
-      smoothTolerance="0.01"
-      smoothThreshold="5"
-    >
-      <!-- 3D Model -->
-      <a-entity
-        id="model"
-        gltf-model=""
-        scale="0.1 0.1 0.1"
-        position="0 0 0"
-        rotation="-90 0 0"
-        animation-mixer
-      ></a-entity>
-    </a-nft>
+    <a-assets timeout="30000"></a-assets>
 
-    <!-- Camera -->
-    <a-entity camera></a-entity>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity id="target" mindar-image-target="targetIndex: 0">
+      <a-gltf-model id="model" rotation="0 0 0" position="0 0 0" scale="0.2 0.2 0.2"></a-gltf-model>
+    </a-entity>
   </a-scene>
 
   <script>
-    // Parse query parameters
     const params = new URLSearchParams(location.search);
-    const nftUrl = params.get('nft') || '';
+    const mindUrl = params.get('mind') || '';
     const glbUrl = params.get('glb') || '';
     const title = params.get('title') || '';
     const desc = params.get('desc') || '';
-    let cameraMode = params.get('cam') || 'user'; // 'user' = front, 'environment' = rear
+    let cameraMode = params.get('cam') || 'environment'; // rear by default, matches a physical printed marker use case
 
-    // References
-    const marker = document.getElementById('nft-marker');
+    const scene = document.getElementById('arscene');
+    const target = document.getElementById('target');
     const model = document.getElementById('model');
     const overlay = document.getElementById('overlay');
     const overlayTitle = document.getElementById('overlay-title');
     const overlayDesc = document.getElementById('overlay-desc');
+    const instruction = document.getElementById('instruction');
     const exitBtn = document.getElementById('exit-btn');
     const cameraToggleBtn = document.getElementById('camera-toggle-btn');
-    const loadingEl = document.getElementById('loading');
-    const instructionOverlay = document.getElementById('instruction-overlay');
-    const instructionTitle = document.getElementById('instruction-title');
-    const instructionText = document.getElementById('instruction-text');
-    const instructionHint = document.getElementById('instruction-hint');
-    const videoFallback = document.getElementById('video-fallback');
+    const cameraLabel = document.getElementById('camera-label');
+    const statusEl = document.getElementById('status');
 
-    // Set title and description
     overlayTitle.textContent = title;
     overlayDesc.textContent = desc;
+    cameraLabel.textContent = cameraMode === 'environment' ? 'Rear' : 'Front';
 
-    // Set instruction overlay with lesson info
-    instructionTitle.textContent = title || 'AR Model Scanning';
-    instructionText.textContent = desc || 'Point your camera at the printed marker image';
-    instructionHint.textContent = cameraMode === 'user' ? '🔄 Front Camera' : '🔄 Rear Camera';
-
-    // Set AR.js marker URL
-    if (nftUrl) {
-      marker.setAttribute('url', nftUrl);
+    function setStatus(text, isError) {
+      statusEl.innerHTML = (isError ? '' : '<div class="spinner"></div>') + '<div>' + text + '</div>';
+      statusEl.classList.toggle('error', !!isError);
+      statusEl.classList.add('show');
     }
 
-    // Set GLB model path
-    if (glbUrl) {
-      model.setAttribute('gltf-model', glbUrl);
+    function hideStatus() {
+      statusEl.classList.remove('show');
     }
 
-    // Update camera toggle button text
-    const updateCameraButtonText = () => {
-      cameraToggleBtn.textContent = cameraMode === 'user' ? '📷 Switch to Rear' : '📷 Switch to Front';
-    };
-    updateCameraButtonText();
+    exitBtn.addEventListener('click', () => {
+      window.parent.postMessage({ type: 'ar-exit' }, '*');
+    });
 
-    // Camera toggle handler
     cameraToggleBtn.addEventListener('click', () => {
-      cameraMode = cameraMode === 'user' ? 'environment' : 'user';
-      updateCameraButtonText();
-      instructionHint.textContent = cameraMode === 'user' ? '🔄 Front Camera' : '🔄 Rear Camera';
-      // Reload with new camera mode
+      cameraMode = cameraMode === 'environment' ? 'user' : 'environment';
       const newParams = new URLSearchParams(location.search);
       newParams.set('cam', cameraMode);
       window.location.search = newParams.toString();
     });
 
-    // Exit button handler
-    exitBtn.addEventListener('click', () => {
-      window.parent.postMessage({ type: 'ar-exit' }, '*');
-    });
-
-    // Marker events
-    marker.addEventListener('markerFound', () => {
-      loadingEl.classList.remove('show');
-      instructionOverlay.style.opacity = '0';
-      instructionOverlay.style.pointerEvents = 'none';
-      overlay.classList.add('visible');
-      window.parent.postMessage({ type: 'ar-marker-found' }, '*');
-    });
-
-    marker.addEventListener('markerLost', () => {
-      instructionOverlay.style.opacity = '1';
-      instructionOverlay.style.pointerEvents = 'none';
-      overlay.classList.remove('visible');
-    });
-
-    // Error handling
-    marker.addEventListener('error', (e) => {
-      console.error('Marker error:', e);
-      loadingEl.textContent = '📷 Camera ready - aim at marker image';
-      loadingEl.classList.add('show');
-    });
-
-    // Camera permission denied handler
-    window.addEventListener('error', (e) => {
-      if (e.message && e.message.includes('Permission')) {
-        loadingEl.textContent = '❌ Camera permission denied';
-        loadingEl.style.opacity = '1';
-        console.error('Camera permission error:', e);
-      }
-    });
-
-    // Get camera stream directly for fallback display
-    const startCameraStream = async () => {
-      try {
-        const constraints = {
-          video: {
-            facingMode: { ideal: cameraMode },
-            width: { ideal: 1280 },
-            height: { ideal: 960 }
-          },
-          audio: false
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoFallback.srcObject = stream;
-        videoFallback.play();
-        console.log('Camera stream started');
-      } catch (err) {
-        console.error('Camera error:', err.name, err.message);
-        loadingEl.textContent = `❌ Camera Error: ${err.message}\n✓ Allow camera access in browser settings`;
-        loadingEl.style.whiteSpace = 'pre-wrap';
-        loadingEl.classList.add('show');
-      }
-    };
-
-    // Start camera stream immediately
-    startCameraStream();
-
-    // Configure camera constraints based on cameraMode for AR.js
-    navigator.mediaDevices.getUserMedia = (function(original) {
-      return function(constraints) {
+    // Force the requested camera facing mode — MindAR doesn't expose this
+    // as a config option, so patch getUserMedia the same way the previous
+    // AR.js setup did.
+    navigator.mediaDevices.getUserMedia = (function (original) {
+      return function (constraints) {
         if (!constraints) constraints = {};
-        if (!constraints.video) constraints.video = true;
-
-        // Only set facingMode if video is an object
-        if (typeof constraints.video === 'object') {
-          constraints.video.facingMode = { ideal: cameraMode };
-        }
-
-        console.log('Camera constraints:', constraints);
-        return original.call(navigator.mediaDevices, constraints)
-          .catch(err => {
-            console.error('Camera error:', err.name, err.message);
-            throw err;
-          });
+        if (!constraints.video || typeof constraints.video !== 'object') constraints.video = {};
+        constraints.video.facingMode = { ideal: cameraMode };
+        return original.call(navigator.mediaDevices, constraints);
       };
     })(navigator.mediaDevices.getUserMedia);
 
-    // Track when scene initializes
-    const scene = document.getElementById('arscene');
-    scene.addEventListener('loaded', () => {
-      console.log('A-Frame scene loaded');
-      // Give it more time to start video
-      setTimeout(() => {
-        if (loadingEl.classList.contains('show')) {
-          loadingEl.innerHTML = '📷 Camera ready - aim at marker image';
+    if (!mindUrl) {
+      setStatus('No marker configured for this lesson yet.', true);
+    } else if (!glbUrl) {
+      setStatus('No 3D model configured for this lesson yet.', true);
+    } else {
+      model.setAttribute('gltf-model', glbUrl);
+      scene.setAttribute('mindar-image', 'imageTargetSrc: ' + mindUrl + '; autoStart: false; uiScanning: no; uiLoading: no; uiError: no;');
+
+      // MindAR's own documented pattern: grab the system reference once the
+      // scene has loaded, but only call .start() on 'renderstart' — the
+      // system isn't constructed yet at 'loaded' time, which is what threw
+      // "Cannot read properties of undefined (reading 'start')" before.
+      // Also: the system is registered as "mindar-image-system", not
+      // "mindar-image" (that's the component name, not the system name).
+      let arSystem;
+
+      scene.addEventListener('loaded', () => {
+        arSystem = scene.systems['mindar-image-system'];
+      });
+
+      scene.addEventListener('renderstart', () => {
+        setStatus('Requesting camera access…');
+        // Wrapped in try/catch, not just .start().catch(...): a malformed or
+        // empty .mind file (e.g. compiled from an image with too little
+        // detail to extract any tracking features) can make MindAR throw
+        // SYNCHRONOUSLY here instead of returning a rejected promise, which
+        // previously crashed the whole page with "Cannot read properties of
+        // undefined (reading 'catch')" instead of showing a clean message.
+        try {
+          const startResult = arSystem.start();
+          if (startResult && typeof startResult.catch === 'function') {
+            startResult.catch((err) => handleStartError(err));
+          }
+        } catch (err) {
+          handleStartError(err);
         }
-      }, 1000);
-    });
+      });
 
-    // Remove loading message after 8 seconds (marker may not be visible)
-    setTimeout(() => {
-      if (loadingEl.classList.contains('show')) {
-        loadingEl.innerHTML = '📷 Camera ready - aim at marker image';
+      function handleStartError(err) {
+        console.error('[AR Viewer] MindAR failed to start:', err);
+        if (err && err.name === 'NotAllowedError') {
+          setStatus('Camera permission denied. Allow camera access in your browser settings and reload.', true);
+        } else if (err && err.name === 'NotFoundError') {
+          setStatus('No camera found on this device.', true);
+        } else {
+          setStatus('This lesson marker is not set up correctly yet.', true);
+        }
       }
-    }, 8000);
 
-    // Mouse interaction for model rotation and scaling
+      scene.addEventListener('arReady', () => {
+        hideStatus();
+      });
+
+      scene.addEventListener('arError', (e) => {
+        console.error('[AR Viewer] MindAR error:', e);
+        setStatus('The marker for this lesson hasn’t been set up yet.', true);
+      });
+
+      target.addEventListener('targetFound', () => {
+        instruction.style.opacity = '0';
+        overlay.classList.add('visible');
+        window.parent.postMessage({ type: 'ar-marker-found' }, '*');
+      });
+
+      target.addEventListener('targetLost', () => {
+        instruction.style.opacity = '1';
+        overlay.classList.remove('visible');
+      });
+    }
+
+    // Manual rotate/zoom of the model, independent of marker tracking —
+    // lets a student inspect the model without needing to physically
+    // move the printed marker or their device.
     let isDragging = false;
-    let lastX = 0;
-    let lastY = 0;
-    let rotX = 0;
-    let rotY = 0;
-    let scale = 0.1;
+    let lastX = 0, lastY = 0, rotX = 0, rotY = 0, scale = 0.2;
 
-    document.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-
-    document.addEventListener('mouseup', () => {
-      isDragging = false;
-    });
-
-    document.addEventListener('mousemove', (e) => {
+    document.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+    document.addEventListener('pointerup', () => { isDragging = false; });
+    document.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
-
-      const deltaX = e.clientX - lastX;
-      const deltaY = e.clientY - lastY;
-
-      rotY += deltaX * 0.5;
-      rotX -= deltaY * 0.5;
-
-      lastX = e.clientX;
-      lastY = e.clientY;
-
-      // Update model rotation (offset by -90 for the default rotation)
-      model.setAttribute('rotation', `${rotX - 90} ${rotY} 0`);
+      rotY += (e.clientX - lastX) * 0.5;
+      rotX -= (e.clientY - lastY) * 0.5;
+      lastX = e.clientX; lastY = e.clientY;
+      model.setAttribute('rotation', rotX + ' ' + rotY + ' 0');
     });
-
-    // Scroll wheel to zoom
     document.addEventListener('wheel', (e) => {
       e.preventDefault();
-
-      const zoomSensitivity = 0.0002;
-      scale = Math.max(0.02, Math.min(0.5, scale - e.deltaY * zoomSensitivity));
-      model.setAttribute('scale', `${scale} ${scale} ${scale}`);
+      scale = Math.max(0.02, Math.min(0.6, scale - e.deltaY * 0.0002));
+      model.setAttribute('scale', scale + ' ' + scale + ' ' + scale);
     }, { passive: false });
   </script>
 </body>

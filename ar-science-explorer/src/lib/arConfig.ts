@@ -31,14 +31,17 @@ const AR_LESSON_MAP: Record<string, ARLessonConfig> = {
   'Q2W6': { glbPath: '/glb/amoeba_binary_fission.glb' },
   'Q2W7': { glbPath: '/glb/biological_organization.glb' },
   'Q2W8': { glbPath: '/glb/food_web.glb' },
-  'Q3W1': { glbPath: '/glb/democritus_atom.glb' },
-  'Q3W2': { glbPath: '/glb/waterpolarity.glb' },
-  'Q3W3': { glbPath: '/glb/solid_liquid_gas.glb' },
-  'Q3W4': { glbPath: '/glb/particle_motion_temperature.glb' },
-  'Q3W5': { glbPath: '/glb/beakers.glb' },
-  'Q3W6': { glbPath: '/glb/saturated_unsaturated.glb' },
-  'Q3W7': { glbPath: '/glb/salt_dissolving_in_water.glb' },
-  'Q3W8': { glbPath: '/glb/food_web.glb' },
+  // Real physics models (pulled from the Vuforia/Unity project's
+  // Assets/Models folder — these previously reused Q1's chemistry models
+  // as placeholders, which didn't match the actual Q3 physics lessons).
+  'Q3W1': { glbPath: '/glb/spring.glb' },
+  'Q3W2': { glbPath: '/glb/inclined_plane_slide_playground.glb' },
+  'Q3W3': { glbPath: '/glb/seesaw.glb' },
+  'Q3W4': { glbPath: '/glb/compass.glb' },
+  'Q3W5': { glbPath: '/glb/car.glb' },
+  'Q3W6': { glbPath: '/glb/jeepney.glb' },
+  'Q3W7': { glbPath: '/glb/thermometer.glb' },
+  'Q3W8': { glbPath: '/glb/spoon.glb' },
 }
 
 /**

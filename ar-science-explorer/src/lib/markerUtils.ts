@@ -28,6 +28,24 @@ export async function validateMarkerImage(
 }
 
 /**
+ * Derive the compiled MindAR target path (.mind) from a marker's display
+ * image path. Marker jpgs live at /markers/Q{q}W{w}.jpg (used for printing
+ * and on-screen preview); the compiled tracking data used at runtime for
+ * actual camera detection lives alongside it at /markers/mind/Q{q}W{w}.mind.
+ *
+ * Each .mind file is compiled from its matching jpg via MindAR's own
+ * browser-based compiler tool (https://hiukim.github.io/mind-ar-js-doc/tools/compile)
+ * — there is no way to generate it locally without a real browser Canvas,
+ * so this is a one-time manual step per marker, not something built at
+ * dev/build time.
+ */
+export function getMindTargetPath(markerImagePath: string): string {
+  const filename = markerImagePath.split('/').pop() ?? markerImagePath
+  const base = filename.replace(/\.(jpg|jpeg|png)$/i, '')
+  return `/markers/mind/${base}.mind`
+}
+
+/**
  * Get fallback marker path based on model index
  */
 export function getFallbackMarkerPath(modelIndex: number): string {

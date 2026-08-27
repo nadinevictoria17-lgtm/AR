@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { getMindTargetPath } from '../../lib/markerUtils'
 
 interface ARCameraViewProps {
   markerImage: string
@@ -10,9 +11,12 @@ interface ARCameraViewProps {
 }
 
 /**
- * AR Camera View Component
- * Renders an iframe containing the A-Frame AR.js viewer
- * Communicates with the iframe via postMessage for marker detection events
+ * AR Camera View — renders an iframe running MindAR (image tracking) +
+ * A-Frame. Communicates with the iframe via postMessage for marker
+ * detection events. MindAR replaced AR.js here: AR.js's NFT tracker was
+ * wired up but never actually functional (it expected compiled .fset/
+ * .fset3/.iset descriptor sets that were never generated for these
+ * markers), and MindAR is more actively maintained.
  */
 export function ARCameraView({
   markerImage,
@@ -25,7 +29,6 @@ export function ARCameraView({
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
-    // Listen for messages from the AR viewer iframe
     const handleMessage = (event: MessageEvent) => {
       // Only accept messages from our own iframe
       if (event.source !== iframeRef.current?.contentWindow) {
@@ -43,10 +46,10 @@ export function ARCameraView({
     return () => window.removeEventListener('message', handleMessage)
   }, [onExit, onMarkerFound])
 
-  // Build the AR viewer URL with query parameters
-  // Use markerImage as NFT (Natural Feature Tracking) marker
+  const mindTargetUrl = getMindTargetPath(markerImage)
+
   const arViewerUrl = `/ar-viewer.html?${new URLSearchParams({
-    nft: markerImage,
+    mind: mindTargetUrl,
     glb: glbPath,
     title,
     desc: description,
